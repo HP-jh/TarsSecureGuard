@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TarsSecureGuard v1.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#050810;--bg2:#0a0f1e;--bg3:#0f1629;
+  --card:rgba(15,22,41,.9);--border:rgba(60,120,220,.25);
+  --text:#c8d6f0;--text2:#7a8cb0;--muted:#4a5a78;
+  --blue:#3b82f6;--cyan:#06b6d4;--purple:#8b5cf6;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;--pink:#ec4899;
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(59,130,246,.1),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(139,92,246,.1),transparent 50%);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(59,130,246,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.app{display:flex;min-height:100vh;position:relative;z-index:1}
+.sidebar{width:220px;background:linear-gradient(180deg,rgba(10,15,30,.98),rgba(5,8,16,.98));border-right:1px solid var(--border);position:fixed;height:100vh;overflow-y:auto;z-index:100;backdrop-filter:blur(10px)}
+.sidebar::-webkit-scrollbar{width:4px}.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.logo{padding:18px 16px;border-bottom:1px solid var(--border);position:relative}
+.logo::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.logo h1{font-size:15px;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.5px}
+.logo .ver{font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px}
+.nav-group{padding:8px 6px}
+.nav-title{font-size:8px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:6px 10px 8px;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:11px;color:var(--text2);transition:all .2s;margin-bottom:1px;position:relative;overflow:hidden}
+.nav-item::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:0;background:var(--cyan);border-radius:1px;transition:height .2s}
+.nav-item:hover{background:rgba(59,130,246,.08);color:var(--text)}
+.nav-item:hover::before{height:14px}
+.nav-item.active{background:linear-gradient(90deg,rgba(59,130,246,.18),rgba(139,92,246,.06));color:var(--cyan)}
+.nav-item.active::before{height:14px;box-shadow:0 0 8px var(--cyan)}
+.nav-item .ic{font-size:11px;width:16px;text-align:center;font-weight:700}
+.main{flex:1;margin-left:220px;padding:16px 24px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.topbar h2{font-size:18px;font-weight:700;background:linear-gradient(135deg,#fff,var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar .crumb{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.5px}
+.topbar-r{display:flex;align-items:center;gap:12px;font-size:10px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green);font-weight:600}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.page{display:none;animation:fadeIn .3s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;backdrop-filter:blur(10px)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.5}
+.card-title{font-size:11px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:6px;letter-spacing:.3px}
+.card-title .d{width:5px;height:5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;transition:all .3s;position:relative;overflow:hidden}
+.stat::after{content:'';position:absolute;top:-50%;right:-50%;width:100%;height:100%;background:radial-gradient(circle,rgba(59,130,246,.05),transparent);opacity:0;transition:opacity .3s}
+.stat:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(59,130,246,.15);border-color:rgba(60,120,220,.4)}
+.stat:hover::after{opacity:1}
+.stat .l{font-size:9px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.stat .v{font-size:24px;font-weight:800;background:linear-gradient(135deg,var(--cyan),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:1000px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.btn{padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:4px;font-family:inherit}
+.btn-p{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;box-shadow:0 2px 12px rgba(59,130,246,.3)}
+.btn-p:hover{box-shadow:0 4px 20px rgba(59,130,246,.45);transform:translateY(-1px)}
+.btn-s{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.btn-s:hover{background:rgba(16,185,129,.25)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-g:hover{background:var(--bg2);color:var(--text);border-color:var(--text2)}
+.btn-sm{padding:4px 10px;font-size:10px}
+.input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:11px;outline:none;transition:all .2s;font-family:inherit}
+.input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(6,182,212,.1)}
+.lbl{font-size:10px;color:var(--text2);margin-bottom:4px;display:block;font-weight:600;letter-spacing:.3px}
+.fg{margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;padding:9px 10px;color:var(--text2);font-weight:700;border-bottom:1px solid var(--border);font-size:9px;text-transform:uppercase;letter-spacing:1px}
+td{padding:9px 10px;border-bottom:1px solid rgba(100,180,255,.06);color:var(--text)}
+tr:hover{background:rgba(59,130,246,.04)}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;letter-spacing:.3px}
+.tag.on{background:rgba(16,185,129,.15);color:var(--green)}
+.tag.off{background:rgba(239,68,68,.15);color:var(--red)}
+.tag.loc{background:rgba(6,182,212,.15);color:var(--cyan)}
+.tag.clo{background:rgba(139,92,246,.15);color:var(--purple)}
+.chat-box{display:flex;flex-direction:column;height:calc(100vh - 130px)}
+.chat-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.chat-msg{flex:1;overflow-y:auto;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:10px}
+.chat-msg::-webkit-scrollbar{width:5px}.chat-msg::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.msg{margin-bottom:14px;display:flex;gap:10px}
+.msg.u{flex-direction:row-reverse}
+.msg-av{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.msg.u .msg-av{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff}
+.msg.a .msg-av{background:linear-gradient(135deg,var(--cyan),var(--green));color:#fff}
+.msg-b{max-width:75%;padding:9px 14px;border-radius:10px;font-size:12px;line-height:1.7;word-wrap:break-word}
+.msg.u .msg-b{background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(139,92,246,.12));border:1px solid rgba(59,130,246,.3)}
+.msg.a .msg-b{background:var(--bg3);border:1px solid var(--border)}
+.msg-t{font-size:9px;color:var(--muted);margin-top:4px}
+.chat-in{display:flex;gap:8px;align-items:flex-end}
+.chat-in textarea{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:12px;outline:none;resize:none;min-height:42px;max-height:100px;font-family:inherit;transition:all .2s}
+.chat-in textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(6,182,212,.1)}
+.send{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;height:42px;box-shadow:0 2px 12px rgba(59,130,246,.3)}
+.send:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(59,130,246,.45)}
+.send:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.typing{display:inline-flex;gap:4px;padding:6px 10px}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:typ 1.4s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes typ{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+.log-box{background:#000;border:1px solid var(--border);border-radius:10px;padding:12px;font-family:'Consolas','Courier New',monospace;font-size:10px;line-height:1.8;max-height:400px;overflow-y:auto;color:#88ff88}
+.log-box .e{color:#ff6b6b}.log-box .w{color:#ffd93d}.log-box .i{color:#6bcfff}.log-box .s{color:#88ff88}
+.empty{text-align:center;padding:30px 20px;color:var(--muted);font-size:12px}
+.empty .ic{font-size:32px;margin-bottom:8px;opacity:.4}
+.progress{width:100%;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:3px;transition:width .3s;box-shadow:0 0 8px rgba(6,182,212,.4)}
+.switch{position:relative;display:inline-block;width:36px;height:20px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--bg2);border:1px solid var(--border);border-radius:20px;transition:.3s}
+.slider:before{content:'';position:absolute;height:14px;width:14px;left:2px;bottom:2px;background:var(--text2);border-radius:50%;transition:.3s}
+input:checked + .slider{background:linear-gradient(135deg,var(--blue),var(--cyan));border-color:transparent}
+input:checked + .slider:before{transform:translateX(16px);background:#fff}
+.agent-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .3s;position:relative;overflow:hidden}
+.agent-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--purple));opacity:0;transition:opacity .3s}
+.agent-card:hover{border-color:var(--cyan);transform:translateY(-3px);box-shadow:0 8px 28px rgba(6,182,212,.15)}
+.agent-card:hover::before{opacity:1}
+.agent-card .ai{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;margin-bottom:10px;color:#fff}
+.agent-card h4{font-size:12px;font-weight:700;margin-bottom:4px}
+.agent-card p{font-size:10px;color:var(--text2);line-height:1.6}
+select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8cb0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+<div class="logo"><h1>TarsSecureGuard</h1><div class="ver">v1.0 OFFICIAL</div></div>
+<div class="nav-group"><div class="nav-title">Overview</div>
+<div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic">[]</span> Dashboard</div>
+<div class="nav-item" onclick="pg('chat',this)"><span class="ic">()</span> AI Chat</div></div>
+<div class="nav-group"><div class="nav-title">Models</div>
+<div class="nav-item" onclick="pg('models',this)"><span class="ic">O</span> Models</div>
+<div class="nav-item" onclick="pg('agents',this)"><span class="ic">+</span> Agents</div>
+<div class="nav-item" onclick="pg('urgent',this)"><span class="ic">!</span> Urgent</div>
+<div class="nav-item" onclick="pg('fallback',this)"><span class="ic">&lt;&gt;</span> Fallback</div></div>
+<div class="nav-group"><div class="nav-title">Extensions</div>
+<div class="nav-item" onclick="pg('search',this)"><span class="ic">?</span> Web Search</div>
+<div class="nav-item" onclick="pg('feishu',this)"><span class="ic">@</span> Feishu</div>
+<div class="nav-item" onclick="pg('mcp',this)"><span class="ic">#</span> MCP Tools</div>
+<div class="nav-item" onclick="pg('discovery',this)"><span class="ic">*</span> Discovery</div></div>
+<div class="nav-group"><div class="nav-title">Security</div>
+<div class="nav-item" onclick="pg('security',this)"><span class="ic">S</span> Security</div>
+<div class="nav-item" onclick="pg('waf',this)"><span class="ic">W</span> WAF Logs</div></div>
+<div class="nav-group"><div class="nav-title">System</div>
+<div class="nav-item" onclick="pg('device',this)"><span class="ic">D</span> Device</div>
+<div class="nav-item" onclick="pg('logs',this)"><span class="ic">L</span> Logs</div>
+<div class="nav-item" onclick="pg('settings',this)"><span class="ic">G</span> Settings</div>
+<div class="nav-item" onclick="pg('about',this)"><span class="ic">i</span> About</div></div>
+</div>
+<div class="main">
+<div class="topbar"><div><h2 id="pt">Dashboard</h2><div class="crumb" id="pc">Overview / Real-time Monitor</div></div>
+<div class="topbar-r"><span class="badge"><span class="dot"></span><span id="sm">Running</span></span><span style="color:var(--text2)">[T] <span id="ut">0s</span></span></div></div>
+
+<div class="page active" id="p-dashboard">
+<div class="stats-grid">
+<div class="stat"><div class="l">Total Requests</div><div class="v" id="s-total">0</div></div>
+<div class="stat"><div class="l">Success</div><div class="v" id="s-ok" style="background:linear-gradient(135deg,#10b981,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent">0</div></div>
+<div class="stat"><div class="l">Models</div><div class="v" id="s-models">0</div></div>
+<div class="stat"><div class="l">Agents</div><div class="v" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent">7</div></div>
+<div class="stat"><div class="l">WAF Blocks</div><div class="v" id="s-waf" style="background:linear-gradient(135deg,#f59e0b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent">0</div></div>
+<div class="stat"><div class="l">Local Model</div><div class="v" id="s-local" style="background:linear-gradient(135deg,#06b6d4,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">--</div></div>
+</div>
+<div class="grid-2">
+<div class="card"><div class="card-title"><span class="d"></span>System Status</div><div id="sys-info" style="font-size:11px;line-height:2.2">Loading...</div></div>
+<div class="card"><div class="card-title"><span class="d"></span>Quick Actions</div><div style="display:flex;flex-wrap:wrap;gap:8px">
+<button class="btn btn-p" onclick="pg('chat',document.querySelectorAll('.nav-item')[1])">AI Chat</button>
+<button class="btn btn-s" onclick="pg('models',document.querySelectorAll('.nav-item')[2])">Models</button>
+<button class="btn btn-g" onclick="scanDev()">Scan Device</button>
+<button class="btn btn-g" onclick="api('/api/admin/models/start',{method:'POST'}).then(()=>toast('Starting local model...'))">Start Model</button>
+</div></div></div></div>
+
+<div class="page" id="p-chat">
+<div class="chat-box">
+<div class="chat-head">
+<select class="input" id="c-model" style="width:auto"><option value="auto">Auto Select</option><option value="local">Local Only</option><option value="cloud">Cloud Only</option></select>
+<label style="font-size:10px;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="c-search"> Web Search</label>
+<label style="font-size:10px;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="c-agent"> Agent Boost</label>
+</div>
+<div class="chat-msg" id="c-msgs">
+<div class="msg a"><div class="msg-av">AI</div><div><div class="msg-b">Welcome to TarsSecureGuard AI. I can use local/cloud models, web search, and 7 specialized agents. How can I assist you today?</div><div class="msg-t">System</div></div></div>
+</div>
+<div class="chat-in"><textarea id="c-in" placeholder="Type your message... (Enter to send, Shift+Enter for newline)"></textarea><button class="send" id="c-send" onclick="sendChat()">Send</button></div>
+</div></div>
+
+<div class="page" id="p-models">
+<div class="card" style="margin-bottom:14px"><div class="card-title"><span class="d"></span>Device Scan <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="scanDev()">Scan Hardware</button></div><div id="dev-scan" class="empty"><div class="ic">PC</div>Click "Scan Hardware" to detect your device and get model recommendations</div></div>
+<div class="card"><div class="card-title"><span class="d"></span>Model List <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="loadModels()">Refresh</button></div><div id="model-list"><div class="empty">Loading models...</div></div></div></div>
+
+<div class="page" id="p-agents">
+<div class="card" style="margin-bottom:14px"><div class="card-title"><span class="d"></span>7 Built-in Agents</div><div class="grid-3" id="agent-grid"></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>Agent Execution</div><div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+<select class="input" id="a-sel" style="flex:1;min-width:150px"></select>
+<input class="input" id="a-in" placeholder="Enter your task..." style="flex:2;min-width:200px">
+<button class="btn btn-p" onclick="runAgent()">Execute</button></div>
+<div id="a-result" class="log-box" style="min-height:140px">Waiting for task...</div></div></div>
+
+<div class="page" id="p-urgent">
+<div class="card"><div class="card-title"><span class="d"></span>Urgent Task Channel <span class="tag on" style="margin-left:8px">PRIORITY</span></div>
+<div style="display:flex;gap:8px;margin-bottom:10px"><input class="input" id="u-in" placeholder="Enter urgent task..." style="flex:1"><button class="btn btn-p" onclick="sendUrgent()">Execute Now</button></div>
+<div id="u-result" class="log-box" style="min-height:180px">Waiting for urgent task...</div></div></div>
+
+<div class="page" id="p-fallback">
+<div class="card"><div class="card-title"><span class="d"></span>Auto Fallback Configuration <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="loadFallback()">Refresh</button></div><div id="fb-content"><div class="empty">Loading...</div></div></div></div>
+
+<div class="page" id="p-search">
+<div class="card" style="margin-bottom:14px"><div class="card-title"><span class="d"></span>Web Search Configuration</div>
+<div class="grid-2"><div class="fg"><label class="lbl">API Key (serper, optional)</label><input class="input" id="se-key" placeholder="Enter serper API key"></div>
+<div class="fg"><label class="lbl">Search Engine</label><select class="input" id="se-eng"><option value="builtin">Builtin (Bing RSS, no key)</option><option value="serper">Serper</option></select></div></div>
+<button class="btn btn-p" onclick="saveSearch()">Save Config</button></div>
+<div class="card"><div class="card-title"><span class="d"></span>Search Test</div><div style="display:flex;gap:8px;margin-bottom:10px"><input class="input" id="se-in" placeholder="Enter search query..." style="flex:1"><button class="btn btn-p" onclick="testSearch()">Search</button></div>
+<div id="se-result" class="log-box" style="min-height:120px">Search results will appear here...</div></div></div>
+
+<div class="page" id="p-feishu">
+<div class="card" style="margin-bottom:14px"><div class="card-title"><span class="d"></span>Feishu (Lark) Configuration</div>
+<div class="grid-2"><div class="fg"><label class="lbl">App ID</label><input class="input" id="fs-id" placeholder="cli_xxxxxxxxxx"></div>
+<div class="fg"><label class="lbl">App Secret</label><input class="input" id="fs-sec" type="password" placeholder="Enter app secret"></div>
+<div class="fg"><label class="lbl">Verification Token</label><input class="input" id="fs-tok" placeholder="Enter verification token"></div>
+<div class="fg"><label class="lbl">Encrypt Key (Optional)</label><input class="input" id="fs-enc" placeholder="Enter encrypt key"></div></div>
+<div style="display:flex;gap:8px"><button class="btn btn-g" onclick="toast('飞书集成将在后续版本开放（当前为占位端点）')">Save</button><button class="btn btn-s" onclick="testFeishu()">Test Connection</button></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>Feishu Actions</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">
+<button class="btn btn-g" onclick="fsAct('send')">Send Message</button>
+<button class="btn btn-g" onclick="fsAct('webhook')">Webhook</button>
+<button class="btn btn-g" onclick="fsAct('bot')">Bot Manager</button>
+<button class="btn btn-g" onclick="fsAct('docs')">Docs Access</button></div>
+<div id="fs-result" class="log-box" style="margin-top:10px;min-height:80px">Action results will appear here...</div></div></div>
+
+<div class="page" id="p-mcp">
+<div class="card" style="margin-bottom:14px"><div class="card-title"><span class="d"></span>MCP Relay Hub <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="loadMcp()">Refresh</button></div><div id="mcp-content"><div class="empty">Loading MCP tools...</div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>MCP Tool Test</div><div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"><input class="input" id="m-tool" placeholder="Tool name" style="flex:1;min-width:120px"><input class="input" id="m-args" placeholder='Arguments JSON (e.g. {"key":"value"})' style="flex:2;min-width:200px"><button class="btn btn-p" onclick="callMcp()">Call</button></div>
+<div id="m-result" class="log-box" style="min-height:100px">Waiting for tool call...</div></div></div>
+
+<div class="page" id="p-discovery">
+<div class="card"><div class="card-title"><span class="d"></span>AI Tool Auto-Discovery <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="api('/api/admin/v32/auto-discovery/scan',{method:'POST'}).then(()=>{toast('Scan started');setTimeout(loadDiscovery,3000)})">Scan Network</button></div><div id="disc-content"><div class="empty"><div class="ic">*</div>Click "Scan Network" to discover AI tools and services on your network</div></div></div></div>
+
+<div class="page" id="p-security">
+<div class="card"><div class="card-title"><span class="d"></span>Security Overview <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="loadSec()">Refresh</button></div><div id="sec-content"><div class="empty">Loading security status...</div></div></div></div>
+
+<div class="page" id="p-waf">
+<div class="card"><div class="card-title"><span class="d"></span>WAF Block Logs <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="loadWaf()">Refresh</button></div><div id="waf-content" class="log-box" style="min-height:400px">Loading WAF logs...</div></div></div>
+
+<div class="page" id="p-device">
+<div class="card"><div class="card-title"><span class="d"></span>Device Information <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="loadDev()">Refresh</button></div><div id="dev-content"><div class="empty">Loading device info...</div></div></div></div>
+
+<div class="page" id="p-logs">
+<div class="card"><div class="card-title"><span class="d"></span>System Logs <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="loadLogs()">Refresh</button></div><div id="log-content" class="log-box" style="min-height:500px">Loading logs...</div></div></div>
+
+<div class="page" id="p-settings">
+<div class="card"><div class="card-title"><span class="d"></span>System Settings</div><div id="set-content"><div class="empty">Loading settings...</div></div></div></div>
+
+<div class="page" id="p-about">
+<div style="max-width:650px;margin:0 auto">
+<div class="card" style="text-align:center;padding:40px 24px">
+<div style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;box-shadow:0 0 30px rgba(59,130,246,.4)">T</div>
+<h1 style="font-size:24px;font-weight:800;background:linear-gradient(135deg,var(--cyan),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">TarsSecureGuard</h1>
+<div style="color:var(--text2);font-size:13px;margin-bottom:16px">AI Secure Gateway - Sci-Fi Edition</div>
+<div style="display:inline-block;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 16px;font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:16px;letter-spacing:.5px">Version 1.0.0 (Build 20260919)</div>
+<div style="color:var(--text2);font-size:11px;line-height:2.2">Multi-model routing &middot; Security WAF &middot; Local loopback<br>7 Specialized Agents &middot; Urgent channel &middot; Auto fallback<br>MCP relay &middot; Web search &middot; Feishu integration &middot; Device scan</div></div>
+<div class="card" style="margin-top:14px"><div class="card-title"><span class="d"></span>System Information</div><div class="grid-2" style="font-size:11px;gap:10px">
+<div><span style="color:var(--text2)">Software: </span><b>TarsSecureGuard</b></div>
+<div><span style="color:var(--text2)">Version: </span><b>1.0.0</b></div>
+<div><span style="color:var(--text2)">Build: </span><b>2026-09-19</b></div>
+<div><span style="color:var(--text2)">Port: </span><b>18889</b></div>
+<div><span style="color:var(--text2)">Model Dir: </span><b id="ab-mdir">Loading...</b></div>
+<div><span style="color:var(--text2)">Language: </span><b>Go (Native)</b></div></div></div>
+<div class="card" style="margin-top:14px"><div class="card-title"><span class="d"></span>License</div><div style="font-size:10px;color:var(--text2);line-height:2">Open Source &middot; MIT License<br>Copyright (c) 2026 TarsSecureGuard Contributors<br><br>Free to use, modify, and share. See the LICENSE file in the repository.</div></div>
+</div></div>
+
+</div></div>
+<div id="wizard" style="position:fixed;inset:0;background:rgba(5,8,16,.92);backdrop-filter:blur(8px);z-index:9998;display:none;align-items:center;justify-content:center">
+<div style="width:min(560px,92vw);background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-height:88vh;overflow-y:auto;position:relative">
+<div style="text-align:center;margin-bottom:20px">
+<div style="width:56px;height:56px;margin:0 auto 12px;border-radius:14px;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff">T</div>
+<h2 style="font-size:18px;margin-bottom:4px">Welcome to TarsSecureGuard</h2>
+<div style="font-size:11px;color:var(--text2)">Your local AI gateway &middot; 3 quick steps to get started</div></div>
+<div id="wz-step">
+<div class="wz-step">
+<div class="lbl" style="font-size:12px;margin-bottom:12px">STEP 1 / 3 &middot; Environment Check</div>
+<div id="wz-env" style="font-size:12px;line-height:2.2">Checking...</div>
+</div>
+<div class="wz-step" style="display:none">
+<div class="lbl" style="font-size:12px;margin-bottom:12px">STEP 2 / 3 &middot; Get a Model</div>
+<div style="font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:12px">Local AI needs a model file. The easiest way: download a recommended small model (about 1.9 GB). It runs fully offline on your computer.</div>
+<div id="wz-models"></div>
+<div style="margin-top:8px"><button class="btn btn-g btn-sm" onclick="openModelsFolder()">Open Models Folder</button></div>
+</div>
+<div class="wz-step" style="display:none">
+<div class="lbl" style="font-size:12px;margin-bottom:12px">STEP 3 / 3 &middot; You're Ready</div>
+<div style="font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:12px">Once a model is ready, you can chat, search the web, use 7 agents, and more &mdash; all locally. Need help? See the README in the project repository.</div>
+<div style="font-size:11px;color:var(--muted)">Tip: keep this window open while a model is downloading.</div>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:8px">
+<label style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="wz-again" checked> Show again next time</label>
+<div style="display:flex;gap:8px">
+<button class="btn btn-g" id="wz-back" onclick="wzBack()" style="display:none">Back</button>
+<button class="btn btn-p" id="wz-next" onclick="wzNext()">Next</button>
+<button class="btn btn-s" id="wz-done" onclick="wzClose()" style="display:none">Get Started</button>
+</div>
+</div>
+</div></div>
+<div id="toast" style="position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--cyan);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--text);box-shadow:0 8px 32px rgba(6,182,212,.2);z-index:9999;opacity:0;transform:translateY(20px);transition:all .3s;pointer-events:none"></div>
+<script>
+var PT={dashboard:['Dashboard','Overview / Real-time Monitor'],chat:['AI Chat','Workspace / Conversation'],models:['Models','Model Management'],agents:['Agents','Built-in Agents'],urgent:['Urgent','Priority Channel'],fallback:['Fallback','Auto Degradation'],search:['Web Search','Extensions / Search'],feishu:['Feishu','Extensions / Lark'],mcp:['MCP Tools','Extensions / Relay'],discovery:['Discovery','Extensions / Auto-scan'],security:['Security','Security / Overview'],waf:['WAF Logs','Security / WAF'],device:['Device','System / Hardware'],logs:['Logs','System / Logs'],settings:['Settings','System / Config'],about:['About','System / Info']};
+function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=document.getElementById('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];document.getElementById('pt').textContent=t[0];document.getElementById('pc').textContent=t[1];if(p==='dashboard')updStats();if(p==='models')loadModels();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
+function pgFromHash(){var h=(location.hash||'').replace(/^#/,'');if(!h)return;if(!document.getElementById('p-'+h))return;var it=document.querySelectorAll('.nav-item');for(var i=0;i<it.length;i++){if((it[i].getAttribute('onclick')||'').indexOf("'"+h+"'")>-1){pg(h,it[i]);return;}}pg(h,null);}
+window.addEventListener('hashchange',pgFromHash);function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||'tars-gateway-key'},o.headers||{});return fetch(u,o).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()});}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';t.style.transform='translateY(0)';setTimeout(function(){t.style.opacity='0';t.style.transform='translateY(20px)'},2500)}
+function updStats(){api('/api/status').then(function(d){document.getElementById('s-total').textContent=d.stats?d.stats.totalRequest:0;document.getElementById('s-ok').textContent=d.stats?d.stats.successRequest:0;document.getElementById('s-waf').textContent=d.stats?d.stats.wafBlockCount:0;document.getElementById('s-models').textContent=d.models?d.models.length:0;document.getElementById('s-local').textContent=d.device&&d.device.localModelRunning?'ON':'OFF';var up=d.stats?d.stats.uptime||0:0;document.getElementById('ut').textContent=Math.floor(up/60000)+'m';var si='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px"><div><b style="color:var(--text2)">Version:</b> '+d.version+'</div><div><b style="color:var(--text2)">Mode:</b> '+d.shield_mode+'</div><div><b style="color:var(--text2)">CPU:</b> '+(d.device?d.device.cpu:'-')+'</div><div><b style="color:var(--text2)">Memory:</b> '+(d.device?d.device.memory:'-')+'</div><div><b style="color:var(--text2)">Local Model:</b> '+(d.device&&d.device.localModelRunning?'<span class="tag on">Running</span>':'<span class="tag off">Stopped</span>')+'</div><div><b style="color:var(--text2)">OS:</b> '+(d.device?d.device.os:'-')+'</div></div>';document.getElementById('sys-info').innerHTML=si;if(d.device&&d.device.modelDir){var md=document.getElementById('ab-mdir');if(md)md.textContent=d.device.modelDir;}if(!window.__wzShown){window.__wzShown=true;if(d.device&&d.device.localModels&&d.device.localModels.length===0)showWizard();}}).catch(function(){})}
+if(location.search.indexOf('shot')<0)setInterval(updStats,5000);updStats();pgFromHash();
+document.getElementById('c-in').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
+function sendChat(){var inp=document.getElementById('c-in');var t=inp.value.trim();if(!t)return;inp.value='';var m=document.getElementById('c-msgs');m.innerHTML+='<div class="msg u"><div class="msg-av">U</div><div><div class="msg-b">'+esc(t)+'</div></div></div>';var id='ty'+Date.now();m.innerHTML+='<div class="msg a" id="'+id+'"><div class="msg-av">AI</div><div><div class="typing"><span></span><span></span><span></span></div></div></div>';m.scrollTop=m.scrollHeight;var md=document.getElementById('c-model').value;var se=document.getElementById('c-search').checked;var ag=document.getElementById('c-agent').checked;api('/api/chat/completions',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:t}],model:md,search:se,agent:ag})}).then(function(d){var r=d.choices?d.choices[0].message.content:JSON.stringify(d);document.getElementById(id).innerHTML='<div class="msg-av">AI</div><div><div class="msg-b">'+esc(r)+'</div><div class="msg-t">'+new Date().toLocaleTimeString()+'</div></div>';m.scrollTop=m.scrollHeight;}).catch(function(e){document.getElementById(id).innerHTML='<div class="msg-av">AI</div><div><div class="msg-b" style="color:var(--red)">Error: '+e.message+'</div></div>';});}
+function loadModels(){api('/api/admin/models').then(function(d){var ms=d.models||[];if(!ms.length){document.getElementById('model-list').innerHTML='<div class="empty"><div class="ic">O</div>No models found. Use "Scan Hardware" to download a recommended model, or put GGUF files into the Models folder next to the app.</div>';return;}var h='<table><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Source</th><th>Size</th></tr></thead><tbody>';ms.forEach(function(m){h+='<tr><td><b>'+(m.name||m.id||'?')+'</b></td><td><span class="tag '+(m.source==='local'?'loc':'clo')+'">'+(m.type||'chat')+'</span></td><td><span class="tag '+(m.status==='online'?'on':'off')+'">'+(m.status||'offline')+'</span></td><td>'+(m.source||'-')+'</td><td>'+(m.size||'-')+'</td></tr>';});h+='</tbody></table>';document.getElementById('model-list').innerHTML=h;}).catch(function(e){document.getElementById('model-list').innerHTML='<div class="empty">Failed to load: '+e.message+'</div>'});}
+function scanDev(){document.getElementById('dev-scan').innerHTML='<div class="empty"><div class="ic">...</div>Scanning hardware...</div>';api('/api/admin/device/scan',{method:'POST'}).then(function(d){var h='<div class="grid-2" style="margin-bottom:14px"><div class="fg"><label class="lbl">CPU</label><div style="font-size:13px;font-weight:600">'+d.cpu+'</div></div><div class="fg"><label class="lbl">Memory</label><div style="font-size:13px;font-weight:600">'+d.memory+'</div></div><div class="fg"><label class="lbl">GPU</label><div style="font-size:13px;font-weight:600">'+d.gpu+'</div></div><div class="fg"><label class="lbl">Disk</label><div style="font-size:13px;font-weight:600">'+d.disk+'</div></div></div>';if(d.recommendations&&d.recommendations.length){h+='<div class="lbl" style="margin-bottom:8px">Recommended Models</div>';d.recommendations.forEach(function(r){h+='<div style="padding:10px 14px;background:var(--bg2);border-radius:10px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border)"><div><b style="font-size:12px">'+r.name+'</b> <span class="tag loc" style="margin-left:6px">'+r.size+'</span></div><button class="btn btn-p btn-sm" onclick="dlM(\''+r.url+'\',\''+r.name+'\')">Download</button></div>';});}document.getElementById('dev-scan').innerHTML=h;toast('Device scan complete');}).catch(function(e){document.getElementById('dev-scan').innerHTML='<div class="empty">Scan failed: '+e.message+'</div>'});}
+function dlM(u,n){api('/api/admin/model/download',{method:'POST',body:JSON.stringify({url:u,name:n})}).then(function(){toast('Download started: '+n);pollDl(n);}).catch(function(e){toast('Failed: '+e.message)});}
+function pollDl(n){var box=document.getElementById('dev-scan');var bar=document.createElement('div');bar.style.cssText='margin-bottom:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2)';bar.innerHTML='<div style="margin-bottom:6px">Downloading <b style="color:var(--cyan)">'+n+'</b>... <span id="dl-pct">0%</span></div><div class="progress"><div class="progress-bar" id="dl-bar" style="width:0%"></div></div>';box.insertBefore(bar,box.firstChild);var it=setInterval(function(){api('/api/admin/model/download/status').then(function(d){var dl=(d.downloads||[]).filter(function(x){return x.name===n})[0];if(!dl){clearInterval(it);return;}var pct=dl.pct||0;var pb=document.getElementById('dl-bar'),pt=document.getElementById('dl-pct');if(pb)pb.style.width=pct+'%';if(pt)pt.textContent=pct+'%';if(dl.done){clearInterval(it);setTimeout(function(){if(bar.parentNode)bar.parentNode.removeChild(bar)},800);if(dl.error){toast('Download failed: '+dl.error);}else{toast('Download complete: '+n);loadModels();}}}).catch(function(){clearInterval(it);});},2000);}
+var AG=[{id:'code-assistant',name:'Code Assistant',icon:'C',desc:'Code generation, review, and debugging',c:'#3b82f6'},{id:'writing-assistant',name:'Writing Assistant',icon:'W',desc:'Writing, polishing, and translation',c:'#8b5cf6'},{id:'urgent-responder',name:'Urgent Responder',icon:'!',desc:'Fastest priority response',c:'#ef4444'},{id:'security-analyst',name:'Security Analyst',icon:'S',desc:'Security audit and threat analysis',c:'#10b981'},{id:'translator',name:'Translator',icon:'T',desc:'Multi-language translation',c:'#06b6d4'},{id:'summarizer',name:'Summarizer',icon:'D',desc:'Text summarization and extraction',c:'#f59e0b'},{id:'data-analyst',name:'Data Analyst',icon:'A',desc:'Data analysis and insights',c:'#ec4899'}];
+function loadAgents(){var h='';AG.forEach(function(a){h+='<div class="agent-card" onclick="selA(\''+a.id+'\')"><div class="ai" style="background:'+a.c+'">'+a.icon+'</div><h4>'+a.name+'</h4><p>'+a.desc+'</p></div>';});document.getElementById('agent-grid').innerHTML=h;var s=document.getElementById('a-sel');s.innerHTML=AG.map(function(a){return '<option value="'+a.id+'">'+a.icon+' '+a.name+'</option>'}).join('');}
+function selA(id){document.getElementById('a-sel').value=id;document.getElementById('a-in').focus();toast('Selected: '+id);}
+function runAgent(){var id=document.getElementById('a-sel').value;var t=document.getElementById('a-in').value.trim();if(!t){toast('Please enter a task');return;}document.getElementById('a-result').textContent='[i] Executing agent: '+id+'...';api('/api/admin/agents/'+id+'/run',{method:'POST',body:JSON.stringify({prompt:t})}).then(function(d){document.getElementById('a-result').textContent='[s] Success\n\n'+(d.response||d.error||JSON.stringify(d,null,2));}).catch(function(e){document.getElementById('a-result').innerHTML='<span class="e">[e] Error: '+e.message+'</span>';});}
+function sendUrgent(){var t=document.getElementById('u-in').value.trim();if(!t){toast('Please enter urgent task');return;}document.getElementById('u-result').textContent='[i] Executing urgent task...';api('/api/urgent/chat',{method:'POST',body:JSON.stringify({prompt:t})}).then(function(d){document.getElementById('u-result').textContent='[s] Urgent response\n\n'+(d.response||JSON.stringify(d,null,2));}).catch(function(e){document.getElementById('u-result').innerHTML='<span class="e">[e] Error: '+e.message+'</span>';});}
+function loadFallback(){api('/api/admin/fallback/status').then(function(d){var h='<div style="font-size:10px;color:var(--muted);margin-bottom:10px">自动回退已内置启用：连续 '+d.threshold+' 次失败自动切换到 '+d.target+' 后端。无需手动配置。</div><div class="grid-2"><div class="fg"><label class="lbl">Auto Fallback</label><div style="font-size:13px;font-weight:600;color:var(--green)">'+(d.enabled?'Enabled':'Disabled')+'</div></div><div class="fg"><label class="lbl">Failure Threshold</label><div style="font-size:13px;font-weight:600">'+d.threshold+'</div></div><div class="fg"><label class="lbl">Fallback Target</label><div style="font-size:13px;font-weight:600">'+d.target+'</div></div><div class="fg"><label class="lbl">Auto Recover</label><div style="font-size:13px;font-weight:600;color:var(--green)">'+(d.autoRecover?'Enabled':'Disabled')+'</div></div></div>';document.getElementById('fb-content').innerHTML=h;}).catch(function(e){document.getElementById('fb-content').innerHTML='<div class="empty">Failed: '+e.message+'</div>'});}
+function loadMcp(){api('/mcp',{method:'POST',body:JSON.stringify({tool:'_list'})}).then(function(d){var t=d.tools||[];var h='<div style="margin-bottom:12px">Registered Tools: <b style="color:var(--cyan);font-size:14px">'+t.length+'</b></div>';if(t.length){h+='<table><thead><tr><th>Tool Name</th><th>Description</th><th>Status</th></tr></thead><tbody>';t.forEach(function(x){h+='<tr><td><b>'+x.name+'</b></td><td>'+(x.description||'-')+'</td><td><span class="tag on">Ready</span></td></tr>';});h+='</tbody></table>';}else h+='<div class="empty">No MCP tools registered. Configure MCP servers in Settings.</div>';document.getElementById('mcp-content').innerHTML=h;}).catch(function(){document.getElementById('mcp-content').innerHTML='<div class="empty">MCP relay not configured</div>';});}
+function callMcp(){var t=document.getElementById('m-tool').value.trim();var a=document.getElementById('m-args').value.trim();if(!t){toast('Please enter tool name');return;}document.getElementById('m-result').textContent='[i] Calling tool: '+t+'...';try{var ao=a?JSON.parse(a):{};}catch(e){document.getElementById('m-result').textContent='[e] Invalid JSON arguments';return;}api('/mcp',{method:'POST',body:JSON.stringify({tool:t,args:ao})}).then(function(d){document.getElementById('m-result').textContent='[s] Result\n\n'+JSON.stringify(d,null,2);}).catch(function(e){document.getElementById('m-result').innerHTML='<span class="e">[e] Error: '+e.message+'</span>';});}
+function loadSec(){api('/api/admin/security/status').then(function(d){var h='<div class="stats-grid" style="margin-bottom:14px"><div class="stat"><div class="l">WAF Blocks</div><div class="v" style="background:linear-gradient(135deg,#f59e0b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent">'+d.wafBlockCount+'</div></div><div class="stat"><div class="l">Threat Intel</div><div class="v" style="background:linear-gradient(135deg,#ef4444,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent">'+d.threatIntelBlockCount+'</div></div><div class="stat"><div class="l">Domain Blocks</div><div class="v">'+d.domainBlockCount+'</div></div><div class="stat"><div class="l">Safe Mode</div><div class="v" style="background:linear-gradient(135deg,#f59e0b,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent">'+d.safeModeTriggerCount+'</div></div></div>';h+='<div class="grid-2"><div class="fg"><label class="lbl">Security Mode</label><select class="input" id="sec-mode"><option value="normal" '+(d.mode==='normal'?'selected':'')+'>Normal</option><option value="strict" '+(d.mode==='strict'?'selected':'')+'>Strict</option><option value="off" '+(d.mode==='off'?'selected':'')+'>Off</option></select></div><div class="fg"><label class="lbl">WAF Protection</label><label class="switch"><input type="checkbox" id="sec-waf" '+(d.wafEnabled?'checked':'')+'><span class="slider"></span></label></div></div>';h+='<button class="btn btn-p" onclick="saveSec()">Save Security Settings</button>';document.getElementById('sec-content').innerHTML=h;}).catch(function(e){document.getElementById('sec-content').innerHTML='<div class="empty">Failed: '+e.message+'</div>'});}
+function saveSec(){var mode=document.getElementById('sec-mode').value;var waf=document.getElementById('sec-waf').checked;api('/api/admin/config',{method:'POST',body:JSON.stringify({'security.mode':mode,'security.wafEnabled':waf})}).then(function(d){toast('Security settings saved');loadSec();}).catch(function(e){toast('Failed: '+e.message)});}
+function loadWaf(){api('/api/admin/security/waf-logs').then(function(d){var l=d.logs||[];document.getElementById('waf-content').textContent=Array.isArray(l)?(l.join('\n')||'[s] No WAF blocks recorded. System is clean.'):JSON.stringify(d,null,2);}).catch(function(e){document.getElementById('waf-content').textContent='[e] Failed: '+e.message;});}
+function loadDev(){api('/api/admin/device').then(function(d){var h='<div class="grid-2">';for(var k in d){if(typeof d[k]!=='object'&&!Array.isArray(d[k]))h+='<div class="fg"><label class="lbl">'+k.toUpperCase()+'</label><div style="font-size:13px;font-weight:600">'+d[k]+'</div></div>';}h+='</div>';if(d.localModels&&d.localModels.length){h+='<div class="lbl" style="margin-top:14px;margin-bottom:8px">Local Models</div><table><thead><tr><th>Name</th><th>Size</th><th>Status</th></tr></thead><tbody>';d.localModels.forEach(function(m){h+='<tr><td>'+m.name+'</td><td>'+m.size+'</td><td><span class="tag '+(m.status==='online'?'on':'off')+'">'+m.status+'</span></td></tr>';});h+='</tbody></table>';}document.getElementById('dev-content').innerHTML=h;}).catch(function(e){document.getElementById('dev-content').innerHTML='<div class="empty">Failed: '+e.message+'</div>'});}
+function loadLogs(){api('/api/admin/logs').then(function(d){var l=d.logs||[];document.getElementById('log-content').textContent=Array.isArray(l)?(l.join('\n')||'[s] No logs yet.'):JSON.stringify(d,null,2);}).catch(function(e){document.getElementById('log-content').textContent='[e] Failed: '+e.message;});}
+function loadSettings(){api('/api/admin/config').then(function(d){var sec=d.security||{},se=d.search||{};var h='<div class="grid-2">';h+='<div class="fg"><label class="lbl">Security Mode</label><select class="input" id="st-mode"><option value="normal" '+(sec.mode==='normal'?'selected':'')+'>Normal</option><option value="strict" '+(sec.mode==='strict'?'selected':'')+'>Strict</option><option value="off" '+(sec.mode==='off'?'selected':'')+'>Off</option></select></div>';h+='<div class="fg"><label class="lbl">WAF Protection</label><label class="switch"><input type="checkbox" id="st-waf" '+(sec.wafEnabled?'checked':'')+'><span class="slider"></span></label></div>';h+='<div class="fg"><label class="lbl">API Key</label><input class="input" id="st-key" placeholder="留空表示不修改"></div>';h+='<div class="fg"><label class="lbl">Search Engine</label><select class="input" id="st-eng"><option value="builtin" '+(se.engine==='builtin'?'selected':'')+'>builtin (Bing RSS)</option><option value="serper" '+(se.engine==='serper'?'selected':'')+'>serper</option></select></div>';h+='<div class="fg"><label class="lbl">Search API Key (serper)</label><input class="input" id="st-sekey" placeholder="留空表示不修改"></div>';h+='</div>';h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-p" onclick="saveSettings()">Save Settings</button><span style="font-size:10px;color:var(--muted)">API Key 留空表示不修改当前值</span></div>';document.getElementById('set-content').innerHTML=h;}).catch(function(e){document.getElementById('set-content').innerHTML='<div class="empty">Failed: '+e.message+'</div>'});}
+function saveSettings(){var b={'security.mode':document.getElementById('st-mode').value,'security.wafEnabled':document.getElementById('st-waf').checked,'search.engine':document.getElementById('st-eng').value};var k=document.getElementById('st-key').value.trim();var sk=document.getElementById('st-sekey').value.trim();if(k){b['security.apiKey']=k;localStorage.setItem('tsg_api_key',k);}if(sk)b['search.apiKey']=sk;api('/api/admin/config',{method:'POST',body:JSON.stringify(b)}).then(function(d){toast('Settings saved ('+d.applied+' items)');loadSettings();}).catch(function(e){toast('Failed: '+e.message)});}
+function loadDiscovery(){api('/api/admin/v32/auto-discovery/results').then(function(d){var t=d.services||[];if(t.length){var h='<table><thead><tr><th>Tool Name</th><th>Type</th><th>Address</th><th>Status</th></tr></thead><tbody>';t.forEach(function(x){h+='<tr><td><b>'+(x.name||x.tool||'?')+'</b></td><td>'+(x.type||'-')+'</td><td>'+(x.url||x.address||'-')+'</td><td><span class="tag '+(x.status==='online'?'on':'off')+'">'+(x.status||'unknown')+'</span></td></tr>';});h+='</tbody></table>';document.getElementById('disc-content').innerHTML=h;}else document.getElementById('disc-content').innerHTML='<div class="empty"><div class="ic">*</div>No tools discovered. Click "Scan Network" to search.</div>';}).catch(function(){document.getElementById('disc-content').innerHTML='<div class="empty">No tools discovered.</div>';});}
+function testSearch(){var q=document.getElementById('se-in').value.trim();if(!q){toast('Please enter search query');return;}document.getElementById('se-result').textContent='[i] Searching: '+q+'...';api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){document.getElementById('se-result').textContent='[s] Search complete\n\n'+JSON.stringify(d,null,2);}).catch(function(e){document.getElementById('se-result').innerHTML='<span class="e">[e] Failed: '+e.message+'</span>';});}
+function saveSearch(){var b={'search.engine':document.getElementById('se-eng').value};var k=document.getElementById('se-key').value.trim();if(k)b['search.apiKey']=k;api('/api/admin/config',{method:'POST',body:JSON.stringify(b)}).then(function(d){toast('Search config saved ('+d.applied+' items)');document.getElementById('se-key').value='';}).catch(function(e){toast('Failed: '+e.message)});}
+function testFeishu(){document.getElementById('fs-result').textContent='[i] Testing Feishu connection...';api('/api/feishu/test',{method:'POST'}).then(function(d){document.getElementById('fs-result').textContent='[s] Connection test\n\n'+JSON.stringify(d,null,2);}).catch(function(e){document.getElementById('fs-result').innerHTML='<span class="e">[e] Failed: '+e.message+'</span>';});}
+function fsAct(a){document.getElementById('fs-result').textContent='[i] Action: '+a+'\n\nConfigure Feishu App ID and Secret to use this feature.';}
+function showWizard(){
+  if(localStorage.getItem('tsg_wizard_done')==='1')return;
+  document.getElementById('wizard').style.display='flex';
+  renderWzEnv();
+  renderWzModels();
+}
+function renderWzEnv(){
+  api('/api/status').then(function(d){
+    var h='';
+    h+='<div><b style="color:var(--text2)">Gateway:</b> <span class="tag on">Running</span></div>';
+    h+='<div><b style="color:var(--text2)">Local Models:</b> '+(d.device&&d.device.localModels?d.device.localModels.length:0)+' found</div>';
+    h+='<div><b style="color:var(--text2)">Model Dir:</b> <span style="color:var(--cyan)">'+(d.device&&d.device.modelDir?d.device.modelDir:'-')+'</span></div>';
+    var backends=[];
+    if(d.device&&d.device.lmstudio)backends.push('LM Studio');
+    if(d.device&&d.device.ollama)backends.push('Ollama');
+    h+='<div><b style="color:var(--text2)">AI Backends:</b> '+(backends.length?backends.join(', '):'None (offline only)')+'</div>';
+    document.getElementById('wz-env').innerHTML=h;
+  }).catch(function(){document.getElementById('wz-env').innerHTML='<div>Gateway check failed. Is the app still running?</div>';});
+}
+function renderWzModels(){
+  api('/api/admin/device/scan',{method:'POST'}).then(function(d){
+    var h='';
+    if(d.recommendations&&d.recommendations.length){
+      d.recommendations.forEach(function(r){
+        h+='<div style="padding:10px 14px;background:var(--bg3);border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border)"><div><b style="font-size:12px">'+r.name+'</b> <span class="tag loc" style="margin-left:6px">'+r.size+'</span></div><button class="btn btn-p btn-sm" onclick="dlM(\''+r.url+'\',\''+r.name+'\')">Download</button></div>';
+      });
+    } else h='<div style="font-size:11px;color:var(--muted)">No recommendations available.</div>';
+    document.getElementById('wz-models').innerHTML=h;
+  }).catch(function(){document.getElementById('wz-models').innerHTML='<div style="font-size:11px;color:var(--muted)">Could not load recommendations.</div>';});
+}
+function openModelsFolder(){
+  api('/api/admin/models/open',{method:'POST'}).then(function(d){
+    if(d.success)toast('Opened models folder');
+    else toast('Failed: '+(d.error||'unknown'));
+  }).catch(function(e){toast('Failed: '+e.message)});
+}
+function wzNext(){
+  wzStep++;
+  if(wzStep>3)return;
+  document.querySelectorAll('#wz-step .wz-step').forEach(function(x,i){x.style.display=(i+1===wzStep)?'':'none';});
+  document.getElementById('wz-back').style.display=wzStep>1?'':'none';
+  document.getElementById('wz-next').style.display=wzStep<3?'':'none';
+  document.getElementById('wz-done').style.display=wzStep>=3?'':'none';
+}
+function wzBack(){
+  wzStep--;
+  if(wzStep<1)wzStep=1;
+  document.querySelectorAll('#wz-step .wz-step').forEach(function(x,i){x.style.display=(i+1===wzStep)?'':'none';});
+  document.getElementById('wz-back').style.display=wzStep>1?'':'none';
+  document.getElementById('wz-next').style.display=wzStep<3?'':'none';
+  document.getElementById('wz-done').style.display=wzStep>=3?'':'none';
+}
+function wzClose(){
+  document.getElementById('wizard').style.display='none';
+  if(!document.getElementById('wz-again').checked)localStorage.setItem('tsg_wizard_done','1');
+}
+var wzStep=1;
+loadAgents();
+</script>
+</body></html>
