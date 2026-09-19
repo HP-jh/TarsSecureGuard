@@ -2,83 +2,125 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
-var wafRules = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)(union\s+select|or\s+1=1|information_schema|load_file\()`),
-	regexp.MustCompile(`(\.\./\.\./|/etc/passwd|/etc/shadow|;\s*rm\s+-rf|;\s*del\s+/[fq])`),
-	regexp.MustCompile(`(?i)(<script[\s>]|javascript:\s*|onerror\s*=|onload\s*=|alert\s*\(|<iframe)`),
-	regexp.MustCompile(`(?i)(\{\{.*\.env.*\}\}|<\%.*eval|\$\{.*jndi:)`),
+var wafRules = []struct {
+	name   string
+	re     *regexp.Regexp
+	strict bool
+}{
+	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e)`), false},
+	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping)\\b|&&|;\\s*\\x60[a-z]+\\x60)"), false},
+	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()"), true},
+	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
+}
+
+func wafMatch(s string, strict bool) string {
+	for _, rule := range wafRules {
+		if rule.strict && !strict {
+			continue
+		}
+		if rule.re.MatchString(s) {
+			return rule.name
+		}
+	}
+	return ""
+}
+
+func wafEnabled() bool {
+	cfgMu.RLock()
+	defer cfgMu.RUnlock()
+	return cfg.Security.WAFEnabled
+}
+
+func wafStrict() bool {
+	cfgMu.RLock()
+	defer cfgMu.RUnlock()
+	return cfg.Security.Mode == "strict"
 }
 
 func wafCheck(r *http.Request) string {
-	if gatewayMode() == "off" {
+	if !wafEnabled() {
 		return ""
 	}
 	if !allowRequest(clientIP(r)) {
-		return "rate limit exceeded"
+		return "请求频率超限"
 	}
-	if q := r.URL.RawQuery; q != "" {
-		if matched := scanRules(q); matched != "" {
-			return "query string blocked: " + matched
-		}
+	if reason := wafMatch(r.URL.Path+" "+r.URL.RawQuery, false); reason != "" {
+		return reason
 	}
-	if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
-		ct := r.Header.Get("Content-Type")
-		if strings.Contains(ct, "json") || strings.Contains(ct, "form") || ct == "" {
-			if r.Body != nil {
-				body, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes+1))
-				if err != nil {
-					return "body read error"
-				}
-					r.Body.Close()
-					if int64(len(body)) > maxBodyBytes {
-						return "body too large"
-					}
-					if matched := scanRules(string(body)); matched != "" {
-						return "body payload blocked: " + matched
-					}
-					r.Body = io.NopCloser(bytes.NewReader(body))
+	strict := wafStrict()
+	toolEndpoint := strings.Contains(r.URL.Path, "/mcp") || strings.HasPrefix(r.URL.Path, "/api/tools/")
+	if !toolEndpoint && !strict {
+		return ""
+	}
+	if r.Body != nil {
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			var mbe *http.MaxBytesError
+			if errors.As(err, &mbe) {
+				return "请求体过大"
 			}
+			return ""
+		}
+		r.Body = io.NopCloser(bytes.NewReader(b))
+		if reason := wafScanBody(b, strict); reason != "" {
+			return reason
 		}
 	}
 	return ""
 }
 
-func scanRules(s string) string {
-	for _, re := range wafRules {
-		if loc := re.FindString(s); loc != "" {
-			if len(loc) > 40 {
-				loc = loc[:40] + "..."
+func wafScanBody(b []byte, strict bool) string {
+	if strict {
+		return wafMatch(string(b), true)
+	}
+	var m map[string]interface{}
+	if json.Unmarshal(b, &m) != nil {
+		return ""
+	}
+	var sb strings.Builder
+	if t, _ := m["tool"].(string); t != "" {
+		sb.WriteString(t)
+		sb.WriteByte('\n')
+	}
+	scanMap := func(mp map[string]interface{}) {
+		for _, v := range mp {
+			if s, ok := v.(string); ok {
+				sb.WriteString(s)
+				sb.WriteByte('\n')
 			}
-			return loc
 		}
 	}
-	return ""
-}
-
-func gatewayMode() string {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return cfg.Security.Mode
+	scanMap(m)
+	if args, ok := m["args"].(map[string]interface{}); ok {
+		scanMap(args)
+	}
+	if params, ok := m["params"].(map[string]interface{}); ok {
+		if arguments, ok := params["arguments"].(map[string]interface{}); ok {
+			scanMap(arguments)
+		}
+	}
+	return wafMatch(sb.String(), false)
 }
 
 func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {
+	now := time.Now().Format("15:04:05")
 	mu.Lock()
 	wafBlocks++
-	entry := fmt.Sprintf("[%s][%s] %s %s - %s", nowTimeStr(), clientIP(r), r.Method, r.URL.Path, reason)
-	wafLogs = append(wafLogs, entry)
-	if len(wafLogs) > wafLogLimit {
-		wafLogs = wafLogs[len(wafLogs)-wafLogLimit:]
+	if len(wafLogs) >= wafLogLimit {
+		wafLogs = wafLogs[len(wafLogs)-wafLogLimit+1:]
 	}
+	wafLogs = append(wafLogs, fmt.Sprintf("[%s] %s %s %s → BLOCKED (%s)", now, clientIP(r), r.Method, r.URL.Path, reason))
 	mu.Unlock()
-	logMsg("WAF blocked: " + r.URL.Path + " - " + reason)
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusForbidden)
-	io.WriteString(w, `{"blocked":true}`)
+	logMsg("[WAF] BLOCK " + r.Method + " " + r.URL.Path + " (" + reason + ")")
+	writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "blocked by WAF: " + reason})
 }
