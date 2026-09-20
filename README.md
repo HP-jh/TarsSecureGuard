@@ -2,7 +2,7 @@
 
 # TarsSecureGuard
 
-**本地 AI 网关 · 双击即用 · 完全开源（MIT）**
+**面向本地 AI 工作流的安全网关 · 完全开源（MIT）**
 
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)](#)
@@ -14,29 +14,77 @@
 
 </div>
 
-一个运行在你自己电脑上的 AI 网关：管理本地 GGUF 模型（llama.cpp）、接入 LM Studio / Ollama / 云端模型、内置 Web 搜索、7 个智能体、MCP 工具中继，以及一个带速率限制和注入检测的安全模块（WAF）。前端网页内嵌在单个可执行文件中——**不需要安装任何运行时，双击 .exe 就能用**。
+TarsSecureGuard 是一个跑在你本机的 **AI 安全网关**。它站在所有 AI 客户端和后端模型之间，负责鉴权、WAF 防护、多后端路由、审计日志和 MCP 中继。内嵌的 Web 控制台和内置工具只是"开箱即测"的附属品——真正的用法是：把你已有的 ChatBox / NextChat / Cursor / 任何 OpenAI 兼容客户端指向 `http://127.0.0.1:18889/v1`，所有请求先过网关再到模型。
 
 > 👦 这个项目是一个六年级学生在 AI 辅助下完成的第一个 Go 开源项目。如果你正在学编程，欢迎 fork 来玩；如果你觉得有用，点个 star 就是最大的鼓励。
 
-## ✨ 特性
+## 它解决什么问题
 
-- 🔒 **本地优先**：默认只监听 `127.0.0.1`，模型推理完全离线运行
-- 🛡 **内置 WAF**：路径穿越 / 命令注入 / SQL 注入 / XSS 检测 + 每 IP 速率限制
-- 🔑 **入站鉴权**：`X-API-Key` 或 `Authorization: Bearer <key>`
-- 🤖 **多后端路由**：本地 GGUF（llama.cpp）· LM Studio · Ollama · OpenAI 兼容云端
-- 🧰 **7 个内置智能体**：代码助手 / 写作 / 翻译 / 摘要 / 数据分析 / 安全分析 / 紧急响应
+如果你本地同时跑着 llama.cpp、LM Studio、Ollama，还想接几个云端 OpenAI 兼容 API，很快会遇到：
+
+- 每个后端端口不同、协议细节不同，客户端配置乱
+- 没有统一鉴权，哪个客户端都能调你的模型
+- 本地跑 MCP 工具时，恶意 prompt 可以通过工具调用读你硬盘上任意文件
+- 出了问题不知道是哪个后端挂了、哪个请求被拦了
+
+TarsSecureGuard 在中间加一层：**统一入口、统一鉴权、统一防护、统一日志**。
+
+## 架构
+
+```
+ChatBox / NextChat / Cursor / 任意 OpenAI 客户端
+            │
+            ▼
+┌─────────────────────────────┐
+│  TarsSecureGuard :18889      │
+│  ┌─────────────────────────┐ │
+│  │ 鉴权 (X-API-Key)       │ │
+│  │ WAF (注入/遍历/XSS)    │ │
+│  │ 速率限制                │ │
+│  │ 审计日志                │ │
+│  └─────────────────────────┘ │
+│  路由：本地GGUF / LM Studio  │
+│       Ollama / 云端OpenAI    │
+│  MCP 中继 (JSON-RPC)         │
+│  内嵌 Web 控制台（测试用）   │
+└─────────────────────────────┘
+            │
+            ▼
+   llama.cpp :18890 / LM Studio :1234 /
+   Ollama :11434 / 云端 API
+```
+
+## ✨ 特性（按重要性排）
+
+**网关层（核心）**
+- 🔒 **本地优先**：默认只监听 `127.0.0.1`，不暴露公网
+- 🛡 **内置 WAF**：路径穿越 / 命令注入 / SQL 注入 / XSS 正则检测 + 每 IP 速率限制
+- 🔑 **入站鉴权**：所有 API 必须带 `X-API-Key` 或 `Authorization: Bearer <key>`，未授权一律 401
+- 🛣 **多后端路由**：本地 GGUF（llama.cpp）· LM Studio · Ollama · OpenAI 兼容云端，自动 failover
+- 📋 **审计日志**：每个请求记录来源、路径、状态码、WAF 判定
+- 🔗 **MCP 中继**：标准 JSON-RPC 端点，外部 MCP 服务器以 stdio 方式接入
+
+**附属（开箱即测）**
+- 🖥 **内嵌 Web 控制台**：仪表盘 / 聊天测试 / 模型管理 / WAF 日志 / 设备信息，全部 go:embed 进单 exe
+- 🧰 **内置工具集**：文件读写、Web 搜索、URL 抓取、配置读写——用来验证网关是否正常工作，不是产品核心
+- 🧭 **首次运行向导**：环境检测 → 推荐模型下载 → 完成
 - 🌐 **Web 搜索**：内置 Bing RSS 源，无需 API Key
-- 🔗 **MCP 中继**：兼容标准 MCP JSON-RPC，可接入外部 MCP 服务器
-- 🖥 **图形化界面**：内嵌 Web 控制台（仪表盘 / 聊天 / 模型管理 / 安全日志 / 设备信息）
-- 🧭 **首次运行向导**：环境检测 → 推荐模型下载 → 完成，三步上手
 
 ## 🚀 快速开始（Windows）
 
 1. 下载或构建 `TarsSecureGuard.exe`（见下方"构建"）
-2. 双击运行（程序会自动打开浏览器）
-3. 首次运行会弹出欢迎向导：检测环境 → 下载推荐模型（约 1.9GB，可选）→ 完成
+2. 双击运行（程序会自动打开浏览器到测试控制台）
+3. 首次运行三步向导：检测环境 → 下载推荐模型（约 1.9GB，可选）→ 完成
 
-> 也可以把 exe 放进任意文件夹直接运行。所有默认路径都基于 **exe 所在目录**：
+**把你自己的客户端接上**：在任意 OpenAI 兼容客户端里，把 Base URL 填成
+
+```
+http://127.0.0.1:18889/v1
+```
+
+API Key 填 `config.json` 里 `security.apiKey` 的值（默认 `tars-gateway-key`，请改掉）。之后所有请求都会先经过 WAF 和鉴权。
+
+> 所有默认路径都基于 **exe 所在目录**：
 >
 > ```
 > 你的文件夹/
@@ -45,8 +93,6 @@
 > ├── Models/               ← GGUF 模型文件放这里
 > └── llama/                ← llama-server.exe 推理引擎
 > ```
-
-浏览器访问 `http://127.0.0.1:18889`（API 端口 `18889`，本地模型服务端口 `18890`）。
 
 ## ⚙️ 配置
 
@@ -70,11 +116,12 @@ set TARS_CONFIG=D:\my\config.json
 
 > 安全提示：请修改 `security.apiKey` 默认值；`allowedRoots` 保持最小授权范围。
 
-## 🧠 模型
+## 🧠 后端模型
 
-- 本地模型：把 `qwen2.5-3b-instruct-q4_k_m.gguf` 等 GGUF 文件放入 `Models/` 目录
-- 在 Web 界面「Models → Scan Hardware」可一键下载推荐模型（Hugging Face 直链）
-- 已安装 [LM Studio](https://lmstudio.ai/)（端口 1234）或 [Ollama](https://ollama.com/)（端口 11434）会自动被发现并接入
+- **本地 GGUF**：把 `qwen2.5-3b-instruct-q4_k_m.gguf` 等文件放入 `Models/`，网关自动调 llama.cpp
+- **LM Studio / Ollama**：装着就自动发现（端口 1234 / 11434）
+- **云端 OpenAI 兼容**：在 `config.json` 里填 base URL + key
+- Web 界面「Models → Scan Hardware」可一键下载推荐模型（Hugging Face 直链）
 
 ## 🛠 构建
 
@@ -98,16 +145,16 @@ TarsSecureGuard/
 ├── go-app/
 │   ├── main.go            # 入口 / 路由 / 中间件（WAF·鉴权·CORS）
 │   ├── config.go          # 配置结构与路径解析
-│   ├── waf.go             # WAF 规则 / 速率限制 / 拦截
-│   ├── models.go          # 本地 GGUF 模型管理 / LM Studio·Ollama 探测
-│   ├── chat.go            # 聊天路由 / OpenAI 兼容 /v1
-│   ├── tools.go           # 内置工具注册表
-│   ├── handlers.go        # 状态 / 安全 / 日志 / 配置等 API
-│   ├── device.go          # 设备信息 / 磁盘 / 服务发现
-│   ├── web.go             # 搜索 / URL 抓取 / OpenAPI
+│   ├── waf.go             # WAF 规则 / 速率限制 / 拦截   ← 网关核心
+│   ├── models.go          # 后端路由：GGUF / LM Studio / Ollama / 云端
+│   ├── chat.go            # OpenAI 兼容 /v1 代理
+│   ├── tools.go           # 内置工具（测试用，非产品核心）
+│   ├── handlers.go        # 状态 / 安全 / 日志 / 配置 API
+│   ├── device.go          # 设备信息 / 服务发现
+│   ├── web.go             # 搜索 / URL 抓取
 │   ├── mcp.go             # MCP 中继端点 / 外部 MCP 客户端
-│   ├── memory.go          # 长期记忆持久化
-│   ├── frontend/index.html# 内嵌 Web 控制台
+│   ├── memory.go          # 长期记忆（测试用）
+│   ├── frontend/index.html# 内嵌 Web 控制台（测试用）
 │   └── config.json        # 本机配置（不入库）
 ├── build.bat              # Windows 一键构建
 ├── LICENSE                # MIT 许可证
@@ -116,13 +163,13 @@ TarsSecureGuard/
 
 ## 🤝 贡献
 
-欢迎提 Issue / PR。这个项目还很年轻，有很多可以改进的地方：
+欢迎提 Issue / PR。这个项目还很年轻，优先想做的方向：
 
-- 更多模型推荐与自动下载
+- 更严的 WAF 规则集（已知 CVE 模式、Jailbreak prompt 检测）
+- TLS / HTTPS 支持（当前只监听 loopback）
+- 更细粒度的 RBAC（按 key 限制能访问哪些后端）
 - macOS / Linux 构建
-- Docker 镜像
-- 更多 MCP 服务器接入示例
-- 单元测试
+- 单元测试（WAF 规则、路径遍历防护是重点）
 
 ## 📜 开源
 
