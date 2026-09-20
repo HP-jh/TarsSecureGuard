@@ -10,7 +10,7 @@
 [![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://github.com/HP-jh/TarsSecureGuard/releases)
 [![Stars](https://img.shields.io/github/stars/HP-jh/TarsSecureGuard?color=yellow&style=flat&logo=github)](https://github.com/HP-jh/TarsSecureGuard/stargazers)
 
-[English](README_EN.md) · [快速开始](#-快速开始windows) · [构建](#-构建) · [特性](#-特性)
+[English](README_EN.md) · [快速开始](#-快速开始windows) · [构建](#-构建) · [特性](#-特性按重要性排)
 
 </div>
 
@@ -56,19 +56,50 @@ ChatBox / NextChat / Cursor / 任意 OpenAI 客户端
 
 ## ✨ 特性（按重要性排）
 
-**网关层（核心）**
-- 🔒 **本地优先**：默认只监听 `127.0.0.1`，不暴露公网
-- 🛡 **内置 WAF**：路径穿越 / 命令注入 / SQL 注入 / XSS 正则检测 + 每 IP 速率限制
-- 🔑 **入站鉴权**：所有 API 必须带 `X-API-Key` 或 `Authorization: Bearer <key>`，未授权一律 401
-- 🛣 **多后端路由**：本地 GGUF（llama.cpp）· LM Studio · Ollama · OpenAI 兼容云端，自动 failover
-- 📋 **审计日志**：每个请求记录来源、路径、状态码、WAF 判定
-- 🔗 **MCP 中继**：标准 JSON-RPC 端点，外部 MCP 服务器以 stdio 方式接入
+### 网关层（核心）
 
-**附属（开箱即测）**
-- 🖥 **内嵌 Web 控制台**：仪表盘 / 聊天测试 / 模型管理 / WAF 日志 / 设备信息，全部 go:embed 进单 exe
+**网络与边界**
+- 🔒 **只监听 loopback**：绑定 `127.0.0.1:18889`，不监听 `0.0.0.0`，外部网络无法直连
+- 🛑 **CORS 白名单**：不返回 `Access-Control-Allow-Origin: *`，只回显 `127.0.0.1 / localhost / [::1]` 加本网关端口
+- 🛡 **安全响应头**：`X-Frame-Options: DENY` / `X-Content-Type-Options: nosniff` / `Referrer-Policy: no-referrer`
+- 📦 **请求体硬上限 5MB**（`http.MaxBytesReader`），超大 body 直接拒
+- ⏱ **Server 超时全配**：Read 60s / Write 600s / Idle 120s / MaxHeaderBytes 1MB，慢连接攻击挡得住
+
+**鉴权**
+- 🔑 **入站一律校验**：所有 API 必须带 `X-API-Key` 或 `Authorization: Bearer <key>`，未授权返回 401 + `WWW-Authenticate`
+- ⏱ **常量时间比较**：用 `crypto/subtle.ConstantTimeCompare` 比 key，防时序侧信道攻击
+- 🧾 **配置 API 自动脱敏**：返回 config 时所有 `apiKey` 字段替换成 `***`
+- ✅ **配置修改白名单**：前端只能改 10 个白名单字段，不能通过 API 把整个 config 结构搞坏
+
+**WAF**
+- 🛡 **4 条正则规则**：路径穿越（含 `%2e%2e` / `%2e%2f` / `%252e` URL 编码变体）、命令注入（`;cmd` / `&&` / `` `backtick` ``）、SQL 注入、XSS
+- 🎯 **normal / strict 双模式**：normal 只扫工具调用参数里的字符串值，**不扫聊天正文**（防误报）；strict 扫整个请求体
+- 🧠 **认识 function calling 结构**：会定位到 OpenAI 的 `params.arguments` / MCP 的 `args` 里的字符串值，不是粗暴全文匹配
+- 🚦 **每 IP 速率限制**：10 秒窗口 120 请求，超额返回 403；过期条目自动清理防内存泄漏
+
+**文件系统隔离**
+- 📁 **`isPathAllowed` 边界严格**：必须"等于根目录"或"根+路径分隔符开头"才放行——`D:\TarsSecureGuard` 不会误匹配 `D:\TarsSecureGuardEvil`
+- 🪣 **`allowedRoots` 默认最小授权**：只允许 exe 所在目录 + 用户 Desktop/Documents/Downloads
+
+**路由与 MCP**
+- 🛣 **多后端路由**：本地 GGUF（llama.cpp）· LM Studio · Ollama · OpenAI 兼容云端，自动 failover
+- 🔗 **标准 MCP JSON-RPC 2024-11-05**：`initialize` / `tools/list` / `tools/call` / `ping`，同时兼容自定义 `{tool, args}` 格式
+- 🧯 **外部 MCP stdio 子进程管理**：调用时 spawn、60s 超时、用完 `Kill + Wait` 回收句柄，Windows 下 `HideWindow` 不弹黑框
+
+### 附属（开箱即测）
+
+- 🖥 **内嵌 Web 控制台**：仪表盘 / 聊天测试 / 模型管理 / WAF 日志 / 设备信息，全部 `go:embed` 进单 exe
 - 🧰 **内置工具集**：文件读写、Web 搜索、URL 抓取、配置读写——用来验证网关是否正常工作，不是产品核心
 - 🧭 **首次运行向导**：环境检测 → 推荐模型下载 → 完成
 - 🌐 **Web 搜索**：内置 Bing RSS 源，无需 API Key
+
+### 工程细节
+
+- 🪟 **Windows 记事本兼容**：自动剥离 UTF-8 BOM，不会因为 BOM 让 JSON 解析失败
+- 🛡 **bool 零值陷阱防护**：用户没写 `wafEnabled` 字段时默认 `true`，不会因为 JSON 零值把 WAF 关掉
+- 🚫 **解析失败不覆盖用户文件**：一次 parse error 不会把 config.json 写成空文件
+- 💾 **HTTP 客户端分池**：短连接（30s）/ 长连接（300s）/ 下载专用，复用 TCP 连接
+- 🪟 **Windows 原生 API**：用 `kernel32.dll!GetDiskFreeSpaceExW` 读磁盘，不调外部命令
 
 ## 🚀 快速开始（Windows）
 
@@ -165,6 +196,7 @@ TarsSecureGuard/
 
 欢迎提 Issue / PR。这个项目还很年轻，优先想做的方向：
 
+- **Windows 防火墙集成**：启动时自动 `netsh advfirewall` 加入站规则，即使误改成 `0.0.0.0` 也挡住
 - 更严的 WAF 规则集（已知 CVE 模式、Jailbreak prompt 检测）
 - TLS / HTTPS 支持（当前只监听 loopback）
 - 更细粒度的 RBAC（按 key 限制能访问哪些后端）
