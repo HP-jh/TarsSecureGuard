@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// ===================== 前端 =====================
 func handleFrontend(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" && r.URL.Path != "/index.html" && r.URL.Path != "/admin" {
 		http.NotFound(w, r)
@@ -23,6 +24,7 @@ func handleFrontend(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// ===================== 状态 =====================
 func statusPayload() map[string]interface{} {
 	uptime := time.Since(startTime).Milliseconds()
 	ms := getModels()
@@ -77,6 +79,7 @@ func handleSecurity(w http.ResponseWriter, r *http.Request) {
 		"safeModeTriggerCount":  0,
 		"mode":                  mode,
 		"wafEnabled":            wafOn,
+		"firewall":              firewallStatus(),
 	})
 }
 
@@ -95,6 +98,7 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleConfig(w http.ResponseWriter, r *http.Request) {
+	// POST：批量保存白名单配置（{ "security.mode": "strict", "search.engine": "serper" }）
 	if r.Method == http.MethodPost {
 		var body map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -168,6 +172,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ===================== 搜索 / 占位 / 发现 =====================
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
@@ -190,6 +195,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, res)
 }
 
+// handleFeishu 为飞书 API 占位端点（保留给后续集成）
 func handleFeishu(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
 		"endpoint": r.URL.Path,

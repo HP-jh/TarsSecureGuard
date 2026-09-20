@@ -28,7 +28,7 @@ const (
 	modelPort     = 18890
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
-	version       = "1.0.1"
+	version       = "1.0.2"
 	apiKeyDefault = "tars-gateway-key"
 
 	// 安全边界常量
@@ -89,6 +89,7 @@ func main() {
 	loadConfig()
 	initTools()
 	loadMemory()
+	ensureFirewallRule()
 
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
 
