@@ -28,7 +28,7 @@ const (
 	modelPort     = 18890
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
-	version       = "1.0.0"
+	version       = "1.0.1"
 	apiKeyDefault = "tars-gateway-key"
 
 	// 安全边界常量
@@ -329,12 +329,14 @@ func sanitizedConfig() map[string]interface{} {
 }
 
 // 允许通过 API 修改的配置白名单（防止结构破坏与任意配置注入）
+// v1.0.1 起：security.apiKey 不再允许通过 API 修改——防止持有旧 key 的进程
+// 把 key 改成新值把合法管理员锁在外面。要改 key 请手动编辑 config.json 后重启。
 func isConfigPathAllowed(path string) bool {
 	allowed := []string{
 		"cloud.openai.apiKey", "cloud.openai.baseUrl", "cloud.openai.name",
 		"cloud.deepseek.apiKey", "cloud.deepseek.baseUrl", "cloud.deepseek.name",
 		"search.apiKey", "search.engine",
-		"security.apiKey", "security.mode", "security.wafEnabled",
+		"security.mode", "security.wafEnabled",
 	}
 	for _, a := range allowed {
 		if path == a {
