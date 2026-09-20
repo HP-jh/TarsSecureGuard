@@ -1,9 +1,22 @@
+<div align="center">
+
 # TarsSecureGuard
 
-> 本地 AI 网关 · 双击即用 · 完全开源（MIT）· **当前版本 v1.0.0（正式版）**
-> [English README](README_EN.md)
+**本地 AI 网关 · 双击即用 · 完全开源（MIT）**
+
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/release-v1.0.0-blue)](https://github.com/HP-jh/TarsSecureGuard/releases)
+[![Stars](https://img.shields.io/github/stars/HP-jh/TarsSecureGuard?color=yellow&style=flat&logo=github)](https://github.com/HP-jh/TarsSecureGuard/stargazers)
+
+[English](README_EN.md) · [快速开始](#-快速开始windows) · [构建](#-构建) · [特性](#-特性)
+
+</div>
 
 一个运行在你自己电脑上的 AI 网关：管理本地 GGUF 模型（llama.cpp）、接入 LM Studio / Ollama / 云端模型、内置 Web 搜索、7 个智能体、MCP 工具中继，以及一个带速率限制和注入检测的安全模块（WAF）。前端网页内嵌在单个可执行文件中——**不需要安装任何运行时，双击 .exe 就能用**。
+
+> 👦 这个项目是一个六年级学生在 AI 辅助下完成的第一个 Go 开源项目。如果你正在学编程，欢迎 fork 来玩；如果你觉得有用，点个 star 就是最大的鼓励。
 
 ## ✨ 特性
 
@@ -101,6 +114,16 @@ TarsSecureGuard/
 └── README.md
 ```
 
+## 🤝 贡献
+
+欢迎提 Issue / PR。这个项目还很年轻，有很多可以改进的地方：
+
+- 更多模型推荐与自动下载
+- macOS / Linux 构建
+- Docker 镜像
+- 更多 MCP 服务器接入示例
+- 单元测试
+
 ## 📜 开源
 
 本项目以 **MIT 许可证** 开源，可自由使用、修改、分发（含商用）。详见 [LICENSE](LICENSE)。
@@ -108,3 +131,13 @@ TarsSecureGuard/
 ## ⚠️ 免责声明
 
 本项目为个人学习与本地使用设计，监听地址默认仅限本机。请勿将未加固的版本直接暴露到公网；若需远程访问，请自行增加 TLS 与更严格的鉴权。
+
+---
+
+<div align="center">
+
+**如果这个项目对你有帮助，点个 ⭐ Star 支持一下作者吧！**
+
+[← 返回顶部](#tarssecureguard)
+
+</div>
