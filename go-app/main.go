@@ -28,7 +28,7 @@ const (
 	modelPort     = 18890
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
-	version       = "1.0.2"
+	version       = "1.0.3"
 	apiKeyDefault = "tars-gateway-key"
 
 	// 安全边界常量
@@ -166,7 +166,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// 2) 跨域预检：仅放行受信任同源
 		if r.Method == http.MethodOptions {
 			if o := r.Header.Get("Origin"); o != "" && !isTrustedOrigin(o) {
-				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -185,7 +185,8 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			failReq++
 			mu.Unlock()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
-			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, `{"error":"unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"}`)
 			return
 		}
 		mu.Lock()
