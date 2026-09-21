@@ -54,16 +54,6 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, statusPayload())
 }
 
-func handleFallback(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]interface{}{
-		"enabled":     true,
-		"threshold":   3,
-		"target":      "local",
-		"autoRecover": true,
-		"history":     []interface{}{},
-	})
-}
-
 func handleSecurity(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	blocks := wafBlocks
@@ -73,13 +63,10 @@ func handleSecurity(w http.ResponseWriter, r *http.Request) {
 	wafOn := cfg.Security.WAFEnabled
 	cfgMu.RUnlock()
 	writeJSON(w, map[string]interface{}{
-		"wafBlockCount":         blocks,
-		"threatIntelBlockCount": 0,
-		"domainBlockCount":      0,
-		"safeModeTriggerCount":  0,
-		"mode":                  mode,
-		"wafEnabled":            wafOn,
-		"firewall":              firewallStatus(),
+		"wafBlockCount": blocks,
+		"mode":          mode,
+		"wafEnabled":    wafOn,
+		"firewall":      firewallStatus(),
 	})
 }
 
@@ -147,11 +134,6 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			"listenAddr": "127.0.0.1",
 		},
 		"localModels": getLocalModelList(),
-		"fallback": map[string]interface{}{
-			"enable":      true,
-			"maxRetries":  3,
-			"autoRecover": true,
-		},
 		"security": map[string]interface{}{
 			"wafEnabled": wafOn,
 			"mode":       mode,
@@ -172,7 +154,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ===================== 搜索 / 占位 / 发现 =====================
+// ===================== 搜索 / 服务发现 =====================
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
@@ -195,23 +177,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, res)
 }
 
-// handleFeishu 为飞书 API 占位端点（保留给后续集成）
-func handleFeishu(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]interface{}{
-		"endpoint": r.URL.Path,
-		"message":  "飞书 API 占位。请在 config.json 配置 App ID/Secret 后启用。",
-	})
-}
-
-func handleDiscoveryScan(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
-		return
-	}
-	logMsg("[DISCOVERY] 扫描开始")
-	writeJSON(w, map[string]interface{}{"success": true, "message": "Scan started"})
-}
-
+// ===================== 服务发现 =====================
 func handleDiscoveryResults(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, discoverLocal())
 }
