@@ -16,6 +16,7 @@ import (
 	"strings"
 )
 
+// ===================== 搜索 =====================
 func webSearch(query string, count int) (map[string]interface{}, error) {
 	cfgMu.RLock()
 	eng := cfg.Search.Engine
@@ -68,13 +69,16 @@ func bingRSSSearch(query string, count int) (map[string]interface{}, error) {
 }
 
 func serperSearch(query string, count int) (map[string]interface{}, error) {
+	cfgMu.RLock()
+	apiKey := cfg.Search.APIKey
+	cfgMu.RUnlock()
 	body := map[string]interface{}{"q": query, "num": count}
 	jsonBody, _ := json.Marshal(body)
 	req, err := http.NewRequest("POST", "https://google.serper.dev/search", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-API-KEY", cfg.Search.APIKey)
+	req.Header.Set("X-API-KEY", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := httpClientShort.Do(req)
 	if err != nil {
@@ -86,6 +90,7 @@ func serperSearch(query string, count int) (map[string]interface{}, error) {
 	return result, nil
 }
 
+// ===================== URL 抓取 =====================
 var htmlTagRE = regexp.MustCompile(`(?s)<script.*?</script>|<style.*?</style>|<[^>]+>`)
 var whitespaceRE = regexp.MustCompile(`[ \t\r\n]+`)
 
@@ -103,7 +108,7 @@ func fetchURLText(u string, maxLen int) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TarsSecureGuard/9.0")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TarsSecureGuard/"+version)
 	resp, err := httpClientShort.Do(req)
 	if err != nil {
 		return nil, err
@@ -133,10 +138,11 @@ func fetchURLText(u string, maxLen int) (map[string]interface{}, error) {
 	}, nil
 }
 
+// ===================== OpenAPI 工具 =====================
 type openAPIDoc struct {
 	OpenAPI string `json:"openapi"`
 	Swagger string `json:"swagger"`
-	Info struct {
+	Info    struct {
 		Title       string `json:"title"`
 		Version     string `json:"version"`
 		Description string `json:"description"`
