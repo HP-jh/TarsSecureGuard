@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// ===================== 工具注册表 =====================
 type Tool struct {
 	Name        string
 	Description string
@@ -55,7 +56,7 @@ func initTools() {
 			},
 		},
 		"tars_model_start": {
-			Name: "tars_model_start", Description: "启动本地 GGUF 模型（如 qwen2.5-3b / qwen2.5-7b / qwen2.5-coder-3b）",
+			Name: "tars_model_start", Description: "启动本地 GGUF 模型",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"model": map[string]interface{}{"type": "string", "description": "本地模型 ID"},
 			}, "required": []string{"model"}},
@@ -136,7 +137,7 @@ func initTools() {
 			Handler: func(a map[string]interface{}) (interface{}, error) {
 				path, _ := a["path"].(string)
 				if path == "" {
-					path = `D:\\`
+					path = `D:\`
 				}
 				if !isPathAllowed(path, false) {
 					return map[string]interface{}{"error": "路径不在授权读取范围内"}, nil
@@ -248,20 +249,17 @@ func initTools() {
 			Handler: func(a map[string]interface{}) (interface{}, error) {
 				cfgMu.RLock()
 				wafOn := cfg.Security.WAFEnabled
-			mode := cfg.Security.Mode
-			cfgMu.RUnlock()
-			mu.Lock()
-			blocks := wafBlocks
-			mu.Unlock()
-			return map[string]interface{}{
-				"wafEnabled":            wafOn,
-				"mode":                  mode,
-				"wafBlockCount":         blocks,
-				"threatIntelBlockCount": 0,
-				"domainBlockCount":      0,
-				"safeModeTriggerCount":  0,
-			}, nil
-		},
+				mode := cfg.Security.Mode
+				cfgMu.RUnlock()
+				mu.Lock()
+				blocks := wafBlocks
+				mu.Unlock()
+				return map[string]interface{}{
+					"wafEnabled":    wafOn,
+					"mode":          mode,
+					"wafBlockCount": blocks,
+				}, nil
+			},
 		},
 		"tars_config_get": {
 			Name: "tars_config_get", Description: "获取网关配置（敏感 Key 已脱敏）",
@@ -275,7 +273,7 @@ func initTools() {
 		"tars_config_set": {
 			Name: "tars_config_set", Description: "更新网关配置（如云端 API Key、搜索后端）并保存",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
-				"path":  map[string]interface{}{"type": "string", "description": "配置路径，如 cloud.deepseek.apiKey / search.engine"},
+				"path":  map[string]interface{}{"type": "string", "description": "配置路径"},
 				"value": map[string]interface{}{},
 			}, "required": []string{"path", "value"}},
 			Handler: func(a map[string]interface{}) (interface{}, error) {
@@ -355,19 +353,19 @@ func initTools() {
 			},
 		},
 		"tars_openapi_operation": {
-			Name: "tars_openapi_operation", Description: "从 OpenAPI 规范中获取指定操作详情（按 operationId 或路由）",
+			Name: "tars_openapi_operation", Description: "从 OpenAPI 规范中获取指定操作详情",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"id":                 map[string]interface{}{"type": "string", "description": "OpenAPI 规范的 URL 或本地文件路径"},
 				"operationIdOrRoute": map[string]interface{}{"type": "string", "description": "操作 ID 或路由路径"},
 			}, "required": []string{"id", "operationIdOrRoute"}},
 			Handler: func(a map[string]interface{}) (interface{}, error) {
 				id, _ := a["id"].(string)
-			op, _ := a["operationIdOrRoute"].(string)
+				op, _ := a["operationIdOrRoute"].(string)
 				return openAPIOperation(id, op)
 			},
 		},
 		"tars_agent_run": {
-			Name: "tars_agent_run", Description: "运行内置智能体（code-assistant / writing-assistant / translator / summarizer / data-analyst / security-analyst / urgent-responder）",
+			Name: "tars_agent_run", Description: "运行内置智能体",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"agent":  map[string]interface{}{"type": "string", "description": "智能体 ID"},
 				"prompt": map[string]interface{}{"type": "string", "description": "任务描述"},
@@ -385,7 +383,7 @@ func initTools() {
 			},
 		},
 		"tars_external_mcp": {
-			Name: "tars_external_mcp", Description: "调用已注册的外部 MCP 服务器工具（filesystem / fetch），method 为 tools/list 或 tools/call",
+			Name: "tars_external_mcp", Description: "调用已注册的外部 MCP 服务器工具",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"server":    map[string]interface{}{"type": "string", "description": "服务器名 filesystem 或 fetch"},
 				"method":    map[string]interface{}{"type": "string", "description": "tools/list 或 tools/call"},
@@ -415,7 +413,7 @@ func executeTool(name string, args map[string]interface{}) (interface{}, error) 
 	if !ok {
 		return nil, fmt.Errorf("工具不存在: %s", name)
 	}
-	logMsg("[TOOL] " + name + " 被调用")
+	logMsg(fmt.Sprintf("[TOOL] %s 被调用", name))
 	return t.Handler(args)
 }
 
