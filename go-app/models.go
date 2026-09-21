@@ -12,11 +12,13 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
 
+// ===================== 模型定义 =====================
 type ModelInfo struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
@@ -27,15 +29,50 @@ type ModelInfo struct {
 	Backend string `json:"backend"`
 }
 
+// 本地 GGUF 模型注册表（动态扫描 modelDir 下的 .gguf 文件）
 type GGUFModel struct {
 	ID   string
 	File string
 }
 
-var ggufModels = []GGUFModel{
+// 默认模型（modelDir 为空时的 fallback）
+var defaultGGUFModels = []GGUFModel{
 	{ID: "qwen2.5-3b", File: "qwen2.5-3b-instruct-q4_k_m.gguf"},
 	{ID: "qwen2.5-7b", File: "qwen2.5-7b-instruct-q3_k_m.gguf"},
 	{ID: "qwen2.5-coder-3b", File: "qwen2.5-coder-3b-instruct-q4_k_m.gguf"},
+}
+
+// ggufModels 是启动时扫描后的模型列表
+var ggufModels = []GGUFModel{}
+
+// refreshGGUFModels 扫描 modelDir 下的所有 .gguf 文件，合并到模型列表
+func refreshGGUFModels() {
+	seen := map[string]bool{}
+	var result []GGUFModel
+	for _, gm := range defaultGGUFModels {
+		p := filepath.Join(modelDir, gm.File)
+		if _, err := os.Stat(p); err == nil {
+			result = append(result, gm)
+			seen[gm.ID] = true
+		}
+	}
+	entries, err := os.ReadDir(modelDir)
+	if err != nil {
+		ggufModels = result
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") {
+			continue
+		}
+		id := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+		if seen[id] {
+			continue
+		}
+		result = append(result, GGUFModel{ID: id, File: e.Name()})
+		seen[id] = true
+	}
+	ggufModels = result
 }
 
 func getLocalModelList() []map[string]interface{} {
@@ -65,6 +102,7 @@ func getLocalModelList() []map[string]interface{} {
 
 func getModels() []ModelInfo {
 	var ms []ModelInfo
+	// 本地 GGUF
 	for _, gm := range ggufModels {
 		p := filepath.Join(modelDir, gm.File)
 		info, err := os.Stat(p)
@@ -78,16 +116,19 @@ func getModels() []ModelInfo {
 		}
 		ms = append(ms, ModelInfo{ID: gm.ID, Name: gm.ID, Type: "chat", Status: status, Source: "local", Size: sizeStr, Backend: "llama"})
 	}
+	// LM Studio
 	if lmsReachable() {
 		for _, m := range detectLMStudio() {
 			ms = append(ms, m)
 		}
 	}
+	// Ollama
 	if ollamaReachable() {
 		for _, m := range detectOllama() {
 			ms = append(ms, m)
 		}
 	}
+	// 云端
 	for _, cc := range allCloudCfgs() {
 		for _, mdl := range cc.Models {
 			ms = append(ms, ModelInfo{ID: mdl, Name: mdl, Type: "chat", Status: "configured", Source: "cloud", Backend: cc.Name})
@@ -112,6 +153,7 @@ func allCloudCfgs() []CloudCfg {
 	return out
 }
 
+// ===================== 本地模型管理 =====================
 func findGGUFFile(id string) string {
 	for _, gm := range ggufModels {
 		if gm.ID == id {
@@ -144,7 +186,11 @@ func startLocalModel(id string) error {
 		mu.Lock()
 		starting = false
 		mu.Unlock()
-		return fmt.Errorf("模型不存在: %s（可用: qwen2.5-3b / qwen2.5-7b / qwen2.5-coder-3b）", id)
+		var available []string
+		for _, gm := range ggufModels {
+			available = append(available, gm.ID)
+		}
+		return fmt.Errorf("模型不存在: %s（可用: %s）", id, strings.Join(available, " / "))
 	}
 	serverPath := filepath.Join(llamaDir, "llama-server.exe")
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
@@ -178,6 +224,7 @@ func startLocalModel(id string) error {
 	mu.Unlock()
 	logMsg(fmt.Sprintf("[MODEL] 本地模型 %s 启动 (PID %d, port %d)", id, cmd.Process.Pid, modelPort))
 
+	// 等待服务就绪
 	go func() {
 		for i := 0; i < 60; i++ {
 			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v1/models", modelPort))
@@ -214,6 +261,7 @@ func stopLocalModel() {
 	logMsg("[MODEL] 本地模型已停止")
 }
 
+// ===================== LM Studio / Ollama 探测 =====================
 func lmsReachable() bool {
 	resp, err := http.Get(lmStudioBase + "/v1/models")
 	if err != nil {
@@ -280,6 +328,7 @@ func detectOllama() []ModelInfo {
 	return ms
 }
 
+// ===================== 模型管理 API =====================
 func handleModels(w http.ResponseWriter, r *http.Request) {
 	ms := getModels()
 	writeJSON(w, map[string]interface{}{"models": ms, "total": len(ms)})
@@ -315,6 +364,7 @@ func handleModelStop(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"success": true, "running": false})
 }
 
+// handleOpenModels 在系统文件管理器中打开模型目录（供首次运行向导使用）
 func handleOpenModels(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
@@ -333,7 +383,7 @@ func handleOpenModels(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]interface{}{"success": false, "error": err.Error()})
 		return
 	}
-	logMsg("[MODEL] 已打开模型目录: " + modelDir)
+	logMsg(fmt.Sprintf("[MODEL] 已打开模型目录: %s", modelDir))
 	writeJSON(w, map[string]interface{}{"success": true, "path": modelDir})
 }
 
@@ -378,17 +428,18 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	name := body["name"]
 	urlStr := body["url"]
-	logMsg("[DOWNLOAD] 开始下载模型: " + name)
+	logMsg(fmt.Sprintf("[DOWNLOAD] 开始下载模型: %s", name))
 	go func() {
 		if err := downloadModel(name, urlStr); err != nil {
-			logMsg("[DOWNLOAD] " + name + " 失败: " + err.Error())
+			logMsg(fmt.Sprintf("[DOWNLOAD] %s 失败: %v", name, err))
 		} else {
-			logMsg("[DOWNLOAD] " + name + " 完成")
+			logMsg(fmt.Sprintf("[DOWNLOAD] %s 完成", name))
 		}
 	}()
 	writeJSON(w, map[string]interface{}{"success": true, "message": "Download started: " + name})
 }
 
+// ===================== 模型下载进度 =====================
 type dlStatus struct {
 	Name  string `json:"name"`
 	Done  bool   `json:"done"`
@@ -510,6 +561,7 @@ func downloadModel(name, urlStr string) error {
 	return nil
 }
 
+// handleModelDownloadStatus 返回全部模型下载任务进度（供前端进度条轮询）
 func handleModelDownloadStatus(w http.ResponseWriter, r *http.Request) {
 	dlMu.Lock()
 	out := make([]*dlStatus, 0, len(dlState))
