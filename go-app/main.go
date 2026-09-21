@@ -11,43 +11,50 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
 //go:embed frontend/index.html
 var frontendFS embed.FS
 
+// ===================== 常量 =====================
 const (
 	port          = 18889
 	modelPort     = 18890
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
-	version       = "1.0.4"
+	version       = "1.1.0"
 	apiKeyDefault = "tars-gateway-key"
 
-	maxBodyBytes          = 5 << 20
-	maxFetchBytes         = 2 << 20
-	maxOpenAPIBytes       = 10 << 20
-	maxModelDownloadBytes = 64 << 30
+	// 安全边界常量
+	maxBodyBytes          = 5 << 20  // 单个 API 请求体上限 5MB
+	maxFetchBytes         = 2 << 20  // 网页抓取/搜索单次读取上限 2MB
+	maxOpenAPIBytes       = 10 << 20 // OpenAPI 文档读取上限 10MB
+	maxModelDownloadBytes = 64 << 30 // 模型下载大小上限 64GB
 	rateLimitWindow       = 10 * time.Second
-	rateLimitMax          = 120
+	rateLimitMax          = 120 // 每 IP 每窗口最大请求数
 	wafLogLimit           = 500
 	memoryLimit           = 1024
 )
 
+// 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
 	llamaDir   string
 	configPath string
 )
 
+// 授权读写根（文件工具安全边界，由 resolvePaths 依据配置与默认布局填充）
 var allowedRoots []string
 
+// ===================== 全局状态 =====================
 var (
 	mu           sync.Mutex
 	logs         []string
@@ -59,20 +66,26 @@ var (
 	wafBlocks    int
 	modelProcess *os.Process
 	modelRunning bool
-	currentModel string
+	currentModel string // 当前加载的本地 GGUF 模型 id
 	cfg          Config
 	cfgMu        sync.RWMutex
 	memory       = map[string]string{}
 	memoryMu     sync.Mutex
-	starting     bool
-	rlMu         sync.Mutex
-	rlHits       = map[string]*rlEntry{}
 
+	// 本地模型启动互斥（防止并发重复拉起 llama-server）
+	starting bool
+
+	// WAF 速率限制状态
+	rlMu   sync.Mutex
+	rlHits = map[string]*rlEntry{}
+
+	// 可复用的 HTTP 客户端（避免每次请求新建连接）
 	httpClientShort = &http.Client{Timeout: 30 * time.Second}
 	httpClientLong  = &http.Client{Timeout: 300 * time.Second}
-	downloadClient  = &http.Client{}
+	downloadClient  = &http.Client{} // 模型下载专用：超时由请求 context 控制
 )
 
+// ===================== HTTP 主入口 =====================
 func main() {
 	resolveConfigPath()
 	loadConfig()
@@ -80,6 +93,7 @@ func main() {
 	loadMemory()
 	initLogDir()
 	ensureFirewallRule()
+	refreshGGUFModels()
 
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
 
@@ -97,15 +111,12 @@ func main() {
 	mux.HandleFunc("/api/admin/model/download", handleModelDownload)
 	mux.HandleFunc("/api/admin/model/download/status", handleModelDownloadStatus)
 	mux.HandleFunc("/api/admin/models/open", handleOpenModels)
-	mux.HandleFunc("/api/admin/fallback/status", handleFallback)
 	mux.HandleFunc("/api/admin/security/status", handleSecurity)
 	mux.HandleFunc("/api/admin/security/waf-logs", handleWAFLogs)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
 	mux.HandleFunc("/api/admin/config", handleConfig)
 	mux.HandleFunc("/api/search", handleSearch)
-	mux.HandleFunc("/api/feishu/", handleFeishu)
 	mux.HandleFunc("/mcp", handleMCP)
-	mux.HandleFunc("/api/admin/v32/auto-discovery/scan", handleDiscoveryScan)
 	mux.HandleFunc("/api/admin/v32/auto-discovery/results", handleDiscoveryResults)
 	mux.HandleFunc("/api/admin/agents/", handleAgent)
 	mux.HandleFunc("/api/tools/", handleToolCall)
@@ -123,40 +134,59 @@ func main() {
 
 	logMsg(fmt.Sprintf("Listening on http://127.0.0.1:%d", port))
 
+	// 后台自动启动默认本地模型
 	go func() {
 		time.Sleep(2 * time.Second)
 		startLocalModel("qwen2.5-3b")
 	}()
 
+	// 打开浏览器
 	go func() {
 		time.Sleep(1 * time.Second)
 		openBrowser(fmt.Sprintf("http://127.0.0.1:%d", port))
 	}()
 
+	// 优雅关闭：Ctrl+C 时停止模型并退出
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+		<-sigCh
+		logMsg("[SHUTDOWN] 收到关闭信号，正在清理...")
+		stopLocalModel()
+		if firewallLockEnabled() {
+			removeFirewallRule()
+		}
+		os.Exit(0)
+	}()
+
 	log.Printf("TarsSecureGuard v%s running at http://127.0.0.1:%d", version, port)
-	if err := server.ListenAndServe(); err != nil {
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
 
+// ===================== 中间件：WAF / 鉴权 / CORS / 统计 =====================
 func gatewayMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setSecurityHeaders(w, r)
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		}
+		// 1) WAF 检测（含速率限制与请求体扫描）
 		if reason := wafCheck(r); reason != "" {
 			blockRequest(w, r, reason)
 			return
 		}
+		// 2) 跨域预检：仅放行受信任同源
 		if r.Method == http.MethodOptions {
 			if o := r.Header.Get("Origin"); o != "" && !isTrustedOrigin(o) {
-				w.WriteHeader(http.StatusNoContent)
+				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		// 3) 入站鉴权（静态前端页面放行，API 一律校验）
 		if isPublicRoute(r.URL.Path) {
 			mu.Lock()
 			totalReq++
@@ -169,8 +199,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			failReq++
 			mu.Unlock()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
-			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintf(w, `{"error":"unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"}`)
+			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
 			return
 		}
 		mu.Lock()
@@ -185,6 +214,7 @@ func isPublicRoute(p string) bool {
 }
 
 func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
+	// CORS：只对受信任同源回显，绝不使用 *
 	if o := r.Header.Get("Origin"); isTrustedOrigin(o) {
 		w.Header().Set("Access-Control-Allow-Origin", o)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE")
@@ -272,6 +302,7 @@ func allowRequest(ip string) bool {
 	if e.count > rateLimitMax {
 		return false
 	}
+	// 定期清理过期条目，防止 map 无限增长
 	if len(rlHits) > 1024 {
 		for k, v := range rlHits {
 			if now.Sub(v.winStart) >= rateLimitWindow {
@@ -282,12 +313,16 @@ func allowRequest(ip string) bool {
 	return true
 }
 
+// ===================== 通用工具 =====================
+
+// modelState 返回本地模型运行状态与当前模型 id（并发安全快照）
 func modelState() (bool, string) {
 	mu.Lock()
 	defer mu.Unlock()
 	return modelRunning, currentModel
 }
 
+// sanitizedConfig 返回脱敏后的配置（API Key 一律 ***）
 func sanitizedConfig() map[string]interface{} {
 	b, _ := json.Marshal(cfg)
 	var m map[string]interface{}
@@ -308,6 +343,7 @@ func sanitizedConfig() map[string]interface{} {
 	return m
 }
 
+// 允许通过 API 修改的配置白名单（防止结构破坏与任意配置注入）
 func isConfigPathAllowed(path string) bool {
 	allowed := []string{
 		"cloud.openai.apiKey", "cloud.openai.baseUrl", "cloud.openai.name",
@@ -336,6 +372,7 @@ func logMsg(s string) {
 		logs = logs[len(logs)-500:]
 	}
 	mu.Unlock()
+	// 同时写文件
 	appendLog("gateway.log", s)
 }
 
@@ -374,6 +411,8 @@ func isPathAllowed(path string, write bool) bool {
 			continue
 		}
 		rl := strings.ToLower(r)
+		// 边界安全：必须是「等于根目录」或「根目录 + 路径分隔符」开头，
+		// 避免 D:\TarsSecureGuard 误匹配 D:\TarsSecureGuardEvil
 		if abs == r || strings.HasPrefix(lower, rl+string(filepath.Separator)) {
 			return true
 		}
