@@ -15,7 +15,7 @@ import (
 // ===================== WAF 安全模块 =====================
 
 // WAF 规则：normal 模式仅检测路径穿越/命令注入等确定性模式；
-// strict 模式额外检测 SQLi / XSS 等文本模式（对聊天内容可能误报，需按需开启）。
+// strict 模式额外检测 SQLi / XSS / Prompt Injection / PII 等文本模式（对聊天内容可能误报，需按需开启）。
 var wafRules = []struct {
 	name   string
 	re     *regexp.Regexp
@@ -25,6 +25,8 @@ var wafRules = []struct {
 	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping)\\b|&&|;\\s*\\x60[a-z]+\\x60)"), false},
 	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
 	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
+	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*)`), true},
+	{"PII泄漏", regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b|\b\d{3}-\d{2}-\d{4}\b|\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b|\b1[3-9]\d{9}\b`), true},
 }
 
 func wafMatch(s string, strict bool) string {
@@ -209,6 +211,31 @@ func wafScanBody(b []byte, strict bool) string {
 		}
 	}
 	return wafMatch(sb.String(), false)
+}
+
+// piiMaskPatterns PII 脱敏正则（与 WAF 规则中的 PII泄漏 对应）
+var piiMaskPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b`),               // 信用卡
+	regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`),                                       // SSN
+	regexp.MustCompile(`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b`),          // 邮箱
+	regexp.MustCompile(`\b1[3-9]\d{9}\b`),                                              // 中国大陆手机号
+}
+
+// maskPII 对输入文本中的 PII 进行脱敏替换（****）
+func maskPII(s string) string {
+	for _, re := range piiMaskPatterns {
+		s = re.ReplaceAllString(s, "****")
+	}
+	return s
+}
+
+// maskPIIInMessages 对聊天消息数组中的 content 进行 PII 脱敏
+func maskPIIInMessages(msgs []Message) []Message {
+	out := make([]Message, len(msgs))
+	for i, m := range msgs {
+		out[i] = Message{Role: m.Role, Content: maskPII(m.Content)}
+	}
+	return out
 }
 
 func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {

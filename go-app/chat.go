@@ -47,6 +47,8 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "No messages"})
 		return
 	}
+	// PII 脱敏：在路由到后端前对消息内容脱敏
+	req.Messages = maskPIIInMessages(req.Messages)
 	content, backend, err := routeChat(req.Model, req.Messages)
 	reply := content
 	if err != nil {

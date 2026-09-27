@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	"syscall"
-	"unsafe"
 )
 
 // ===================== 设备信息 =====================
@@ -40,29 +38,6 @@ func getDeviceInfo() map[string]interface{} {
 type diskUsage struct {
 	Total uint64
 	Free  uint64
-}
-
-func getDiskUsage(path string) (diskUsage, error) {
-	var du diskUsage
-	pathPtr, err := syscall.UTF16PtrFromString(path)
-	if err != nil {
-		return du, err
-	}
-	dll := syscall.NewLazyDLL("kernel32.dll")
-	proc := dll.NewProc("GetDiskFreeSpaceExW")
-	r, _, cerr := proc.Call(
-		uintptr(unsafe.Pointer(pathPtr)),
-		uintptr(unsafe.Pointer(&du.Free)),
-		uintptr(unsafe.Pointer(&du.Total)),
-		0,
-	)
-	if r == 0 {
-		if cerr != nil {
-			return du, cerr
-		}
-		return du, fmt.Errorf("GetDiskFreeSpaceEx failed")
-	}
-	return du, nil
 }
 
 // ===================== 本地服务发现 =====================

@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -137,7 +136,7 @@ func callExternalMCP(serverName, method, toolName string, args map[string]interf
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, server.Command, server.Args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	applyHiddenWindow(cmd)
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
 	cmd.Stderr = io.Discard

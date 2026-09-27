@@ -23,12 +23,14 @@ type Config struct {
 		APIKey string `json:"apiKey"`
 	} `json:"search"`
 	Security struct {
-		WAFEnabled   bool   `json:"wafEnabled"`
-		Mode         string `json:"mode"` // normal | strict | off
-		APIKey       string `json:"apiKey"`
-		FirewallLock *bool  `json:"firewallLock"` // 默认 true：启动时自动加 Windows 防火墙规则
+		WAFEnabled      bool     `json:"wafEnabled"`
+		Mode            string   `json:"mode"` // normal | strict | off
+		APIKey          string   `json:"apiKey"`
+		FirewallLock    *bool    `json:"firewallLock"`    // 默认 true：启动时自动加 Windows 防火墙规则
+		AuditLogEnabled bool     `json:"auditLogEnabled"` // 审计日志开关（默认 true）
 	} `json:"security"`
-	MCP struct {
+	Users []User `json:"users"` // 多用户 RBAC（空则回退单管理员模式）
+	MCP   struct {
 		ExternalServers []ExtServer `json:"externalServers"`
 	} `json:"mcp"`
 	Paths struct {
@@ -36,6 +38,14 @@ type Config struct {
 		LlamaDir     string   `json:"llamaDir"`
 		AllowedRoots []string `json:"allowedRoots"`
 	} `json:"paths"`
+}
+
+// User 单用户配置（RBAC）
+type User struct {
+	Name    string `json:"name"`
+	APIKey  string `json:"apiKey"`
+	Role    string `json:"role"` // admin | user | readonly
+	Enabled bool   `json:"enabled"`
 }
 
 type CloudCfg struct {
@@ -71,6 +81,10 @@ func loadConfig() {
 			if !bytes.Contains(data, []byte(`"wafEnabled"`)) {
 				cfg.Security.WAFEnabled = true
 			}
+			// 审计日志默认开启
+			if !bytes.Contains(data, []byte(`"auditLogEnabled"`)) {
+				cfg.Security.AuditLogEnabled = true
+			}
 		}
 	}
 	// 默认值兜底
@@ -85,6 +99,19 @@ func loadConfig() {
 	}
 	if cfg.MCP.ExternalServers == nil {
 		cfg.MCP.ExternalServers = []ExtServer{}
+	}
+	// 环境变量可覆盖敏感 Key（防止明文落盘）
+	if v := os.Getenv("TARS_API_KEY"); v != "" {
+		cfg.Security.APIKey = v
+	}
+	if v := os.Getenv("TARS_OPENAI_KEY"); v != "" {
+		cfg.Cloud.OpenAI.APIKey = v
+	}
+	if v := os.Getenv("TARS_DEEPSEEK_KEY"); v != "" {
+		cfg.Cloud.DeepSeek.APIKey = v
+	}
+	if v := os.Getenv("TARS_SEARCH_KEY"); v != "" {
+		cfg.Search.APIKey = v
 	}
 	// 解析应用路径（模型目录 / llama 引擎目录 / 授权读写根）
 	resolvePaths()

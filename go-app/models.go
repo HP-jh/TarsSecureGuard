@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -180,7 +179,7 @@ func startLocalModel(id string) error {
 
 	cmd := exec.Command(serverPath, "-m", modelPath, "--port", strconv.Itoa(modelPort), "-ngl", "0", "-c", "4096")
 	cmd.Dir = llamaDir
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	applyHiddenWindow(cmd)
 
 	if err := cmd.Start(); err != nil {
 		mu.Lock()
@@ -404,6 +403,9 @@ func handleModelStart(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]interface{}{"success": false, "error": err.Error()})
 		return
 	}
+	if uname, _, _ := userFromRequest(r); uname != "" {
+		auditLog("MODEL_START", uname, id)
+	}
 	writeJSON(w, map[string]interface{}{"success": true, "running": true, "model": id})
 }
 
@@ -413,6 +415,9 @@ func handleModelStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	stopLocalModel()
+	if uname, _, _ := userFromRequest(r); uname != "" {
+		auditLog("MODEL_STOP", uname, "")
+	}
 	writeJSON(w, map[string]interface{}{"success": true, "running": false})
 }
 
@@ -481,6 +486,9 @@ func handleModelDownload(w http.ResponseWriter, r *http.Request) {
 	name := body["name"]
 	urlStr := body["url"]
 	logMsg(fmt.Sprintf("[DOWNLOAD] 开始下载模型: %s", name))
+	if uname, _, _ := userFromRequest(r); uname != "" {
+		auditLog("MODEL_DOWNLOAD", uname, name)
+	}
 	go func() {
 		if err := downloadModel(name, urlStr); err != nil {
 			logMsg(fmt.Sprintf("[DOWNLOAD] %s 失败: %v", name, err))

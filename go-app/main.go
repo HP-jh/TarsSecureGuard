@@ -118,6 +118,7 @@ func main() {
 	mux.HandleFunc("/api/admin/security/status", handleSecurity)
 	mux.HandleFunc("/api/admin/security/waf-logs", handleWAFLogs)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
+	mux.HandleFunc("/api/admin/audit-logs", handleAuditLogs)
 	mux.HandleFunc("/api/admin/config", handleConfig)
 	mux.HandleFunc("/api/search", handleSearch)
 	mux.HandleFunc("/api/feishu/", handleFeishu)
@@ -202,12 +203,24 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
 			return
 		}
-		if !isAuthorized(r) {
+		name, role, ok := userFromRequest(r)
+		if !ok {
 			mu.Lock()
 			failReq++
 			mu.Unlock()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
 			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
+			return
+		}
+		// RBAC：admin 端点仅 admin 可访问；其余端点 admin/user 均可；readonly 仅只读
+		if isAdminRoute(r.URL.Path) && role != "admin" {
+			auditLog("ACCESS_DENIED", name, r.URL.Path+" 需要 admin 角色")
+			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: 需要 admin 角色"})
+			return
+		}
+		if r.Method != http.MethodGet && role == "readonly" {
+			auditLog("ACCESS_DENIED", name, r.URL.Path+" readonly 用户禁止写操作")
+			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: readonly 用户禁止写操作"})
 			return
 		}
 		mu.Lock()
@@ -340,7 +353,7 @@ func modelState() (bool, string) {
 	return modelRunning, currentModel
 }
 
-// sanitizedConfig 返回脱敏后的配置（API Key 一律 ***）
+// sanitizedConfig 返回脱敏后的配置（所有 API Key 一律 ***）
 func sanitizedConfig() map[string]interface{} {
 	b, _ := json.Marshal(cfg)
 	var m map[string]interface{}
@@ -358,6 +371,14 @@ func sanitizedConfig() map[string]interface{} {
 	if sec, ok := m["security"].(map[string]interface{}); ok && sec["apiKey"] != "" {
 		sec["apiKey"] = "***"
 	}
+	// 多用户 Key 脱敏
+	if users, ok := m["users"].([]interface{}); ok {
+		for _, u := range users {
+			if us, ok := u.(map[string]interface{}); ok && us["apiKey"] != "" {
+				us["apiKey"] = "***"
+			}
+		}
+	}
 	return m
 }
 
@@ -367,7 +388,7 @@ func isConfigPathAllowed(path string) bool {
 		"cloud.openai.apiKey", "cloud.openai.baseUrl", "cloud.openai.name",
 		"cloud.deepseek.apiKey", "cloud.deepseek.baseUrl", "cloud.deepseek.name",
 		"search.apiKey", "search.engine",
-		"security.mode", "security.wafEnabled",
+		"security.mode", "security.wafEnabled", "security.auditLogEnabled",
 	}
 	for _, a := range allowed {
 		if path == a {
@@ -375,6 +396,91 @@ func isConfigPathAllowed(path string) bool {
 		}
 	}
 	return false
+}
+
+// ===================== RBAC 与审计日志 =====================
+
+// userFromRequest 从请求中提取用户身份（多用户模式优先，否则回退单管理员）
+func userFromRequest(r *http.Request) (name string, role string, ok bool) {
+	key := extractAPIKey(r)
+	if key == "" {
+		return "", "", false
+	}
+	cfgMu.RLock()
+	defer cfgMu.RUnlock()
+	// 多用户模式
+	for _, u := range cfg.Users {
+		if u.Enabled && subtle.ConstantTimeCompare([]byte(key), []byte(u.APIKey)) == 1 {
+			return u.Name, u.Role, true
+		}
+	}
+	// 回退单管理员模式
+	want := gatewayAPIKey()
+	if want != "" && subtle.ConstantTimeCompare([]byte(key), []byte(want)) == 1 {
+		return "admin", "admin", true
+	}
+	return "", "", false
+}
+
+// extractAPIKey 从请求头提取 API Key（与 validKey 逻辑一致，但返回 key 本身）
+func extractAPIKey(r *http.Request) string {
+	key := r.Header.Get("X-API-Key")
+	if key == "" {
+		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+			key = strings.TrimPrefix(h, "Bearer ")
+		}
+	}
+	return key
+}
+
+// requireRole 中间件：拒绝无所需角色的请求
+func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name, role, ok := userFromRequest(r)
+		if !ok {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
+			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		for _, allowed := range roles {
+			if role == allowed {
+				next(w, r)
+				return
+			}
+		}
+		auditLog("ACCESS_DENIED", name, fmt.Sprintf("路径 %s 需要角色 %v，当前 %s", r.URL.Path, roles, role))
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: 需要 " + strings.Join(roles, "/")})
+	}
+}
+
+// isAdminRoute 判断是否为仅 admin 可访问的管理端点
+func isAdminRoute(path string) bool {
+	adminPaths := []string{
+		"/api/admin/models/start", "/api/admin/models/stop",
+		"/api/admin/model/download", "/api/admin/config",
+		"/api/admin/security/status", "/api/admin/security/waf-logs",
+		"/api/admin/logs", "/api/admin/v32/auto-discovery/scan",
+	}
+	for _, p := range adminPaths {
+		if path == p {
+			return true
+		}
+	}
+	return false
+}
+
+// auditLog 写入审计日志：audit-YYYY-MM-DD.log + 内存日志
+func auditLog(action, user, detail string) {
+	cfgMu.RLock()
+	enabled := cfg.Security.AuditLogEnabled
+	cfgMu.RUnlock()
+	if !enabled {
+		return
+	}
+	line := fmt.Sprintf("[%s] ACTION=%s USER=%s IP=%s DETAIL=%s",
+		time.Now().Format("2006-01-02 15:04:05"), action, user, "-", detail)
+	fileLog("audit", line)
+	logMsg("[AUDIT] " + line)
 }
 
 func isHTTPURL(s string) bool {

@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -99,6 +102,33 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"logs": l})
 }
 
+func handleAuditLogs(w http.ResponseWriter, r *http.Request) {
+	// 只允许 admin 查看审计日志（已在中间件 RBAC 中校验，此处额外确认）
+	name, role, _ := userFromRequest(r)
+	if role != "admin" {
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "仅 admin 可查看审计日志"})
+		return
+	}
+	// 读取当日审计日志文件
+	lines := []string{}
+	if logFileDir != "" {
+		name := filepath.Join(logFileDir, fmt.Sprintf("audit-%s.log", time.Now().Format("2006-01-02")))
+		if data, err := os.ReadFile(name); err == nil {
+			for _, line := range strings.Split(string(data), "\n") {
+				if strings.TrimSpace(line) != "" {
+					lines = append(lines, line)
+				}
+			}
+			// 限制返回最近 500 条
+			if len(lines) > 500 {
+				lines = lines[len(lines)-500:]
+			}
+		}
+	}
+	auditLog("AUDIT_LOG_VIEW", name, fmt.Sprintf("查看审计日志 %d 条", len(lines)))
+	writeJSON(w, map[string]interface{}{"logs": lines, "count": len(lines)})
+}
+
 func handleConfig(w http.ResponseWriter, r *http.Request) {
 	// POST：批量保存白名单配置（{ "security.mode": "strict", "search.engine": "serper" }）
 	if r.Method == http.MethodPost {
@@ -130,6 +160,8 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			saveConfig()
 			logMsg(fmt.Sprintf("[CONFIG] 已保存 %d 项配置", applied))
 		}
+		uname, _, _ := userFromRequest(r)
+		auditLog("CONFIG_CHANGE", uname, fmt.Sprintf("修改 %d 项配置", applied))
 		writeJSON(w, map[string]interface{}{"success": true, "applied": applied})
 		return
 	}
@@ -142,7 +174,13 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	wafOn := cfg.Security.WAFEnabled
 	mode := cfg.Security.Mode
 	apiKeySet := cfg.Security.APIKey != ""
+	auditOn := cfg.Security.AuditLogEnabled
+	users := append([]User(nil), cfg.Users...)
 	cfgMu.RUnlock()
+	// 脱敏用户 Key
+	for i := range users {
+		users[i].APIKey = "***"
+	}
 	writeJSON(w, map[string]interface{}{
 		"server": map[string]interface{}{
 			"port":       port,
@@ -155,9 +193,10 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			"autoRecover": true,
 		},
 		"security": map[string]interface{}{
-			"wafEnabled": wafOn,
-			"mode":       mode,
-			"apiKeySet":  apiKeySet,
+			"wafEnabled":      wafOn,
+			"mode":            mode,
+			"apiKeySet":       apiKeySet,
+			"auditLogEnabled": auditOn,
 		},
 		"search": map[string]interface{}{
 			"engine": eng,
@@ -170,6 +209,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		"mcp": map[string]interface{}{
 			"externalServers": extServers,
 		},
+		"users": users,
 		"tools": toolNames(),
 	})
 }
