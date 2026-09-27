@@ -56,7 +56,7 @@ func initTools() {
 			},
 		},
 		"tars_model_start": {
-			Name: "tars_model_start", Description: "启动本地 GGUF 模型",
+			Name: "tars_model_start", Description: "启动本地 GGUF 模型（如 qwen2.5-3b / qwen2.5-7b / qwen2.5-coder-3b）",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"model": map[string]interface{}{"type": "string", "description": "本地模型 ID"},
 			}, "required": []string{"model"}},
@@ -255,9 +255,12 @@ func initTools() {
 				blocks := wafBlocks
 				mu.Unlock()
 				return map[string]interface{}{
-					"wafEnabled":    wafOn,
-					"mode":          mode,
-					"wafBlockCount": blocks,
+					"wafEnabled":            wafOn,
+					"mode":                  mode,
+					"wafBlockCount":         blocks,
+					"threatIntelBlockCount": 0,
+					"domainBlockCount":      0,
+					"safeModeTriggerCount":  0,
 				}, nil
 			},
 		},
@@ -273,7 +276,7 @@ func initTools() {
 		"tars_config_set": {
 			Name: "tars_config_set", Description: "更新网关配置（如云端 API Key、搜索后端）并保存",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
-				"path":  map[string]interface{}{"type": "string", "description": "配置路径"},
+				"path":  map[string]interface{}{"type": "string", "description": "配置路径，如 cloud.deepseek.apiKey / search.engine"},
 				"value": map[string]interface{}{},
 			}, "required": []string{"path", "value"}},
 			Handler: func(a map[string]interface{}) (interface{}, error) {
@@ -335,6 +338,7 @@ func initTools() {
 				if k != "" {
 					return map[string]interface{}{"key": k, "value": memory[k]}, nil
 				}
+				// 返回副本，避免外部并发写导致 map 读写竞争崩溃
 				cp := make(map[string]string, len(memory))
 				for kk, vv := range memory {
 					cp[kk] = vv
@@ -353,7 +357,7 @@ func initTools() {
 			},
 		},
 		"tars_openapi_operation": {
-			Name: "tars_openapi_operation", Description: "从 OpenAPI 规范中获取指定操作详情",
+			Name: "tars_openapi_operation", Description: "从 OpenAPI 规范中获取指定操作详情（按 operationId 或路由）",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"id":                 map[string]interface{}{"type": "string", "description": "OpenAPI 规范的 URL 或本地文件路径"},
 				"operationIdOrRoute": map[string]interface{}{"type": "string", "description": "操作 ID 或路由路径"},
@@ -365,7 +369,7 @@ func initTools() {
 			},
 		},
 		"tars_agent_run": {
-			Name: "tars_agent_run", Description: "运行内置智能体",
+			Name: "tars_agent_run", Description: "运行内置智能体（code-assistant / writing-assistant / translator / summarizer / data-analyst / security-analyst / urgent-responder）",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"agent":  map[string]interface{}{"type": "string", "description": "智能体 ID"},
 				"prompt": map[string]interface{}{"type": "string", "description": "任务描述"},
@@ -383,7 +387,7 @@ func initTools() {
 			},
 		},
 		"tars_external_mcp": {
-			Name: "tars_external_mcp", Description: "调用已注册的外部 MCP 服务器工具",
+			Name: "tars_external_mcp", Description: "调用已注册的外部 MCP 服务器工具（filesystem / fetch），method 为 tools/list 或 tools/call",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
 				"server":    map[string]interface{}{"type": "string", "description": "服务器名 filesystem 或 fetch"},
 				"method":    map[string]interface{}{"type": "string", "description": "tools/list 或 tools/call"},

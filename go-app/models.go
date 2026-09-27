@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -29,50 +28,16 @@ type ModelInfo struct {
 	Backend string `json:"backend"`
 }
 
-// 本地 GGUF 模型注册表（动态扫描 modelDir 下的 .gguf 文件）
+// 本地 GGUF 模型注册表
 type GGUFModel struct {
 	ID   string
 	File string
 }
 
-// 默认模型（modelDir 为空时的 fallback）
-var defaultGGUFModels = []GGUFModel{
+var ggufModels = []GGUFModel{
 	{ID: "qwen2.5-3b", File: "qwen2.5-3b-instruct-q4_k_m.gguf"},
 	{ID: "qwen2.5-7b", File: "qwen2.5-7b-instruct-q3_k_m.gguf"},
 	{ID: "qwen2.5-coder-3b", File: "qwen2.5-coder-3b-instruct-q4_k_m.gguf"},
-}
-
-// ggufModels 是启动时扫描后的模型列表
-var ggufModels = []GGUFModel{}
-
-// refreshGGUFModels 扫描 modelDir 下的所有 .gguf 文件，合并到模型列表
-func refreshGGUFModels() {
-	seen := map[string]bool{}
-	var result []GGUFModel
-	for _, gm := range defaultGGUFModels {
-		p := filepath.Join(modelDir, gm.File)
-		if _, err := os.Stat(p); err == nil {
-			result = append(result, gm)
-			seen[gm.ID] = true
-		}
-	}
-	entries, err := os.ReadDir(modelDir)
-	if err != nil {
-		ggufModels = result
-		return
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".gguf") {
-			continue
-		}
-		id := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-		if seen[id] {
-			continue
-		}
-		result = append(result, GGUFModel{ID: id, File: e.Name()})
-		seen[id] = true
-	}
-	ggufModels = result
 }
 
 func getLocalModelList() []map[string]interface{} {
@@ -134,6 +99,17 @@ func getModels() []ModelInfo {
 			ms = append(ms, ModelInfo{ID: mdl, Name: mdl, Type: "chat", Status: "configured", Source: "cloud", Backend: cc.Name})
 		}
 	}
+	// 合并后台自动发现的模型（新增）：按 ID 去重，补充上面实时探测未覆盖的来源
+	seen := map[string]bool{}
+	for _, m := range ms {
+		seen[m.ID] = true
+	}
+	for _, m := range getDiscoveredModels() {
+		if !seen[m.ID] {
+			ms = append(ms, m)
+			seen[m.ID] = true
+		}
+	}
 	return ms
 }
 
@@ -186,11 +162,7 @@ func startLocalModel(id string) error {
 		mu.Lock()
 		starting = false
 		mu.Unlock()
-		var available []string
-		for _, gm := range ggufModels {
-			available = append(available, gm.ID)
-		}
-		return fmt.Errorf("模型不存在: %s（可用: %s）", id, strings.Join(available, " / "))
+		return fmt.Errorf("模型不存在: %s（可用: qwen2.5-3b / qwen2.5-7b / qwen2.5-coder-3b）", id)
 	}
 	serverPath := filepath.Join(llamaDir, "llama-server.exe")
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
@@ -326,6 +298,86 @@ func detectOllama() []ModelInfo {
 		ms = append(ms, ModelInfo{ID: "ollama/" + m.Name, Name: m.Name, Type: "chat", Status: "online", Source: "ollama", Size: sizeStr, Backend: "ollama"})
 	}
 	return ms
+}
+
+// ===================== 模型自动发现（新增：v1.0.2 功能强化） =====================
+//
+// 后台周期性探测三类本地推理服务，发现后自动更新可用模型列表（无需手动配置）：
+//  1. LM Studio  —— http://127.0.0.1:1234/v1/models
+//  2. Ollama     —— http://127.0.0.1:11434/api/tags
+//  3. llama.cpp  —— llama-server 默认端口 http://127.0.0.1:8080/v1/models
+//     （本程序自管的 llama-server 使用 18890，见 modelPort，此处探测的是独立部署的实例）
+
+var (
+	discMu           sync.Mutex
+	discoveredModels []ModelInfo // 自动发现的外部模型缓存（后台 goroutine 定期刷新）
+)
+
+// llamaCppBaseURL 为独立部署的 llama.cpp llama-server 默认地址
+const llamaCppBaseURL = "http://127.0.0.1:8080"
+
+// llamaCppReachable 检测本地 llama.cpp llama-server 是否在默认端口 8080 运行
+func llamaCppReachable() bool {
+	resp, err := httpClientShort.Get(llamaCppBaseURL + "/v1/models")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200
+}
+
+// detectLLamaCpp 探测默认端口上 llama.cpp 服务的模型列表（OpenAI 兼容 /v1/models）
+func detectLLamaCpp() []ModelInfo {
+	var ms []ModelInfo
+	resp, err := httpClientShort.Get(llamaCppBaseURL + "/v1/models")
+	if err != nil {
+		return ms
+	}
+	defer resp.Body.Close()
+	var data struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	json.NewDecoder(resp.Body).Decode(&data)
+	for _, m := range data.Data {
+		ms = append(ms, ModelInfo{ID: "llamacpp/" + m.ID, Name: m.ID, Type: "chat", Status: "online", Source: "llamacpp", Backend: "llama.cpp"})
+	}
+	return ms
+}
+
+// autoDiscoverModels 一次性探测 LM Studio / Ollama / llama.cpp 三类本地推理服务
+func autoDiscoverModels() []ModelInfo {
+	var out []ModelInfo
+	out = append(out, detectLMStudio()...)
+	out = append(out, detectOllama()...)
+	out = append(out, detectLLamaCpp()...)
+	return out
+}
+
+// refreshDiscoveredModels 刷新自动发现的模型缓存；
+// 发现此前未见过的模型时记录一条运行日志，便于在面板日志中看到发现过程。
+func refreshDiscoveredModels() {
+	fresh := autoDiscoverModels()
+	discMu.Lock()
+	known := map[string]bool{}
+	for _, m := range discoveredModels {
+		known[m.ID] = true
+	}
+	for _, m := range fresh {
+		if !known[m.ID] {
+			logMsg(fmt.Sprintf("[DISCOVERY] 自动发现模型: %s (来源: %s)", m.ID, m.Source))
+		}
+	}
+	discoveredModels = fresh
+	discMu.Unlock()
+}
+
+// getDiscoveredModels 返回自动发现缓存的快照（并发安全）
+func getDiscoveredModels() []ModelInfo {
+	discMu.Lock()
+	defer discMu.Unlock()
+	return append([]ModelInfo(nil), discoveredModels...)
 }
 
 // ===================== 模型管理 API =====================
