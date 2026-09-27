@@ -1,0 +1,50 @@
+{
+  "cloud": {
+    "openai": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "deepseek": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "custom": null
+  },
+  "search": {
+    "engine": "builtin",
+    "apiKey": ""
+  },
+  "security": {
+    "wafEnabled": true,
+    "mode": "normal"
+  },
+  "mcp": {
+    "externalServers": [
+      {
+        "name": "filesystem",
+        "command": "C:\\Program Files\\nodejs\\node.exe",
+        "args": [
+          "D:\\AI-Tools\\MCP-Servers\\node_modules\\@modelcontextprotocol\\server-filesystem\\dist\\index.js",
+          "D:\\",
+          "C:\\Users\\q1736\\Desktop",
+          "C:\\Users\\q1736\\Documents",
+          "C:\\Users\\q1736\\Downloads"
+        ],
+        "enabled": true
+      },
+      {
+        "name": "fetch",
+        "command": "C:\\Users\\q1736\\AppData\\Local\\Python\\bin\\python.exe",
+        "args": [
+          "-m",
+          "mcp_server_fetch"
+        ],
+        "enabled": true
+      }
+    ]
+  }
+}
