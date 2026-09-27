@@ -1,116 +1,99 @@
-# TarsSecureGuard
+<div align="center">
 
-**Local AI Gateway · Double-click to run · Open Source (MIT) · v1.0.0**
+# 🛡️ TarsSecureGuard
 
-TarsSecureGuard is a local AI gateway that runs on your own computer. It gives you a
-graphical, beginner-friendly control panel for:
+**Local AI Security Gateway · Single Binary · Open Source (MIT) · v1.0.3**
 
-- Managing **local GGUF models** powered by [llama.cpp](https://github.com/ggerganov/llama.cpp)
-- Routing requests to **cloud LLM APIs** (OpenAI-compatible, DeepSeek, etc.)
-- Calling **MCP servers** (filesystem, fetch, and your own)
-- Searching the web with a built-in engine or Serper
-- A **WAF-style security layer** (request scanning, path allow-list, rate limiting, threat intel blocks)
+[![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Everything stays on `127.0.0.1:18889` by default. No accounts, no cloud dependency — your
-models and your data stay on your machine.
+[中文](README.md) · [Quick Start](#quick-start) · [Build](#build) · [Features](#features)
 
----
+</div>
+
+TarsSecureGuard is a **local AI security gateway** that sits between your AI clients and backend models — one entry, one auth layer, one WAF, one audit log. Point any OpenAI-compatible client (ChatBox / NextChat / Cursor / etc.) at `http://127.0.0.1:18889/v1` and every request goes through the gateway first.
+
+Everything stays on `127.0.0.1:18889` by default. No accounts, no cloud dependency — your models and your data stay on your machine.
+
+> Built by a young developer learning Go, with AI assistance. Since v1.0.3 it builds on **Windows / Linux / macOS**.
+
+## What's New in v1.0.3
+
+- 🌍 **Cross-platform builds** — Windows / Linux / macOS from the same source (build tags for disk stats & subprocess handling)
+- 👥 **Multi-user RBAC** — `admin / user / readonly` roles with per-user API keys; empty `users` falls back to single-admin (100% backward compatible)
+- 📜 **Structured audit logs** — config changes, model start/stop, access denials all logged to `logs/audit-*.log`; query via `GET /api/admin/audit-logs`
+- 🧠 **Prompt Injection defense** — strict mode blocks jailbreak / ignore-previous-instructions patterns with 403
+- 🔏 **PII detection & masking** — phone numbers, emails, credit cards, SSNs are masked to `****` before reaching backends
+- 🔑 **Keys via environment** — `TARS_API_KEY` / `TARS_OPENAI_KEY` / `TARS_DEEPSEEK_KEY` / `TARS_SEARCH_KEY` override config; all key fields are masked in API responses
 
 ## Features
 
 | Area | What you get |
 |---|---|
-| 🖥️ **Graphical UI** | Embedded web dashboard (dark theme): Dashboard, AI Chat, Models, Agents, MCP Tools, Discovery, Security, WAF Logs, Device, Logs, Settings |
-| 🤖 **Local models** | Auto-scan your hardware, get recommended GGUF models, one-click download with progress bar, run via bundled llama.cpp |
-| ☁️ **Cloud backends** | OpenAI-compatible endpoints (`cloud.openai`, `cloud.deepseek`, ...) with API keys stored in config |
-| 🔌 **MCP support** | Built-in `filesystem` + `fetch` MCP servers, plus a relay to call any registered tool |
-| 🔍 **Web search** | Built-in Bing RSS engine (no key) or Serper (with key), usable from chat |
-| 🛡️ **Security** | API key auth (X-API-Key / Bearer), WAF request scanning, path allow-list with boundary checks, CORS origin allow-list, security headers, auto fallback between backends |
-| 🧠 **Agents** | Built-in agent personas (code assistant, writing, security analyst, translator, ...) |
-| 📦 **Portable** | Single `TarsSecureGuard-v1.0.0.exe` — no runtime install needed on Windows |
+| 🖥️ **Graphical UI** | Embedded web dashboard: Dashboard, AI Chat, Models, Agents, MCP Tools, Discovery, Security, WAF Logs, Audit Logs, Device, Settings |
+| 🤖 **Local models** | Auto-scan hardware, recommended GGUF downloads with progress, bundled llama.cpp |
+| ☁️ **Cloud backends** | OpenAI-compatible endpoints with per-service API keys |
+| 🔌 **MCP support** | Built-in filesystem + fetch MCP servers, plus a stdio JSON-RPC relay |
+| 🔍 **Web search** | Built-in Bing RSS (no key) or Serper |
+| 🛡️ **Security** | API key auth (X-API-Key / Bearer), WAF (traversal/SQLi/XSS/PromptInjection/PII), scanner UA blacklist, sensitive-path blocking, rate limiting, path allow-list, CORS allow-list, security headers |
+| 👥 **RBAC** | admin / user / readonly roles with per-user keys and audit logging |
+| 📦 **Portable** | Single binary with embedded frontend — no runtime install |
 
----
+## Quick Start
 
-## Quick Start (Windows)
+1. Download or build the binary (see below).
+2. Run it — the gateway starts and opens the browser at `http://127.0.0.1:18889`.
+3. First-run wizard scans hardware and offers a recommended local model.
+4. Point your OpenAI-compatible client at `http://127.0.0.1:18889/v1`, API key = `security.apiKey` from `config.json` (default `tars-gateway-key` — **change it**).
 
-1. Download `TarsSecureGuard-v1.0.0.exe` from the latest release.
-2. Double-click it. The gateway starts and opens your browser at `http://127.0.0.1:18889`.
-3. First-run wizard helps you scan hardware and download a recommended local model.
-4. Put extra GGUF files into the `Models` folder next to the exe, then click **Rescan**.
+Linux / macOS: just `go build` and run — same layout.
 
-Default API key: `tars-gateway-key` (change it in **Settings** → API Key).
+## Build
 
----
-
-## Build from Source
-
-Requirements: [Go](https://go.dev/) 1.21+ (tested with 1.22+).
+Requirements: [Go](https://go.dev/dl/) 1.22+.
 
 ```bash
 cd go-app
-go build -o TarsSecureGuard-v1.0.0.exe .
+go build -o tars .                                   # current platform
+GOOS=windows GOARCH=amd64 go build -o TarsSecureGuard.exe .
+GOOS=linux   GOARCH=amd64 go build -o tars-linux .
+GOOS=darwin  GOARCH=amd64 go build -o tars-macos .
 ```
 
-Or just run `build.bat` at the repository root — it also generates a config template.
-
-The frontend (`frontend/index.html`) is embedded into the binary at build time, so the exe
-is fully self-contained.
-
----
+Or run `build.bat` (Windows). The frontend is embedded via `go:embed`.
 
 ## Configuration
 
-`config.json` sits next to the exe. Key sections:
+`config.json` sits next to the binary (auto-generated on first run). Key sections:
 
 ```jsonc
 {
-  "security": { "apiKey": "tars-gateway-key", "mode": "normal", "wafEnabled": true },
-  "search":   { "engine": "builtin", "apiKey": "" },
-  "cloud": {
-    "openai":   { "apiKey": "", "baseUrl": "", "name": "" },
-    "deepseek": { "apiKey": "", "baseUrl": "", "name": "" }
-  }
+  "security": { "apiKey": "tars-gateway-key", "mode": "normal", "wafEnabled": true, "auditLogEnabled": true },
+  "users": [
+    { "name": "admin1", "apiKey": "...", "role": "admin", "enabled": true },
+    { "name": "user1",  "apiKey": "...", "role": "user",   "enabled": true },
+    { "name": "guest",  "apiKey": "...", "role": "readonly", "enabled": true }
+  ],
+  "search": { "engine": "builtin", "apiKey": "" },
+  "cloud": { "openai": { "apiKey": "", "baseUrl": "", "name": "" } }
 }
 ```
 
-Most settings are editable from the web UI (**Settings** page). Secrets are masked when
-read back over the API.
-
----
-
-## API Overview
-
-All routes live under `/api` and require the API key:
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /api/chat/completions` | Chat (OpenAI-compatible request body) |
-| `GET  /api/admin/models` | List models |
-| `POST /api/admin/model/download` | Download a GGUF by URL (progress at `/api/admin/model/download/status`) |
-| `GET  /api/admin/security/status` | Security stats |
-| `GET  /api/admin/security/waf-logs` | WAF block log |
-| `POST /api/admin/config` | Save config by whitelisted dotted paths (e.g. `security.mode`) |
-| `POST /mcp` | Call an MCP tool (`{tool, args}`) |
-
----
+Env vars override config: `TARS_API_KEY`, `TARS_OPENAI_KEY`, `TARS_DEEPSEEK_KEY`, `TARS_SEARCH_KEY`.
 
 ## Security Notes
 
-- All `/api` routes require `X-API-Key` or `Authorization: Bearer <key>`.
-- WAF scans requests (path traversal, SQLi patterns, oversized bodies, rate limiting).
-- CORS echoes back only trusted origins (never `*`).
-- Model download URLs are allow-listed to `huggingface.co` / `hf-mirror.com` / `modelscope.cn`.
-- Bind address and port are configurable; default is loopback-only.
-
----
+- All `/api` routes require `X-API-Key` or `Authorization: Bearer <key>`; comparisons are constant-time.
+- WAF scans path traversal, SQLi, XSS, prompt injection (strict), oversized bodies, scanner UAs, sensitive paths, and abnormal HTTP methods.
+- PII (phone / email / credit card / SSN) is masked in chat traffic before hitting backends.
+- CORS echoes back only trusted loopback origins, never `*`.
+- Listen address is loopback-only by default.
 
 ## License
 
 MIT — see [LICENSE](LICENSE). Free for personal and commercial use.
 
----
-
 ## Project Status
 
-Built and maintained by a young developer learning Go, with a focus on making local LLMs
-accessible to everyone. Feedback, issues and pull requests are welcome.
+Built and maintained by a young developer learning Go, focused on making local LLMs accessible and safe. Feedback, issues and PRs are welcome.
