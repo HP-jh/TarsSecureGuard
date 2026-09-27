@@ -8,6 +8,7 @@ import (
 	"unsafe"
 )
 
+// ===================== 设备信息 =====================
 func getDeviceInfo() map[string]interface{} {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -64,6 +65,7 @@ func getDiskUsage(path string) (diskUsage, error) {
 	return du, nil
 }
 
+// ===================== 本地服务发现 =====================
 func discoverLocal() map[string]interface{} {
 	running, cur := modelState()
 	services := []map[string]interface{}{

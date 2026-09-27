@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// ===================== 聊天 API =====================
 type ChatRequest struct {
 	Messages []Message `json:"messages"`
 	Model    string    `json:"model"`
@@ -131,6 +132,7 @@ func getAgentPrompt(id string) string {
 	}
 }
 
+// ===================== 模型路由 =====================
 func routeChat(model string, msgs []Message) (string, string, error) {
 	backend := "llama"
 	target := model
@@ -305,6 +307,7 @@ func callCloudChat(model string, msgs []Message) (string, string, error) {
 	return "", "cloud", fmt.Errorf("云端模型 %s 未配置", model)
 }
 
+// ===================== OpenAI 兼容 /v1 =====================
 func handleV1(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
@@ -343,7 +346,7 @@ func handleV1(w http.ResponseWriter, r *http.Request) {
 		}
 		content, backend, err := routeChat(req.Model, req.Messages)
 		if err != nil {
-			writeJSONStatus(w, http.StatusServiceUnavailable, map[string]interface{}{"error": map[string]interface{}{"message": err.Error(), "backend": backend}})
+			writeJSONStatus(w, http.StatusServiceUnavailable, map[string]interface{}{"error": map[string]string{"message": err.Error(), "backend": backend}})
 			return
 		}
 		mu.Lock()
@@ -367,7 +370,7 @@ func handleV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSONStatus(w, http.StatusNotFound, map[string]interface{}{"error": map[string]interface{}{"message": "Not found: " + path}})
+	writeJSONStatus(w, http.StatusNotFound, map[string]interface{}{"error": map[string]string{"message": "Not found: " + path}})
 }
 
 func handleV1Root(w http.ResponseWriter, r *http.Request) {

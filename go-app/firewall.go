@@ -85,12 +85,12 @@ func firewallStatus() map[string]interface{} {
 	firewallMu.Lock()
 	defer firewallMu.Unlock()
 	return map[string]interface{}{
-		"applied":       firewallApplied,
-		"enabled":      firewallLockEnabled(),
-		"ruleName":     firewallRuleName,
-		"message":      firewallLastMsg,
-		"port":         port,
-		"platform":     runtime.GOOS,
+		"applied":     firewallApplied,
+		"enabled":    firewallLockEnabled(),
+		"ruleName":    firewallRuleName,
+		"message":     firewallLastMsg,
+		"port":        port,
+		"platform":    runtime.GOOS,
 		"loopbackOnly": true,
 	}
 }

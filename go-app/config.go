@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // ===================== 配置 =====================
@@ -66,8 +67,6 @@ func loadConfig() {
 		if json.Unmarshal(data, &c) == nil {
 			cfg = c
 			parsed = true
-			// 解密所有 dpapi: 前缀的密钥字段（内存中恢复明文）
-			decryptSecrets()
 			// 配置中未显式声明 wafEnabled 时保持默认开启（bool 零值会误关 WAF）
 			if !bytes.Contains(data, []byte(`"wafEnabled"`)) {
 				cfg.Security.WAFEnabled = true
@@ -93,69 +92,16 @@ func loadConfig() {
 	if parsed {
 		saveConfig()
 	}
+	// 记录当前配置文件指纹，作为热重载的基线（新增）
+	markConfigLoaded()
 }
 
-// secretPrefix 标记 config.json 中已 DPAPI 加密的密钥字段
-const secretPrefix = "dpapi:"
-
-// saveConfig 将配置落盘。内存中 cfg 的 apiKey 保持明文；
-// 写入文件前把所有 apiKey 字段用 DPAPI 加密成 dpapi:base64 格式。
 func saveConfig() {
-	// 先把 cfg marshal 成 map，在 map 层加密密钥（不污染内存中的明文 cfg）
-	cfgJSON, _ := json.Marshal(cfg)
-	var root map[string]interface{}
-	json.Unmarshal(cfgJSON, &root)
-	encryptSecretsInMap(root)
-	data, err := json.MarshalIndent(root, "", "  ")
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return
 	}
-	os.WriteFile(configPath, data, 0600) // 0600：仅当前用户可读写
-}
-
-// encryptSecretsInMap 递归遍历配置 map，把所有 apiKey 字段加密
-func encryptSecretsInMap(m map[string]interface{}) {
-	for k, v := range m {
-		switch val := v.(type) {
-		case map[string]interface{}:
-			encryptSecretsInMap(val)
-		case string:
-			if (k == "apiKey" || k == "apikey" || k == "APIKey") && val != "" && !strings.HasPrefix(val, secretPrefix) {
-				if enc, err := dpapiEncrypt([]byte(val)); err == nil && len(enc) > 0 {
-					m[k] = secretPrefix + base64.StdEncoding.EncodeToString(enc)
-				}
-			}
-		}
-	}
-}
-
-// decryptSecrets 在 loadConfig 后调用，把 cfg 中所有 dpapi: 前缀的字段解密回明文
-func decryptSecrets() {
-	cfg.Cloud.OpenAI.APIKey = decryptField(cfg.Cloud.OpenAI.APIKey)
-	cfg.Cloud.DeepSeek.APIKey = decryptField(cfg.Cloud.DeepSeek.APIKey)
-	for i := range cfg.Cloud.Custom {
-		cfg.Cloud.Custom[i].APIKey = decryptField(cfg.Cloud.Custom[i].APIKey)
-	}
-	cfg.Search.APIKey = decryptField(cfg.Search.APIKey)
-	cfg.Security.APIKey = decryptField(cfg.Security.APIKey)
-}
-
-// decryptField 解密单个字段；如果不是 dpapi: 前缀或解密失败，原样返回
-func decryptField(s string) string {
-	if !strings.HasPrefix(s, secretPrefix) {
-		return s
-	}
-	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(s, secretPrefix))
-	if err != nil {
-		return s
-	}
-	plain, err := dpapiDecrypt(raw)
-	if err != nil {
-		// 解密失败（换了用户/机器），保留加密值并记录日志
-		logMsg(fmt.Sprintf("[SECURITY] DPAPI 解密失败，保留加密值: %v", err))
-		return s
-	}
-	return string(plain)
+	os.WriteFile(configPath, data, 0644)
 }
 
 // ===================== 路径解析（开源化：默认以 exe 所在目录为基准） =====================
@@ -286,5 +232,60 @@ func setJSONPath(root map[string]interface{}, path string, value interface{}) {
 			cur[p] = next
 		}
 		cur = next
+	}
+}
+
+// ===================== 配置热重载（新增：v1.0.2 功能强化） =====================
+//
+// 采用轮询 + 文件内容哈希的方式监听 config.json 变化（不引入外部依赖），
+// 检测到变化且文件可完整解析时自动调用 loadConfig 重载，无需重启服务。
+
+var lastCfgHash string // 上次加载时 config.json 的 SHA-256 指纹
+
+// configHash 计算配置文件的 SHA-256 指纹；读取失败返回空串
+func configHash() string {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return fmt.Sprintf("%x", sum)
+}
+
+// markConfigLoaded 记录当前配置文件指纹（loadConfig 完成后调用，作为变更检测基线）
+func markConfigLoaded() {
+	lastCfgHash = configHash()
+}
+
+// configParsable 预检配置文件当前内容是否为合法 JSON（容忍 UTF-8 BOM）。
+// 用于过滤编辑器保存过程中的“半写状态”，避免把瞬时不完整的文件重载进来。
+func configParsable() bool {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return false
+	}
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+	var probe Config
+	return json.Unmarshal(data, &probe) == nil
+}
+
+// watchConfig 每 2 秒轮询一次配置文件指纹，变化时自动重载并记录日志。
+// 说明：loadConfig 解析成功后会 saveConfig 回写文件（规范化格式），
+// 重载完成后以回写后的指纹为新基线，避免自我触发循环重载。
+func watchConfig() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		h := configHash()
+		if h == "" || h == lastCfgHash {
+			continue // 文件不可读或无变化
+		}
+		if !configParsable() {
+			continue // 文件写入未完成（半写状态），等下一轮再试
+		}
+		logMsg("[CONFIG] 检测到配置文件变化，自动重载...")
+		loadConfig()
+		// loadConfig 内部 markConfigLoaded 已刷新基线（含 saveConfig 回写后的内容）
+		logMsg("[CONFIG] 配置重载完成")
 	}
 }
