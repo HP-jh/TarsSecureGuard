@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// ===================== MCP 端点 =====================
 func handleMCP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
@@ -25,6 +26,7 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 前端格式: {tool:'_list'}
 	if tool, _ := body["tool"].(string); tool == "_list" {
 		var list []map[string]interface{}
 		for _, t := range tools {
@@ -35,6 +37,7 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 简单调用格式: {tool:'xxx', args:{...}}
 	if tool, _ := body["tool"].(string); tool != "" {
 		args, _ := body["args"].(map[string]interface{})
 		if args == nil {
@@ -49,6 +52,7 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 标准 MCP JSON-RPC 格式
 	method, _ := body["method"].(string)
 	switch method {
 	case "initialize":
@@ -110,6 +114,7 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ===================== 外部 MCP 服务器（stdio JSON-RPC 客户端） =====================
 func callExternalMCP(serverName, method, toolName string, args map[string]interface{}) (interface{}, error) {
 	var server *ExtServer
 	for i := range cfg.MCP.ExternalServers {
@@ -141,7 +146,7 @@ func callExternalMCP(serverName, method, toolName string, args map[string]interf
 	}
 	defer func() {
 		cmd.Process.Kill()
-		cmd.Wait()
+		cmd.Wait() // 回收进程句柄，避免资源泄漏
 	}()
 
 	enc := json.NewEncoder(stdin)

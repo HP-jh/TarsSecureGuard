@@ -11,13 +11,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -30,7 +28,7 @@ const (
 	modelPort     = 18890
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
-	version       = "1.1.0"
+	version       = "1.0.2"
 	apiKeyDefault = "tars-gateway-key"
 
 	// 安全边界常量
@@ -64,6 +62,8 @@ var (
 	successReq   int
 	failReq      int
 	wafBlocks    int
+	respTotalMs  int64 // 已处理请求的累计耗时（毫秒），用于计算平均响应时间
+	respSamples  int64 // 已计时的请求次数
 	modelProcess *os.Process
 	modelRunning bool
 	currentModel string // 当前加载的本地 GGUF 模型 id
@@ -87,19 +87,22 @@ var (
 
 // ===================== HTTP 主入口 =====================
 func main() {
+	// 日志文件持久化：初始化 logs/ 目录（失败不影响服务）
+	initFileLogging()
 	resolveConfigPath()
 	loadConfig()
 	initTools()
 	loadMemory()
-	initLogDir()
 	ensureFirewallRule()
-	refreshGGUFModels()
 
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleFrontend)
+	mux.HandleFunc("/health", handleHealth) // 健康检查（新增，免鉴权）
 	mux.HandleFunc("/api/status", handleStatus)
+	mux.HandleFunc("/api/stats", handleStats)                // 统计面板（新增）
+	mux.HandleFunc("/api/stats/history", handleStatsHistory) // 24 小时请求量（新增）
 	mux.HandleFunc("/api/chat/completions", handleChat)
 	mux.HandleFunc("/api/urgent/chat", handleUrgent)
 	mux.HandleFunc("/api/admin/models", handleModels)
@@ -111,12 +114,15 @@ func main() {
 	mux.HandleFunc("/api/admin/model/download", handleModelDownload)
 	mux.HandleFunc("/api/admin/model/download/status", handleModelDownloadStatus)
 	mux.HandleFunc("/api/admin/models/open", handleOpenModels)
+	mux.HandleFunc("/api/admin/fallback/status", handleFallback)
 	mux.HandleFunc("/api/admin/security/status", handleSecurity)
 	mux.HandleFunc("/api/admin/security/waf-logs", handleWAFLogs)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
 	mux.HandleFunc("/api/admin/config", handleConfig)
 	mux.HandleFunc("/api/search", handleSearch)
+	mux.HandleFunc("/api/feishu/", handleFeishu)
 	mux.HandleFunc("/mcp", handleMCP)
+	mux.HandleFunc("/api/admin/v32/auto-discovery/scan", handleDiscoveryScan)
 	mux.HandleFunc("/api/admin/v32/auto-discovery/results", handleDiscoveryResults)
 	mux.HandleFunc("/api/admin/agents/", handleAgent)
 	mux.HandleFunc("/api/tools/", handleToolCall)
@@ -140,27 +146,27 @@ func main() {
 		startLocalModel("qwen2.5-3b")
 	}()
 
+	// 后台模型自动发现（新增）：启动 5 秒后首测，之后每 60 秒刷新一次
+	go func() {
+		time.Sleep(5 * time.Second)
+		refreshDiscoveredModels()
+		for {
+			time.Sleep(60 * time.Second)
+			refreshDiscoveredModels()
+		}
+	}()
+
+	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
+	go watchConfig()
+
 	// 打开浏览器
 	go func() {
 		time.Sleep(1 * time.Second)
 		openBrowser(fmt.Sprintf("http://127.0.0.1:%d", port))
 	}()
 
-	// 优雅关闭：Ctrl+C 时停止模型并退出
-	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-		<-sigCh
-		logMsg("[SHUTDOWN] 收到关闭信号，正在清理...")
-		stopLocalModel()
-		if firewallLockEnabled() {
-			removeFirewallRule()
-		}
-		os.Exit(0)
-	}()
-
 	log.Printf("TarsSecureGuard v%s running at http://127.0.0.1:%d", version, port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
@@ -168,6 +174,8 @@ func main() {
 // ===================== 中间件：WAF / 鉴权 / CORS / 统计 =====================
 func gatewayMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 请求量按小时统计（新增）：供 /api/stats/history 查询
+		recordHourlyRequest()
 		setSecurityHeaders(w, r)
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
@@ -191,7 +199,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			mu.Lock()
 			totalReq++
 			mu.Unlock()
-			next.ServeHTTP(w, r)
+			recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
 			return
 		}
 		if !isAuthorized(r) {
@@ -205,12 +213,22 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		mu.Lock()
 		totalReq++
 		mu.Unlock()
-		next.ServeHTTP(w, r)
+		recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
 	})
 }
 
+// recordResponseTime（新增）：包裹业务处理并累计耗时，供 /api/stats 计算平均响应时间
+func recordResponseTime(start time.Time, serve func()) {
+	serve()
+	mu.Lock()
+	respTotalMs += time.Since(start).Milliseconds()
+	respSamples++
+	mu.Unlock()
+}
+
 func isPublicRoute(p string) bool {
-	return p == "/" || p == "/index.html" || p == "/admin"
+	// /health 为健康检查端点（新增），与前端页面一样免鉴权
+	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health"
 }
 
 func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
@@ -372,8 +390,8 @@ func logMsg(s string) {
 		logs = logs[len(logs)-500:]
 	}
 	mu.Unlock()
-	// 同时写文件
-	appendLog("gateway.log", s)
+	// 运行日志同步落盘：logs/tars-YYYY-MM-DD.log（新增，内存仍保留最近 500 条）
+	fileLog("tars", line)
 }
 
 func writeJSON(w http.ResponseWriter, data interface{}) {

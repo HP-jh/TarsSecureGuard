@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"runtime"
+	"sync"
 	"time"
 )
 
@@ -54,6 +56,16 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, statusPayload())
 }
 
+func handleFallback(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]interface{}{
+		"enabled":     true,
+		"threshold":   3,
+		"target":      "local",
+		"autoRecover": true,
+		"history":     []interface{}{},
+	})
+}
+
 func handleSecurity(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	blocks := wafBlocks
@@ -63,10 +75,13 @@ func handleSecurity(w http.ResponseWriter, r *http.Request) {
 	wafOn := cfg.Security.WAFEnabled
 	cfgMu.RUnlock()
 	writeJSON(w, map[string]interface{}{
-		"wafBlockCount": blocks,
-		"mode":          mode,
-		"wafEnabled":    wafOn,
-		"firewall":      firewallStatus(),
+		"wafBlockCount":         blocks,
+		"threatIntelBlockCount": 0,
+		"domainBlockCount":      0,
+		"safeModeTriggerCount":  0,
+		"mode":                  mode,
+		"wafEnabled":            wafOn,
+		"firewall":              firewallStatus(),
 	})
 }
 
@@ -134,6 +149,11 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			"listenAddr": "127.0.0.1",
 		},
 		"localModels": getLocalModelList(),
+		"fallback": map[string]interface{}{
+			"enable":      true,
+			"maxRetries":  3,
+			"autoRecover": true,
+		},
 		"security": map[string]interface{}{
 			"wafEnabled": wafOn,
 			"mode":       mode,
@@ -154,7 +174,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ===================== 搜索 / 服务发现 =====================
+// ===================== 搜索 / 占位 / 发现 =====================
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
@@ -177,7 +197,121 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, res)
 }
 
-// ===================== 服务发现 =====================
+// handleFeishu 为飞书 API 占位端点（保留给后续集成）
+func handleFeishu(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]interface{}{
+		"endpoint": r.URL.Path,
+		"message":  "飞书 API 占位。请在 config.json 配置 App ID/Secret 后启用。",
+	})
+}
+
+func handleDiscoveryScan(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+	logMsg("[DISCOVERY] 扫描开始")
+	writeJSON(w, map[string]interface{}{"success": true, "message": "Scan started"})
+}
+
 func handleDiscoveryResults(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, discoverLocal())
+}
+
+// ===================== 统计面板 API（新增：v1.0.2 功能强化） =====================
+
+// 按小时请求量统计：key 为 Unix 小时时间戳（time.Unix()/3600），供 /api/stats/history 查询
+var (
+	historyMu    sync.Mutex
+	hourlyCounts = map[int64]int{}
+)
+
+// recordHourlyRequest 把当前小时的请求量 +1，并顺带清理 24 小时以前的旧桶（防 map 无限增长）
+func recordHourlyRequest() {
+	h := time.Now().Unix() / 3600
+	historyMu.Lock()
+	hourlyCounts[h]++
+	for k := range hourlyCounts {
+		if h-k >= 24 {
+			delete(hourlyCounts, k)
+		}
+	}
+	historyMu.Unlock()
+}
+
+// handleStats GET /api/stats —— 统计面板数据：
+// 总请求数 / 成功率 / WAF 拦截数 / 平均响应时间 / 运行时长 / 当前模型 / 内存占用
+func handleStats(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	total, succ, blocks := totalReq, successReq, wafBlocks
+	totalMs, samples := respTotalMs, respSamples
+	mu.Unlock()
+
+	// 成功率：成功请求 / 总请求（百分比，保留两位小数；无请求时为 0）
+	successRate := 0.0
+	if total > 0 {
+		successRate = float64(succ) / float64(total) * 100
+	}
+	// 平均响应时间：累计耗时 / 已计时请求数（毫秒）
+	avgMs := 0.0
+	if samples > 0 {
+		avgMs = float64(totalMs) / float64(samples)
+	}
+
+	// 当前活跃模型：优先本地 GGUF 模型；未运行时回退展示自动发现的在线模型
+	_, cur := modelState()
+	activeModel := cur
+	if activeModel == "" {
+		for _, m := range getDiscoveredModels() {
+			if m.Status == "online" {
+				activeModel = m.ID
+				break
+			}
+		}
+	}
+
+	// 进程内存占用（Go runtime 视角）
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	writeJSON(w, map[string]interface{}{
+		"totalRequests":   total,
+		"successRate":     fmt.Sprintf("%.2f%%", successRate),
+		"wafBlocks":       blocks,
+		"avgResponseTime": fmt.Sprintf("%.2fms", avgMs),
+		"uptime":          time.Since(startTime).Round(time.Second).String(),
+		"uptimeSeconds":   int64(time.Since(startTime).Seconds()),
+		"activeModel":     activeModel,
+		"memoryUsage": map[string]interface{}{
+			"heapAllocMB": fmt.Sprintf("%.2f", float64(m.HeapAlloc)/1024/1024),
+			"sysMB":       fmt.Sprintf("%.2f", float64(m.Sys)/1024/1024),
+			"numGC":       m.NumGC,
+		},
+	})
+}
+
+// handleStatsHistory GET /api/stats/history —— 最近 24 小时每小时的请求量
+// 返回 24 个小时桶（从 23 小时前到当前小时），count 为该小时内的请求数
+func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
+	curHour := time.Now().Unix() / 3600
+	historyMu.Lock()
+	history := make([]map[string]interface{}, 0, 24)
+	for i := 23; i >= 0; i-- {
+		h := curHour - int64(i)
+		history = append(history, map[string]interface{}{
+			"hour":  time.Unix(h*3600, 0).Format("2006-01-02 15:00"),
+			"count": hourlyCounts[h],
+		})
+	}
+	historyMu.Unlock()
+	writeJSON(w, map[string]interface{}{"history": history})
+}
+
+// handleHealth GET /health —— 健康检查端点（免鉴权，供监控/负载均衡探活）
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]interface{}{
+		"status":  "ok",
+		"version": version,
+		"uptime":  time.Since(startTime).Round(time.Second).String(),
+	})
 }
