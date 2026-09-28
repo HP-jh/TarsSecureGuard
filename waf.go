@@ -229,7 +229,7 @@ func maskPII(s string) string {
 
 // maskPIIInMessages 对聊天消息数组中的 content 进行 PII 脱敏
 func maskPIIInMessages(msgs []Message) []Message {
-	out := make(Message, len(msgs))
+	out := make([]Message, len(msgs))
 	for i, m := range msgs {
 		out[i] = Message{Role: m.Role, Content: maskPII(m.Content)}
 	}
