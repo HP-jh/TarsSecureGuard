@@ -1,0 +1,12 @@
+# TarsSecureGuard v3.0.0 容器编排示例（rootless 兼容：无 privileged、无 host network）
+# rootless 验证：podman compose up 或 DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock docker compose up
+services:
+  tarssecureguard:
+    build: .
+    container_name: tsg
+    ports:
+      - "127.0.0.1:18889:18889"   # 只绑回环，外部访问走反代
+    volumes:
+      - ./data:/data               # config.json / state / logs 持久化
+    mem_limit: 512m                # 与 A 线软上限协同的容器硬边界
+    restart: unless-stopped
