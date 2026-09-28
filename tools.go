@@ -395,14 +395,9 @@ func initTools() {
 				"id":                 map[string]interface{}{"type": "string", "description": "OpenAPI 规范的 URL 或本地文件路径"},
 				"operationIdOrRoute": map[string]interface{}{"type": "string", "description": "操作 ID 或路由路径"},
 			}, "required": []string{"id", "operationIdOrRoute"}},
-			Handler: func(a map string, ok := r.(map[string]interface{}); ok {
-					if m, ok := a["id"].(string); ok {
-						id = m
-					}
-					if m, ok := a["operationIdOrRoute"].(string); ok {
-						op = m
-					}
-				}
+			Handler: func(a map[string]interface{}) (interface{}, error) {
+				id, _ := a["id"].(string)
+				op, _ := a["operationIdOrRoute"].(string)
 				return openAPIOperation(id, op)
 			},
 		},
