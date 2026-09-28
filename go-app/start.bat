@@ -1,15 +1,15 @@
 @echo off
 rem ============================================================
-rem  TarsSecureGuard v1.0.2 一键启动脚本（Windows）
+rem  TarsSecureGuard v2.0.0 一键启动脚本（Windows）
 rem  - 检测已编译的 tars-secure-guard.exe，不存在则自动编译
 rem  - 启动服务并显示管理面板地址
 rem ============================================================
 chcp 65001 >nul
-title TarsSecureGuard v1.0.2
+title TarsSecureGuard v2.0.0
 cd /d "%~dp0"
 
 echo ==================================================
-echo   TarsSecureGuard v1.0.2 启动中...
+echo   TarsSecureGuard v2.0.0 启动中...
 echo ==================================================
 
 rem ---- 检测是否已编译 ----
