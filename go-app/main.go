@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
@@ -28,7 +29,7 @@ const (
 	modelPort     = 18890
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
-	version       = "1.0.2"
+	version       = "2.0.0"
 	apiKeyDefault = "tars-gateway-key"
 
 	// 安全边界常量
@@ -92,43 +93,49 @@ func main() {
 	resolveConfigPath()
 	loadConfig()
 	initTools()
+	registerV2Tools() // v2.0.0 新增内置工具（硬件评估等）
 	loadMemory()
-	ensureFirewallRule()
+	firewallReconcile() // 防火墙策略档位（passive/dynamic-ban/os-link，默认 passive）
 
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
 
+	// v2.0.0 模块化路由：路由启动时注册一次，经 moduleRoute 包装——
+	// 模块关闭时该路由返回 503 + 开启提示（2 秒热重载生效），无需重启服务。
+	// security-core 的中间件链（WAF/鉴权/RBAC/审计）硬编码在 gatewayMiddleware，不在此列。
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleFrontend)
-	mux.HandleFunc("/health", handleHealth) // 健康检查（新增，免鉴权）
+	mux.HandleFunc("/health", handleHealth) // 健康检查（免鉴权）
 	mux.HandleFunc("/api/status", handleStatus)
-	mux.HandleFunc("/api/stats", handleStats)                // 统计面板（新增）
-	mux.HandleFunc("/api/stats/history", handleStatsHistory) // 24 小时请求量（新增）
-	mux.HandleFunc("/api/chat/completions", handleChat)
-	mux.HandleFunc("/api/urgent/chat", handleUrgent)
-	mux.HandleFunc("/api/admin/models", handleModels)
-	mux.HandleFunc("/api/admin/models/start", handleModelStart)
-	mux.HandleFunc("/api/admin/models/stop", handleModelStop)
-	mux.HandleFunc("/api/admin/models/status", handleModelStatus)
+	mux.HandleFunc("/api/stats", moduleRoute("stats", handleStats))                // 统计面板
+	mux.HandleFunc("/api/stats/history", moduleRoute("stats", handleStatsHistory)) // 24 小时请求量
+	mux.HandleFunc("/api/chat/completions", moduleRoute("chatApi", handleChat))
+	mux.HandleFunc("/api/urgent/chat", moduleRoute("urgentChat", handleUrgent))
+	mux.HandleFunc("/api/admin/models", moduleRoute("localModels", handleModels))
+	mux.HandleFunc("/api/admin/models/start", moduleRoute("localModels", handleModelStart))
+	mux.HandleFunc("/api/admin/models/stop", moduleRoute("localModels", handleModelStop))
+	mux.HandleFunc("/api/admin/models/status", moduleRoute("localModels", handleModelStatus))
 	mux.HandleFunc("/api/admin/device", handleDevice)
 	mux.HandleFunc("/api/admin/device/scan", handleDeviceScan)
-	mux.HandleFunc("/api/admin/model/download", handleModelDownload)
-	mux.HandleFunc("/api/admin/model/download/status", handleModelDownloadStatus)
-	mux.HandleFunc("/api/admin/models/open", handleOpenModels)
+	mux.HandleFunc("/api/admin/model/download", moduleRoute("modelDownload", handleModelDownload))
+	mux.HandleFunc("/api/admin/model/download/status", moduleRoute("modelDownload", handleModelDownloadStatus))
+	mux.HandleFunc("/api/admin/models/open", moduleRoute("localModels", handleOpenModels))
 	mux.HandleFunc("/api/admin/fallback/status", handleFallback)
 	mux.HandleFunc("/api/admin/security/status", handleSecurity)
 	mux.HandleFunc("/api/admin/security/waf-logs", handleWAFLogs)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
 	mux.HandleFunc("/api/admin/audit-logs", handleAuditLogs)
 	mux.HandleFunc("/api/admin/config", handleConfig)
-	mux.HandleFunc("/api/search", handleSearch)
+	mux.HandleFunc("/api/admin/modules", handleModules)                                                        // v2.0.0 模块管理
+	mux.HandleFunc("/api/admin/hardware/assessment", moduleRoute("hardwareAdvisor", handleHardwareAssessment)) // v2.0.0 硬件评估
+	mux.HandleFunc("/api/search", moduleRoute("webSearch", handleSearch))
 	mux.HandleFunc("/api/feishu/", handleFeishu)
-	mux.HandleFunc("/mcp", handleMCP)
-	mux.HandleFunc("/api/admin/v32/auto-discovery/scan", handleDiscoveryScan)
-	mux.HandleFunc("/api/admin/v32/auto-discovery/results", handleDiscoveryResults)
-	mux.HandleFunc("/api/admin/agents/", handleAgent)
-	mux.HandleFunc("/api/tools/", handleToolCall)
-	mux.HandleFunc("/v1/", handleV1)
-	mux.HandleFunc("/v1", handleV1Root)
+	mux.HandleFunc("/mcp", moduleRoute("mcpExternal", handleMCP))
+	mux.HandleFunc("/api/admin/v32/auto-discovery/scan", moduleRoute("autoDiscovery", handleDiscoveryScan))
+	mux.HandleFunc("/api/admin/v32/auto-discovery/results", moduleRoute("autoDiscovery", handleDiscoveryResults))
+	mux.HandleFunc("/api/agents/", moduleRoute("chatApi", handleAgent))
+	mux.HandleFunc("/api/tools/", moduleRoute("builtinTools", handleToolCall))
+	mux.HandleFunc("/v1/", moduleRoute("chatApi", handleV1))
+	mux.HandleFunc("/v1", moduleRoute("chatApi", handleV1Root))
 
 	server := &http.Server{
 		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
@@ -141,21 +148,34 @@ func main() {
 
 	logMsg(fmt.Sprintf("Listening on http://127.0.0.1:%d", port))
 
-	// 后台自动启动默认本地模型
-	go func() {
-		time.Sleep(2 * time.Second)
-		startLocalModel("qwen2.5-3b")
-	}()
-
-	// 后台模型自动发现（新增）：启动 5 秒后首测，之后每 60 秒刷新一次
-	go func() {
-		time.Sleep(5 * time.Second)
-		refreshDiscoveredModels()
-		for {
-			time.Sleep(60 * time.Second)
-			refreshDiscoveredModels()
+	// v2.0.0 模块后台工作者：随模块开关启停（context 取消即停，热重载切换无泄漏）
+	moduleWorkerFns["autoStartModel"] = func(ctx context.Context) {
+		select {
+		case <-time.After(2 * time.Second):
+			startLocalModel("qwen2.5-3b")
+		case <-ctx.Done():
+			return
 		}
-	}()
+	}
+	moduleWorkerFns["autoDiscovery"] = func(ctx context.Context) {
+		select {
+		case <-time.After(5 * time.Second):
+			refreshDiscoveredModels()
+		case <-ctx.Done():
+			return
+		}
+		t := time.NewTicker(60 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				refreshDiscoveredModels()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+	reconcileModuleWorkers()
 
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
 	go watchConfig()
@@ -181,8 +201,14 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		}
-		// 1) WAF 检测（含速率限制与请求体扫描）
+		// 0) dynamic-ban / os-link 档位：处于封禁期的 IP 直接拒绝
+		if isBanned(clientIP(r)) {
+			blockRequest(w, r, "IP 处于动态封禁期（security.firewall.policy）")
+			return
+		}
+		// 1) WAF 检测（含速率限制与请求体扫描；security-core 永远启用，无开关）
 		if reason := wafCheck(r); reason != "" {
+			firewallBanIP(clientIP(r)) // 按防火墙档位施加封禁副作用（passive 档为 no-op）
 			blockRequest(w, r, reason)
 			return
 		}
@@ -388,7 +414,11 @@ func isConfigPathAllowed(path string) bool {
 		"cloud.openai.apiKey", "cloud.openai.baseUrl", "cloud.openai.name",
 		"cloud.deepseek.apiKey", "cloud.deepseek.baseUrl", "cloud.deepseek.name",
 		"search.apiKey", "search.engine",
-		"security.mode", "security.wafEnabled", "security.auditLogEnabled",
+		// v2.0.0：security.wafEnabled 已移除（安全模块不可关闭）；
+		// security.mode 保留 normal/strict 切换（POST 值校验拒绝 off，见 handleConfig）
+		"security.mode", "security.auditLogEnabled",
+		"security.firewall.policy", "security.firewall.banDuration",
+		"direct.transport", "direct.grpcSidecar.address",
 	}
 	for _, a := range allowed {
 		if path == a {
@@ -460,6 +490,7 @@ func isAdminRoute(path string) bool {
 		"/api/admin/model/download", "/api/admin/config",
 		"/api/admin/security/status", "/api/admin/security/waf-logs",
 		"/api/admin/logs", "/api/admin/v32/auto-discovery/scan",
+		"/api/admin/modules", "/api/admin/hardware/assessment", // v2.0.0 模块管理 / 硬件评估
 	}
 	for _, p := range adminPaths {
 		if path == p {
