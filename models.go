@@ -1,0 +1,644 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strconv"
+	"sync"
+	"time"
+)
+
+// ===================== 模型定义 =====================
+type ModelInfo struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Status  string `json:"status"`
+	Source  string `json:"source"`
+	Size    string `json:"size,omitempty"`
+	Backend string `json:"backend"`
+}
+
+// 本地 GGUF 模型注册表
+type GGUFModel struct {
+	ID   string
+	File string
+}
+
+var ggufModels = []GGUFModel{
+	{ID: "qwen2.5-3b", File: "qwen2.5-3b-instruct-q4_k_m.gguf"},
+	{ID: "qwen2.5-7b", File: "qwen2.5-7b-instruct-q3_k_m.gguf"},
+	{ID: "qwen2.5-coder-3b", File: "qwen2.5-coder-3b-instruct-q4_k_m.gguf"},
+}
+
+func getLocalModelList() []map[string]interface{} {
+	var list []map[string]interface{}
+	running, cur := modelState()
+	for _, gm := range ggufModels {
+		p := filepath.Join(modelDir, gm.File)
+		info, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		sizeGB := float64(info.Size()) / 1024 / 1024 / 1024
+		status := "offline"
+		if running && cur == gm.ID {
+			status = "online"
+		}
+		list = append(list, map[string]interface{}{
+			"name":   gm.ID,
+			"file":   gm.File,
+			"size":   fmt.Sprintf("%.2fGB", sizeGB),
+			"status": status,
+			"source": "local",
+		})
+	}
+	return list
+}
+
+func getModels() []ModelInfo {
+	var ms []ModelInfo
+	// 本地 GGUF
+	for _, gm := range ggufModels {
+		p := filepath.Join(modelDir, gm.File)
+		info, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		sizeStr := fmt.Sprintf("%.2fGB", float64(info.Size())/1024/1024/1024)
+		status := "offline"
+		if modelRunning && currentModel == gm.ID {
+			status = "online"
+		}
+		ms = append(ms, ModelInfo{ID: gm.ID, Name: gm.ID, Type: "chat", Status: status, Source: "local", Size: sizeStr, Backend: "llama"})
+	}
+	// LM Studio
+	if lmsReachable() {
+		for _, m := range detectLMStudio() {
+			ms = append(ms, m)
+		}
+	}
+	// Ollama
+	if ollamaReachable() {
+		for _, m := range detectOllama() {
+			ms = append(ms, m)
+		}
+	}
+	// 云端
+	for _, cc := range allCloudCfgs() {
+		for _, mdl := range cc.Models {
+			ms = append(ms, ModelInfo{ID: mdl, Name: mdl, Type: "chat", Status: "configured", Source: "cloud", Backend: cc.Name})
+		}
+	}
+	// 合并后台自动发现的模型（新增）：按 ID 去重，补充上面实时探测未覆盖的来源
+	seen := map[string]bool{}
+	for _, m := range ms {
+		seen[m.ID] = true
+	}
+	for _, m := range getDiscoveredModels() {
+		if !seen[m.ID] {
+			ms = append(ms, m)
+			seen[m.ID] = true
+		}
+	}
+	return ms
+}
+
+func allCloudCfgs() []CloudCfg {
+	var out []CloudCfg
+	if cfg.Cloud.OpenAI.BaseURL != "" && cfg.Cloud.OpenAI.APIKey != "" {
+		out = append(out, cfg.Cloud.OpenAI)
+	}
+	if cfg.Cloud.DeepSeek.BaseURL != "" && cfg.Cloud.DeepSeek.APIKey != "" {
+		out = append(out, cfg.Cloud.DeepSeek)
+	}
+	for _, c := range cfg.Cloud.Custom {
+		if c.BaseURL != "" && c.APIKey != "" {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// ===================== 本地模型管理 =====================
+func findGGUFFile(id string) string {
+	for _, gm := range ggufModels {
+		if gm.ID == id {
+			return filepath.Join(modelDir, gm.File)
+		}
+	}
+	for _, gm := range ggufModels {
+		if gm.File == id {
+			return filepath.Join(modelDir, gm.File)
+		}
+	}
+	return ""
+}
+
+func startLocalModel(id string) error {
+	mu.Lock()
+	if modelRunning {
+		mu.Unlock()
+		return nil
+	}
+	if starting {
+		mu.Unlock()
+		return fmt.Errorf("模型正在启动中，请稍候")
+	}
+	starting = true
+	mu.Unlock()
+
+	modelPath := findGGUFFile(id)
+	if modelPath == "" {
+		mu.Lock()
+		starting = false
+		mu.Unlock()
+		return fmt.Errorf("模型不存在: %s（可用: qwen2.5-3b / qwen2.5-7b / qwen2.5-coder-3b）", id)
+	}
+	serverPath := filepath.Join(llamaDir, "llama-server.exe")
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		mu.Lock()
+		starting = false
+		mu.Unlock()
+		return fmt.Errorf("模型文件缺失: %s", modelPath)
+	}
+	if _, err := os.Stat(serverPath); os.IsNotExist(err) {
+		mu.Lock()
+		starting = false
+		mu.Unlock()
+		return fmt.Errorf("推理引擎缺失: %s", serverPath)
+	}
+
+	cmd := exec.Command(serverPath, "-m", modelPath, "--port", strconv.Itoa(modelPort), "-ngl", "0", "-c", "4096")
+	cmd.Dir = llamaDir
+	applyHiddenWindow(cmd)
+
+	if err := cmd.Start(); err != nil {
+		mu.Lock()
+		starting = false
+		mu.Unlock()
+		return fmt.Errorf("启动失败: %v", err)
+	}
+	mu.Lock()
+	modelProcess = cmd.Process
+	modelRunning = true
+	currentModel = id
+	starting = false
+	mu.Unlock()
+	logMsg(fmt.Sprintf("[MODEL] 本地模型 %s 启动 (PID %d, port %d)", id, cmd.Process.Pid, modelPort))
+
+	// 等待服务就绪
+	go func() {
+		for i := 0; i < 60; i++ {
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/v1/models", modelPort))
+			if err == nil {
+				resp.Body.Close()
+				logMsg(fmt.Sprintf("[MODEL] %s 就绪", id))
+				return
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	go func() {
+		cmd.Wait()
+		mu.Lock()
+		modelRunning = false
+		modelProcess = nil
+		currentModel = ""
+		mu.Unlock()
+		logMsg("[MODEL] 本地模型已停止")
+	}()
+	return nil
+}
+
+func stopLocalModel() {
+	mu.Lock()
+	if modelProcess != nil {
+		modelProcess.Kill()
+		modelProcess = nil
+	}
+	modelRunning = false
+	currentModel = ""
+	mu.Unlock()
+	logMsg("[MODEL] 本地模型已停止")
+}
+
+// ===================== LM Studio / Ollama 探测 =====================
+func lmsReachable() bool {
+	resp, err := http.Get(lmStudioBase + "/v1/models")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200
+}
+
+func ollamaReachable() bool {
+	resp, err := http.Get(ollamaBase + "/api/tags")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200
+}
+
+func detectLMStudio() []ModelInfo {
+	var ms []ModelInfo
+	if !lmsReachable() {
+		return ms
+	}
+	resp, err := http.Get(lmStudioBase + "/v1/models")
+	if err != nil {
+		return ms
+	}
+	defer resp.Body.Close()
+	var data struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	json.NewDecoder(resp.Body).Decode(&data)
+	for _, m := range data.Data {
+		id := m.ID
+		ms = append(ms, ModelInfo{ID: "lmstudio/" + id, Name: id, Type: "chat", Status: "online", Source: "lmstudio", Backend: "lmstudio"})
+	}
+	return ms
+}
+
+func detectOllama() []ModelInfo {
+	var ms []ModelInfo
+	if !ollamaReachable() {
+		return ms
+	}
+	resp, err := http.Get(ollamaBase + "/api/tags")
+	if err != nil {
+		return ms
+	}
+	defer resp.Body.Close()
+	var data struct {
+		Models []struct {
+			Name       string `json:"name"`
+			Size       int64  `json:"size"`
+			ModifiedAt string `json:"modified_at"`
+		}
+	}
+	json.NewDecoder(resp.Body).Decode(&data)
+	for _, m := range data.Models {
+		sizeStr := fmt.Sprintf("%.2fGB", float64(m.Size)/1024/1024/1024)
+		ms = append(ms, ModelInfo{ID: "ollama/" + m.Name, Name: m.Name, Type: "chat", Status: "online", Source: "ollama", Size: sizeStr, Backend: "ollama"})
+	}
+	return ms
+}
+
+// ===================== 模型自动发现（新增：v1.0.2 功能强化） =====================
+//
+// 后台周期性探测三类本地推理服务，发现后自动更新可用模型列表（无需手动配置）：
+//  1. LM Studio  —— http://127.0.0.1:1234/v1/models
+//  2. Ollama     —— http://127.0.0.1:11434/api/tags
+//  3. llama.cpp  —— llama-server 默认端口 http://127.0.0.1:8080/v1/models
+//     （本程序自管的 llama-server 使用 18890，见 modelPort，此处探测的是独立部署的实例）
+
+var (
+	discMu           sync.Mutex
+	discoveredModels []ModelInfo // 自动发现的外部模型缓存（后台 goroutine 定期刷新）
+)
+
+// llamaCppBaseURL 为独立部署的 llama.cpp llama-server 默认地址
+const llamaCppBaseURL = "http://127.0.0.1:8080"
+
+// llamaCppReachable 检测本地 llama.cpp llama-server 是否在默认端口 8080 运行
+func llamaCppReachable() bool {
+	resp, err := httpClientShort.Get(llamaCppBaseURL + "/v1/models")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == 200
+}
+
+// detectLLamaCpp 探测默认端口上 llama.cpp 服务的模型列表（OpenAI 兼容 /v1/models）
+func detectLLamaCpp() []ModelInfo {
+	var ms []ModelInfo
+	resp, err := httpClientShort.Get(llamaCppBaseURL + "/v1/models")
+	if err != nil {
+		return ms
+	}
+	defer resp.Body.Close()
+	var data struct {
+		Data []struct {
+			ID string `json:"id"`
+	}
+	}
+	json.NewDecoder(resp.Body).Decode(&data)
+	for _, m := range data.Data {
+		ms = append(ms, ModelInfo{ID: "llamacpp/" + m.ID, Name: m.ID, Type: "chat", Status: "online", Source: "llamacpp", Backend: "llama.cpp"})
+	}
+	return ms
+}
+
+// autoDiscoverModels 一次性探测 LM Studio / Ollama / llama.cpp 三类本地推理服务
+func autoDiscoverModels() []ModelInfo {
+	var out []ModelInfo
+	out = append(out, detectLMStudio()...)
+	out = append(out, detectOllama()...)
+	out = append(out, detectLLamaCpp()...)
+	return out
+}
+
+// refreshDiscoveredModels 刷新自动发现的模型缓存；
+// 发现此前未见过的模型时记录一条运行日志，便于在面板日志中看到发现过程。
+func refreshDiscoveredModels() {
+	fresh := autoDiscoverModels()
+	discMu.Lock()
+	known := map[string]bool{}
+	for _, m := range discoveredModels {
+		known[m.ID] = true
+	}
+	for _, m := range fresh {
+		if !known[m.ID] {
+			logMsg(fmt.Sprintf("[DISCOVERY] 自动发现模型: %s (来源: %s)", m.ID, m.Source))
+		}
+	}
+	discoveredModels = fresh
+	discMu.Unlock()
+}
+
+// getDiscoveredModels 返回自动发现缓存的快照（并发安全）
+func getDiscoveredModels() []ModelInfo {
+	discMu.Lock()
+	defer discMu.Unlock()
+	return append([]ModelInfo(nil), discoveredModels...)
+}
+
+// ===================== 模型管理 API =====================
+func handleModels(w http.ResponseWriter, r *http.Request) {
+	ms := getModels()
+	writeJSON(w, map[string]interface{}{"models": ms, "total": len(ms)})
+}
+
+func handleModelStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+	// v3.0.0 A 线：L2 熔断期拒绝新的本地模型加载（资源守护器释放后自动恢复）
+	guardMu.Lock()
+	fuse := modelLoadFuse
+	guardMu.Unlock()
+	if fuse {
+		auditLog("MODEL_LOAD_FUSED", "system", "L2 橙色熔断期拒绝新模型加载（model="+r.URL.Path+"）")
+		writeJSONStatus(w, http.StatusServiceUnavailable, map[string]string{"error": "资源守护器 L2 熔断中：内存压力高，暂拒新模型加载，稍后重试"})
+		return
+	}
+	var body map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		return
+	}
+	id := body["model"]
+	if id == "" {
+		id = "qwen2.5-3b"
+	}
+	if err := startLocalModel(id); err != nil {
+		writeJSON(w, map[string]interface{}{"success": false, "error": err.Error()})
+		return
+	}
+	if uname, _, _ := userFromRequest(r); uname != "" {
+		auditLog("MODEL_START", uname, id)
+	}
+	writeJSON(w, map[string]interface{}{"success": true, "running": true, "model": id})
+}
+
+func handleModelStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+	stopLocalModel()
+	if uname, _, _ := userFromRequest(r); uname != "" {
+		auditLog("MODEL_STOP", uname, "")
+	}
+	writeJSON(w, map[string]interface{}{"success": true, "running": false})
+}
+
+// handleOpenModels 在系统文件管理器中打开模型目录（供首次运行向导使用）
+func handleOpenModels(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", modelDir)
+	case "darwin":
+		cmd = exec.Command("open", modelDir)
+	default:
+		cmd = exec.Command("xdg-open", modelDir)
+	}
+	if err := cmd.Start(); err != nil {
+		writeJSON(w, map[string]interface{}{"success": false, "error": err.Error()})
+		return
+	}
+	logMsg(fmt.Sprintf("[MODEL] 已打开模型目录: %s", modelDir))
+	writeJSON(w, map[string]interface{}{"success": true, "path": modelDir})
+}
+
+func handleModelStatus(w http.ResponseWriter, r *http.Request) {
+	running, cur := modelState()
+	writeJSON(w, map[string]interface{}{"running": running, "model": cur})
+}
+
+func handleDevice(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, getDeviceInfo())
+}
+
+func handleDeviceScan(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+	recommendations := []map[string]interface{}{
+		{"name": "qwen2.5-3b-instruct", "size": "1.9GB", "url": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf"},
+		{"name": "qwen2.5-coder-3b", "size": "1.9GB", "url": "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf"},
+	}
+	writeJSON(w, map[string]interface{}{
+		"cpu":             fmt.Sprintf("%d cores", runtime.NumCPU()),
+		"memory":          "Auto-detect",
+		"gpu":             "Auto-detect",
+		"disk":            exeDrive(), // v2.1.0：跨平台显示统计基准路径（Windows 盘符根 / Unix exe 目录）
+		"lmstudio":        lmsReachable(),
+		"ollama":          ollamaReachable(),
+		"recommendations": recommendations,
+	})
+}
+
+func handleModelDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+	var body map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		return
+	}
+	name := body["name"]
+	urlStr := body["url"]
+	logMsg(fmt.Sprintf("[DOWNLOAD] 开始下载模型: %s", name))
+	if uname, _, _ := userFromRequest(r); uname != "" {
+		auditLog("MODEL_DOWNLOAD", uname, name)
+	}
+	go func() {
+		if err := downloadModel(name, urlStr); err != nil {
+			logMsg(fmt.Sprintf("[DOWNLOAD] %s 失败: %v", name, err))
+		} else {
+			logMsg(fmt.Sprintf("[DOWNLOAD] %s 完成", name))
+		}
+	}()
+	writeJSON(w, map[string]interface{}{"success": true, "message": "Download started: " + name})
+}
+
+// ===================== 模型下载进度 =====================
+type dlStatus struct {
+	Name  string `json:"name"`
+	Done  bool   `json:"done"`
+	Error string `json:"error,omitempty"`
+	Bytes int64  `json:"bytes"`
+	Total int64  `json:"total"`
+	Pct   int    `json:"pct"`
+}
+
+var (
+	dlMu    sync.Mutex
+	dlState = map[string]*dlStatus{}
+)
+
+func downloadModel(name, urlStr string) error {
+	if urlStr == "" {
+		return fmt.Errorf("no url")
+	}
+	if !isHTTPURL(urlStr) {
+		return fmt.Errorf("仅支持 http/https 下载链接")
+	}
+	dlMu.Lock()
+	st := &dlStatus{Name: name}
+	dlState[name] = st
+	dlMu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	if err != nil {
+		dlMu.Lock()
+		st.Error = err.Error()
+		st.Done = true
+		dlMu.Unlock()
+		return err
+	}
+	resp, err := downloadClient.Do(req)
+	if err != nil {
+		dlMu.Lock()
+		st.Error = err.Error()
+		st.Done = true
+		dlMu.Unlock()
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		e := fmt.Errorf("下载失败: HTTP %d", resp.StatusCode)
+		dlMu.Lock()
+		st.Error = e.Error()
+		st.Done = true
+		dlMu.Unlock()
+		return e
+	}
+	base := filepath.Base(urlStr)
+	if base == "" || base == "." || base == "/" {
+		e := fmt.Errorf("无法从 URL 推断文件名")
+		dlMu.Lock()
+		st.Error = e.Error()
+		st.Done = true
+		dlMu.Unlock()
+		return e
+	}
+	dlMu.Lock()
+	st.Total = resp.ContentLength
+	dlMu.Unlock()
+	dest := filepath.Join(modelDir, base)
+	out, err := os.Create(dest)
+	if err != nil {
+		dlMu.Lock()
+		st.Error = err.Error()
+		st.Done = true
+		dlMu.Unlock()
+		return err
+	}
+	defer out.Close()
+	buf := make([]byte, 256<<10)
+	var written int64
+	for {
+		n, rerr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, werr := out.Write(buf[:n]); werr != nil {
+				dlMu.Lock()
+				st.Error = werr.Error()
+				st.Done = true
+				dlMu.Unlock()
+				return werr
+			}
+			written += int64(n)
+			if written > maxModelDownloadBytes {
+				e := fmt.Errorf("模型文件超过 %d 字节，已中止", maxModelDownloadBytes)
+				dlMu.Lock()
+				st.Error = e.Error()
+				st.Done = true
+				dlMu.Unlock()
+				return e
+			}
+			dlMu.Lock()
+			st.Bytes = written
+			if st.Total > 0 {
+			st.Pct = int(written * 100 / st.Total)
+			}
+			dlMu.Unlock()
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			dlMu.Lock()
+			st.Error = rerr.Error()
+			st.Done = true
+			dlMu.Unlock()
+			return rerr
+		}
+	}
+	dlMu.Lock()
+	st.Bytes = written
+	st.Pct = 100
+	st.Done = true
+	dlMu.Unlock()
+	return nil
+}
+
+// handleModelDownloadStatus 返回全部模型下载任务进度（供前端进度条轮询）
+func handleModelDownloadStatus(w http.ResponseWriter, r *http.Request) {
+	dlMu.Lock()
+	out := make([]*dlStatus, 0, len(dlState))
+	for _, st := range dlState {
+		cp := *st
+		out = append(out, &cp)
+	}
+	dlMu.Unlock()
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	writeJSON(w, map[string]interface{}{"downloads": out})
+}
