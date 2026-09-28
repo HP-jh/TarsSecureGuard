@@ -71,7 +71,7 @@ func currentDirectTransport() DirectTransport {
 }
 
 // directChatEndpoint 直连 chat 端点（边车不可用时自动回落 native —— 边界 4）
-func directChatEndpoint() string {
+func directChatEndpoint() (string, error) {
 	tr := currentDirectTransport()
 	ep, err := tr.ChatEndpoint()
 	if err != nil {
@@ -81,5 +81,5 @@ func directChatEndpoint() string {
 	if tr.Name() != "native" {
 		logMsg("[Direct] 使用 " + tr.Name() + " 端点 " + ep + "（预留切换点）")
 	}
-	return ep
+	return ep, nil
 }

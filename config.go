@@ -364,7 +364,7 @@ func markConfigLoaded() {
 	lastCfgHash = configHash()
 }
 
-// configParsable 预检配置当前内容是否为合法 JSON（容忍 UTF-8 BOM）。
+// configParsable 预检配置文件当前内容是否为合法 JSON（容忍 UTF-8 BOM）。
 // 用于过滤编辑器保存过程中的“半写状态”，避免把瞬时不完整的文件重载进来。
 func configParsable() bool {
 	data, err := os.ReadFile(configPath)
