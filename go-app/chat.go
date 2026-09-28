@@ -114,6 +114,12 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
 }
 
 func getAgentPrompt(id string) string {
+	// v2.0.0：自定义 agent 角色（customAgents 模块开启时可用，默认系统提示词兜底）
+	if moduleEnabledByID("customAgents") {
+		if a, ok := findCustomAgentPrompt(id); ok {
+			return a.Prompt
+		}
+	}
 	switch id {
 	case "code-assistant":
 		return "你是代码助手，擅长编程、代码审查与调试，用简洁的中文回答。"
@@ -181,17 +187,32 @@ func routeChat(model string, msgs []Message) (string, string, error) {
 
 	switch backend {
 	case "llama":
+		if !moduleEnabledByID("localModels") {
+			return "", backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）")
+		}
 		if running, _ := modelState(); !running {
 			if err := startLocalModel(target); err != nil {
 				return "", backend, err
 			}
 		}
-		return callOpenAICompatible(fmt.Sprintf("http://127.0.0.1:%d/v1/chat/completions", modelPort), target, msgs)
-	case "lmstudio":
-		return callOpenAICompatible(lmStudioBase+"/v1/chat/completions", target, msgs)
-	case "ollama":
+		// v2.0.0 直连层切换点：direct.transport = native | grpc-sidecar（边车不可用自动回落 native）
+		ep, err := directChatEndpoint()
+		if err != nil {
+			return "", backend, err
+		}
+		return callOpenAICompatible(ep, target, msgs)
+	case "lmstudio", "ollama":
+		if !moduleEnabledByID("localModels") {
+			return "", backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）")
+		}
+		if backend == "lmstudio" {
+			return callOpenAICompatible(lmStudioBase+"/v1/chat/completions", target, msgs)
+		}
 		return callOllamaChat(target, msgs)
 	case "cloud":
+		if !moduleEnabledByID("cloudModels") {
+			return "", backend, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）")
+		}
 		return callCloudChat(target, msgs)
 	default:
 		for _, cc := range allCloudCfgs() {
