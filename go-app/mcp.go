@@ -115,6 +115,9 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 
 // ===================== 外部 MCP 服务器（stdio JSON-RPC 客户端） =====================
 func callExternalMCP(serverName, method, toolName string, args map[string]interface{}) (interface{}, error) {
+	if !moduleEnabledByID("mcpExternal") {
+		return nil, fmt.Errorf("外部 MCP 模块已关闭（modules.mcpExternal=false）")
+	}
 	var server *ExtServer
 	for i := range cfg.MCP.ExternalServers {
 		if cfg.MCP.ExternalServers[i].Name == serverName {
