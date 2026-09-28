@@ -11,6 +11,36 @@ import (
 )
 
 // ===================== 工具注册表 =====================
+
+// toolModuleMap 工具 -> 功能模块归属（v2.0.0）：模块关闭时该工具从列表隐藏、调用被拒。
+// 未登记的内置工具默认归 builtinTools（基础面，永远随 builtinTools 开关）。
+var toolModuleMap = map[string]string{
+	"tars_model_chat":        "chatApi",
+	"tars_agent_run":         "chatApi",
+	"tars_model_list":        "localModels",
+	"tars_model_start":       "localModels",
+	"tars_model_stop":        "localModels",
+	"tars_lmstudio_list":     "localModels",
+	"tars_ollama_list":       "localModels",
+	"tars_web_search":        "webSearch",
+	"tars_fetch_url":         "webFetch",
+	"tars_openapi_overview":  "openapiTools",
+	"tars_openapi_operation": "openapiTools",
+	"tars_external_mcp":      "mcpExternal",
+	"tars_mcp_discover":      "mcpExternal",
+	"tars_memory_get":        "memory",
+	"tars_memory_set":        "memory",
+	"tars_hardware_advisor":  "hardwareAdvisor",
+}
+
+// toolModuleOf 查询工具归属模块（未登记的内置工具默认归 builtinTools）
+func toolModuleOf(name string) string {
+	if m, ok := toolModuleMap[name]; ok {
+		return m
+	}
+	return "builtinTools"
+}
+
 type Tool struct {
 	Name        string
 	Description string
@@ -285,6 +315,9 @@ func initTools() {
 				if !isConfigPathAllowed(path) {
 					return map[string]interface{}{"error": "不允许通过 API 修改该配置路径: " + path}, nil
 				}
+				if !validateConfigValue(path, value) {
+					return map[string]interface{}{"error": "配置值非法（值域校验拒绝）: " + path}, nil
+				}
 				cfgMu.Lock()
 				cfgJSON, _ := json.Marshal(cfg)
 				var root map[string]interface{}
@@ -413,12 +446,38 @@ func initTools() {
 }
 
 func executeTool(name string, args map[string]interface{}) (interface{}, error) {
+	// v2.0.0：customTools 用户自定义工具（SSRF 加固执行）
+	if _, isCustom := findCustomTool(name); isCustom {
+		if !moduleEnabledByID("customTools") {
+			return nil, fmt.Errorf("工具所属模块 customTools 已关闭")
+		}
+		logMsg("[TOOL] " + name + " 被调用（custom）")
+		return executeCustomTool(name, args)
+	}
 	t, ok := tools[name]
 	if !ok {
 		return nil, fmt.Errorf("工具不存在: %s", name)
 	}
+	if m := toolModuleOf(name); !moduleEnabledByID(m) {
+		return nil, fmt.Errorf("工具所属模块 %s 已关闭（modules.%s=false）", m, m)
+	}
 	logMsg(fmt.Sprintf("[TOOL] %s 被调用", name))
 	return t.Handler(args)
+}
+
+// registerV2Tools v2.0.0 新增内置工具（initTools 之后调用）
+func registerV2Tools() {
+	if tools == nil {
+		tools = map[string]Tool{}
+	}
+	tools["tars_hardware_advisor"] = Tool{
+		Name:        "tars_hardware_advisor",
+		Description: "硬件评估与提升建议：CPU/内存/磁盘/GPU 四维评分 + 可执行建议（如内存 8GB 建议跑 3B 以下 Q4_K_M 模型）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			return assessHardware(), nil
+		},
+	}
 }
 
 func handleToolCall(w http.ResponseWriter, r *http.Request) {
@@ -443,7 +502,14 @@ func handleToolCall(w http.ResponseWriter, r *http.Request) {
 func toolNames() []string {
 	var names []string
 	for _, t := range tools {
-		names = append(names, t.Name)
+		if moduleEnabledByID(toolModuleOf(t.Name)) {
+			names = append(names, t.Name)
+		}
+	}
+	if moduleEnabledByID("customTools") {
+		for _, ct := range customToolList() {
+			names = append(names, ct.Name)
+		}
 	}
 	sort.Strings(names)
 	return names
