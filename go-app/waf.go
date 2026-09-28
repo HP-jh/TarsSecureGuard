@@ -125,9 +125,7 @@ func wafStrict() bool {
 }
 
 func wafCheck(r *http.Request) string {
-	if !wafEnabled() {
-		return ""
-	}
+	// v2.0.0：security-core 强制加载，无开关；wafEnabled() 保留仅供状态展示
 	// 1) 速率限制
 	if !allowRequest(clientIP(r)) {
 		return "请求频率超限"
