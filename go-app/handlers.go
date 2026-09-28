@@ -129,6 +129,28 @@ func handleAuditLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"logs": lines, "count": len(lines)})
 }
 
+// validateConfigValue v2.0.0 值域校验：安全与档位类配置拒绝非法值。
+// handleConfig POST 与 set_config 内置工具共用，防止绕过（安全模块不可关的铁律在值层也封死）。
+func validateConfigValue(path string, val interface{}) bool {
+	s, _ := val.(string)
+	switch path {
+	case "security.mode":
+		return s == "normal" || s == "strict"
+	case "security.firewall.policy":
+		return s == fwPolicyPassive || s == fwPolicyDynamicBan || s == fwPolicyOSLink
+	case "security.firewall.banDuration":
+		d, err := time.ParseDuration(s)
+		if err != nil || d <= 0 || d > 24*time.Hour {
+			return false
+		}
+	case "direct.transport":
+		return s == "native" || s == "grpc-sidecar"
+	case "search.engine":
+		return s == "builtin" || s == "serper"
+	}
+	return true
+}
+
 func handleConfig(w http.ResponseWriter, r *http.Request) {
 	// POST：批量保存白名单配置（{ "security.mode": "strict", "search.engine": "serper" }）
 	if r.Method == http.MethodPost {
@@ -142,8 +164,16 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		var root map[string]interface{}
 		json.Unmarshal(cfgJSON, &root)
 		applied := 0
+		// 拒绝项先暂存、解锁后再落审计——auditLog 内部会取 cfgMu 读锁，
+		// 持写锁期间调用会自死锁并把写锁一起拖死（教训：锁区内禁止任何取读锁的调用）
+		var rejected []string
 		for path, val := range body {
 			if !isConfigPathAllowed(path) {
+				continue
+			}
+			// v2.0.0 值域校验（共享函数，与 set_config 工具同一条防线）
+			if !validateConfigValue(path, val) {
+				rejected = append(rejected, fmt.Sprintf("%s=%v 非法（值域校验拒绝）", path, val))
 				continue
 			}
 			setJSONPath(root, path, val)
@@ -152,12 +182,19 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.Marshal(root)
 		err := json.Unmarshal(data, &cfg)
 		cfgMu.Unlock()
+		for _, rj := range rejected {
+			auditLog("CONFIG_REJECTED", "-", rj)
+		}
 		if err != nil {
 			writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid config value"})
 			return
 		}
 		if applied > 0 {
+			// 档位类配置变更后立即对齐（不等热重载轮询）；
+			// 必须在 cfgMu.Unlock() 之后调用——reconcile 内部会再取读锁，持写锁时调用会自死锁
 			saveConfig()
+			reconcileModuleWorkers()
+			firewallReconcile()
 			logMsg(fmt.Sprintf("[CONFIG] 已保存 %d 项配置", applied))
 		}
 		uname, _, _ := userFromRequest(r)
@@ -181,12 +218,23 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	for i := range users {
 		users[i].APIKey = "***"
 	}
+	ctools := customToolList()
+	for i := range ctools { // secretHeaders 脱敏
+		for k := range ctools[i].SecretHeaders {
+			ctools[i].SecretHeaders[k] = "***"
+		}
+	}
 	writeJSON(w, map[string]interface{}{
 		"server": map[string]interface{}{
 			"port":       port,
 			"listenAddr": "127.0.0.1",
 		},
-		"localModels": getLocalModelList(),
+		"modules":      moduleStatusSummary(),
+		"firewall":     firewallStatusSnapshot(),
+		"direct":       directConfigSummary(),
+		"customTools":  ctools,
+		"customAgents": customAgentList(),
+		"localModels":  getLocalModelList(),
 		"fallback": map[string]interface{}{
 			"enable":      true,
 			"maxRetries":  3,
