@@ -35,8 +35,8 @@ func directConfigSummary() map[string]interface{} {
 	cfgMu.RLock()
 	defer cfgMu.RUnlock()
 	return map[string]interface{}{
-		"transport":   cfg.Direct.Transport,
-		"grpcSidecar": map[string]interface{}{"address": cfg.Direct.GRPCSidecar.Address},
+		"transport":      cfg.Direct.Transport,
+		"grpcSidecar":    map[string]interface{}{"address": cfg.Direct.GRPCSidecar.Address},
 		"fallbackPolicy": "边车不可用自动回落 native",
 	}
 }
