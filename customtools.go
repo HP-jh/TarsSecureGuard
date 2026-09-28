@@ -95,13 +95,6 @@ func customToolList() []CustomTool {
 }
 
 // findCustomTool 按名称查找（返回是否找到）
-func customToolList() []CustomTool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return append([]CustomTool(nil), cfg.CustomTools...)
-}
-
-// findCustomTool 按名称查找（返回是否找到）
 func findCustomTool(name string) (CustomTool, bool) {
 	for _, t := range customToolList() {
 		if t.Name == name {
