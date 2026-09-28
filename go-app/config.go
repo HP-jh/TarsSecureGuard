@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -23,11 +24,12 @@ type Config struct {
 		APIKey string `json:"apiKey"`
 	} `json:"search"`
 	Security struct {
-		WAFEnabled      bool     `json:"wafEnabled"`
-		Mode            string   `json:"mode"` // normal | strict | off
-		APIKey          string   `json:"apiKey"`
-		FirewallLock    *bool    `json:"firewallLock"`    // 默认 true：启动时自动加 Windows 防火墙规则
-		AuditLogEnabled bool     `json:"auditLogEnabled"` // 审计日志开关（默认 true）
+		WAFEnabled      bool        `json:"wafEnabled"`
+		Mode            string      `json:"mode"` // normal | strict（off 已废弃：安全模块不可关闭）
+		APIKey          string      `json:"apiKey"`
+		FirewallLock    *bool       `json:"firewallLock"`    // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
+		AuditLogEnabled bool        `json:"auditLogEnabled"` // 审计日志开关（默认 true）
+		Firewall        FirewallCfg `json:"firewall"`
 	} `json:"security"`
 	Users []User `json:"users"` // 多用户 RBAC（空则回退单管理员模式）
 	MCP   struct {
@@ -38,6 +40,33 @@ type Config struct {
 		LlamaDir     string   `json:"llamaDir"`
 		AllowedRoots []string `json:"allowedRoots"`
 	} `json:"paths"`
+	// v2.0.0 模块化：「决策即配置」——所有可选项均为 config 分选项，默认最优安全档
+	Modules      map[string]bool  `json:"modules"`      // 功能模块开关（security-core 不在此列，不可关闭）
+	CustomTools  []CustomTool     `json:"customTools"`  // 用户自定义 HTTP 转发工具（SSRF 加固）
+	CustomAgents []CustomAgentDef `json:"customAgents"` // 用户自定义 agent 角色
+	Direct       DirectCfg        `json:"direct"`       // 系统直连层传输切换点
+}
+
+// FirewallCfg 防火墙策略档位（passive | dynamic-ban | os-link，默认 passive）
+type FirewallCfg struct {
+	Policy      string `json:"policy"`
+	BanDuration string `json:"banDuration"` // dynamic-ban 封禁时长，默认 10m
+}
+
+// DirectCfg 系统直连层传输切换（native | grpc-sidecar，默认 native）
+type DirectCfg struct {
+	Transport   string `json:"transport"`
+	GRPCSidecar struct {
+		Address string `json:"address"` // 仅允许 127.0.0.1/localhost/unix socket
+	} `json:"grpcSidecar"`
+}
+
+// CustomAgentDef 用户自定义 agent 角色
+type CustomAgentDef struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Prompt string `json:"prompt"`
+	Model  string `json:"model"` // 绑定模型（可空 = auto）
 }
 
 // User 单用户配置（RBAC）
@@ -115,12 +144,55 @@ func loadConfig() {
 	}
 	// 解析应用路径（模型目录 / llama 引擎目录 / 授权读写根）
 	resolvePaths()
-	// 仅当配置解析成功时才回写（解析失败时绝不覆盖用户文件）
+	// v2.0.0：安全纠正 + 模块开关应用 + 直连/防火墙档位校验
+	// （loadConfig 是启动加载与热重载的共同入口，两条路径都生效）
+	validateAndCorrectConfig()
+	applyModulesFromConfig()
+	// 仅当配置解析成功时才回写（解析失败时绝不覆盖用户文件）；
+	// 回写必须发生在纠正之后，确保后门值（wafEnabled:false / mode:"off"）不会原样落盘
 	if parsed {
 		saveConfig()
 	}
-	// 记录当前配置文件指纹，作为热重载的基线（新增）
+	// 记录当前配置文件指纹，作为热重载的基线（含纠正后回写的内容，防止自触发）
 	markConfigLoaded()
+}
+
+// validateAndCorrectConfig 安全铁律校验：安全保护模块不可关闭。
+// v1.x 的 security.wafEnabled:false 与 mode:"off" 是「关安全模块」的后门，v2.0 封堵：
+// 配置校验遇到即自动纠正并落审计 CONFIG_CORRECTED（记录原始值与纠正值）。
+func validateAndCorrectConfig() {
+	if !cfg.Security.WAFEnabled {
+		auditLog("CONFIG_CORRECTED", "system", "security.wafEnabled=false -> true（安全模块不可关闭）")
+		cfg.Security.WAFEnabled = true
+	}
+	if cfg.Security.Mode != "strict" && cfg.Security.Mode != "normal" {
+		auditLog("CONFIG_CORRECTED", "system", fmt.Sprintf("security.mode=%q -> \"normal\"（off 已废弃）", cfg.Security.Mode))
+		cfg.Security.Mode = "normal"
+	}
+	// 防火墙档位白名单；空值按 v1 兼容逻辑解析（firewallLock 启用且 Windows -> os-link，否则 passive）
+	switch cfg.Security.Firewall.Policy {
+	case "", fwPolicyPassive, fwPolicyDynamicBan, fwPolicyOSLink:
+	default:
+		auditLog("CONFIG_CORRECTED", "system", fmt.Sprintf("security.firewall.policy=%q -> \"passive\"", cfg.Security.Firewall.Policy))
+		cfg.Security.Firewall.Policy = fwPolicyPassive
+	}
+	if cfg.Security.Firewall.Policy == "" {
+		if firewallLockEnabled() && runtime.GOOS == "windows" {
+			cfg.Security.Firewall.Policy = fwPolicyOSLink // 保持 v1 Windows 行为
+		} else {
+			cfg.Security.Firewall.Policy = fwPolicyPassive
+		}
+	}
+	// 直连档位白名单
+	switch cfg.Direct.Transport {
+	case "", "native", "grpc-sidecar":
+	default:
+		auditLog("CONFIG_CORRECTED", "system", fmt.Sprintf("direct.transport=%q -> \"native\"", cfg.Direct.Transport))
+		cfg.Direct.Transport = "native"
+	}
+	if cfg.Direct.Transport == "" {
+		cfg.Direct.Transport = "native"
+	}
 }
 
 func saveConfig() {
@@ -312,6 +384,9 @@ func watchConfig() {
 		}
 		logMsg("[CONFIG] 检测到配置文件变化，自动重载...")
 		loadConfig()
+		// v2.0.0：模块工作者与防火墙档位随配置对齐（路由经 moduleRoute 包装即时生效）
+		reconcileModuleWorkers()
+		firewallReconcile()
 		// loadConfig 内部 markConfigLoaded 已刷新基线（含 saveConfig 回写后的内容）
 		logMsg("[CONFIG] 配置重载完成")
 	}
