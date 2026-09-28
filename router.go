@@ -33,15 +33,15 @@ type rtArm struct {
 }
 
 type rtState struct {
-	Arms      map[string]*rtArm `json:"arms"
+	Arms      map[string]*rtArm `json:"arms"`
 	Decisions uint64            `json:"decisions"`
 	Epsilon   float64           `json:"epsilon"`
 }
 
 var (
-	rtMu    sync.Mutex
-	rtSt    = rtState{Arms: map[string]*rtArm{}, Epsilon: 0.1}
-	rtRng   = rand.New(rand.NewSource(time.Now().UnixNano()))
+	rtMu sync.Mutex
+	rtSt = rtState{Arms: map[string]*rtArm{}, Epsilon: 0.1}
+	rtRng = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 const rtStateFile = "state/router.json"
@@ -244,11 +244,11 @@ func handleRouterStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	rtMu.Unlock()
 	writeJSON(w, map[string]interface{}{
-		"enabled":     rtEnabled(),
-		"epsilon":     st.Epsilon,
-		"decisions":   st.Decisions,
-		"candidates":  rtCandidates(),
-		"arms":        st.Arms,
-		"policy":      "两阶段：静态规则优先，bandit 仅优化自动分支；非 admin 反馈权重 ×0.1（防伪造）",
+		"enabled":    rtEnabled(),
+		"epsilon":    st.Epsilon,
+		"decisions":  st.Decisions,
+		"candidates": rtCandidates(),
+		"arms":       st.Arms,
+		"policy":     "两阶段：静态规则优先，bandit 仅优化自动分支；非 admin 反馈权重 ×0.1（防伪造）",
 	})
 }
