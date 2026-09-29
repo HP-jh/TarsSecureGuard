@@ -325,7 +325,7 @@ func sgClassify(text, clientIP string) sgDecision {
 		sgStats.Blocked++
 	}
 	sgMu.Unlock()
-	return sgDecision{Verdict: final, Reason: "engine: "+aiWhy, Source: "engine", Fp: fp, EngineLat: lat}
+	return sgDecision{Verdict: final, Reason: "engine: " + aiWhy, Source: "engine", Fp: fp, EngineLat: lat}
 }
 
 // sgTakeGrayQuota 灰区单 IP 令牌桶（容量=quota/分钟）

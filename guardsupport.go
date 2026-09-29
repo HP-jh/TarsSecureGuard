@@ -59,9 +59,9 @@ type V3Config struct {
 	} `json:"semanticGuard"`
 	Router struct {
 		EpsilonStart float64 `json:"epsilonStart"` // ε-greedy 初始探索率，默认 0.1
-		EpsilonMin   float64   `json:"epsilonMin"`   // 衰减下限，默认 0.02
-		Enabled      *bool     `json:"enabled"`      // 默认 true（静态路由不受影响，仅叠加探索）
-	}
+		EpsilonMin   float64 `json:"epsilonMin"`   // 衰减下限，默认 0.02
+		Enabled      *bool   `json:"enabled"`      // 默认 true（静态路由不受影响，仅叠加探索）
+	} `json:"router"`
 }
 
 var (

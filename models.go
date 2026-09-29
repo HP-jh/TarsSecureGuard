@@ -289,7 +289,7 @@ func detectOllama() []ModelInfo {
 			Name       string `json:"name"`
 			Size       int64  `json:"size"`
 			ModifiedAt string `json:"modified_at"`
-		}
+		} `json:"models"`
 	}
 	json.NewDecoder(resp.Body).Decode(&data)
 	for _, m := range data.Models {
@@ -336,7 +336,7 @@ func detectLLamaCpp() []ModelInfo {
 	var data struct {
 		Data []struct {
 			ID string `json:"id"`
-	}
+		} `json:"data"`
 	}
 	json.NewDecoder(resp.Body).Decode(&data)
 	for _, m := range data.Data {
@@ -607,7 +607,7 @@ func downloadModel(name, urlStr string) error {
 			dlMu.Lock()
 			st.Bytes = written
 			if st.Total > 0 {
-			st.Pct = int(written * 100 / st.Total)
+				st.Pct = int(written * 100 / st.Total)
 			}
 			dlMu.Unlock()
 		}

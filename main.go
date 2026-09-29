@@ -66,7 +66,7 @@ var (
 	failReq      int
 	wafBlocks    int
 	respTotalMs  int64 // 已处理请求的累计耗时（毫秒），用于计算平均响应时间
-	respSamples  int64 // 已计时请求的次数
+	respSamples  int64 // 已计时的请求次数
 	modelProcess *os.Process
 	modelRunning bool
 	currentModel string // 当前加载的本地 GGUF 模型 id
@@ -238,7 +238,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			if p := recover(); p != nil {
 				logMsg(fmt.Sprintf("[PANIC] %s %s: %v", r.Method, r.URL.Path, p))
 				auditLog("PANIC_RECOVERED", "system", fmt.Sprintf("%s %s: %v", r.Method, r.URL.Path, p))
-			writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "internal error（已恢复并审计）"})
+				writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "internal error（已恢复并审计）"})
 			}
 		}()
 		// 请求量按小时统计（新增）：供 /api/stats/history 查询
@@ -457,7 +457,7 @@ func sanitizedConfig() map[string]interface{} {
 	if s, ok := m["search"].(map[string]interface{}); ok && s["apiKey"] != "" {
 		s["apiKey"] = "***"
 	}
-	if sec, ok := m["security"].(map[string]interface{}); ok & sec["apiKey"] != "" {
+	if sec, ok := m["security"].(map[string]interface{}); ok && sec["apiKey"] != "" {
 		sec["apiKey"] = "***"
 	}
 	// 多用户 Key 脱敏

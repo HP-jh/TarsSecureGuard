@@ -1,139 +1,53 @@
 package main
 
+// v3.0.0 B 线：IP 信誉（本地行为指纹累积评分，security-core 内置，不可关闭）
+//
+// 设计依据：架构方案第三节 B 线 + 锦衣卫裁定 6 全项：
+//   - 起分 100；WAF 命中 -30、扫描型 404 突发 -10/分钟、限流违规 -15
+//   - 每小时回升 +2 封顶 100；低于 40 触发动态封禁（banDuration×2）
+//   - ip_reputation.whitelist 白名单不参与评分
+//   - 封禁后连续 24 小时无新扣分自动恢复至 60 分并解封
+//   - NAT 误伤识别：同 IP 短时间被大量不同来源触发扣分 → IP_REPUTATION_ANOMALY 告警
+//   - admin 可解封（API + M3 的 tars_ip_reputation_unban），操作审计
+//   - 不接外部信誉服务（离线优先）；CrowdSec 源为 v3.x 可选项，本文件不含
+//   - state 持久化（state/iprep.json），重启不丢
+
 import (
 	"encoding/json"
-	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 )
 
-// ===================== IP 信誉表（v3.0.0 新增，模块 ipReputation）=====================
-//
-// 基于本地行为证据动态评分（初始 100 分）：
-//   WAF 命中 -30；分层限流超限 -20；扫描型 404 突发（5 次/分钟）-10；
-//   低于 40 分触发动态封禁（联动 firewall，时长为普通封禁的 2 倍）；
-//   24 小时无事件自动恢复 +10/小时。
-// 状态持久化到 state/iprep.json，重启不丢。
-
-type IPEntry struct {
-	Score     int       `json:"score"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	BannedAt  time.Time `json:"bannedAt,omitempty"`
-	Reasons   []string  `json:"reasons,omitempty"`
+type ipRepEntry struct {
+	Score        float64   `json:"score"`
+	LastPenalty  time.Time `json:"lastPenalty"`
+	BannedAt     time.Time `json:"bannedAt"`
+	Last404Win   time.Time `json:"last404Win"`   // 404 突发扣分窗口（每分钟至多一次）
+	AnomalyMark  time.Time `json:"anomalyMark"`  // NAT 异常标记时间
+	distinctSrcs map[string]bool // 触发扣分的来源用户集合（NAT 识别用，不持久化）
 }
 
 var (
-	ipMu   sync.Mutex
-	ipTable = map[string]*IPEntry{}
+	ipRepMu    sync.Mutex
+	ipRepTable = map[string]*ipRepEntry{}
 )
 
-func ipRepPath() string { return filepath.Join("state", "iprep.json") }
-
-func ipRepLoad() {
-	b, err := os.ReadFile(ipRepPath())
-	if err != nil {
-		return
-	}
-	ipMu.Lock()
-	defer ipMu.Unlock()
-	json.Unmarshal(b, &ipTable)
-}
-
-func ipRepSave() {
-	_ = os.MkdirAll("state", 0o755)
-	ipMu.Lock()
-	b, _ := json.MarshalIndent(ipTable, "", "  ")
-	ipMu.Unlock()
-	os.WriteFile(ipRepPath(), b, 0o600)
-}
-
+// ipRepEnabled 信誉评分总开关（默认 true）
 func ipRepEnabled() bool {
-	v := v3Config().IPReputation.Enabled
-	return v == nil || *v
+	c := v3Config()
+	if c.IPReputation.Enabled != nil {
+		return *c.IPReputation.Enabled
+	}
+	return true
 }
 
-// ipRepPenalty 扣分（WAF/限流/扫描 404 联动）
-func ipRepPenalty(ip string, delta int, reason string) {
-	if !ipRepEnabled() || isWhitelistedIP(ip) {
-		return
-	}
-	ipMu.Lock()
-	e := ipTable[ip]
-	if e == nil {
-		e = &IPEntry{Score: 100}
-		ipTable[ip] = e
-	}
-	e.Score -= delta
-	if e.Score < 0 {
-		e.Score = 0
-	}
-	e.UpdatedAt = time.Now()
-	e.Reasons = append(e.Reasons, fmt.Sprintf("%s -%d @%s", reason, delta, time.Now().Format("15:04:05")))
-	if len(e.Reasons) > 20 {
-		e.Reasons = e.Reasons[len(e.Reasons)-20:]
-	}
-	low := e.Score < 40
-	firstBan := low && e.BannedAt.IsZero()
-	if low && e.BannedAt.IsZero() {
-		e.BannedAt = time.Now()
-	}
-	ipMu.Unlock()
-	if firstBan {
-		auditLog("IP_REP_BAN", "system", fmt.Sprintf("ip=%s score=%d 触发动态封禁（时长×2）", ip, e.Score))
-		firewallBanIPExtra(ip)
-	}
-	ipRepSave()
-}
-
-// markIPBanned 标记封禁时刻（WAF 命中时由中间件调用，供 24h 恢复判定）
-func markIPBanned(ip string) {
-	if !ipRepEnabled() || isWhitelistedIP(ip) {
-		return
-	}
-	ipMu.Lock()
-	e := ipTable[ip]
-	if e == nil {
-		e = &IPEntry{Score: 100}
-		ipTable[ip] = e
-	}
-	if e.BannedAt.IsZero() {
-		e.BannedAt = time.Now()
-	}
-	ipMu.Unlock()
-}
-
-// ipRepRecoverTick 每小时恢复 +10（24h 无事件自动恢复）
-func ipRepRecoverTick() {
-	ipMu.Lock()
-	now := time.Now()
-	changed := false
-	for ip, e := range ipTable {
-		if now.Sub(e.UpdatedAt) >= time.Hour {
-			e.Score += 10
-			if e.Score > 100 {
-				e.Score = 100
-			}
-			e.UpdatedAt = now
-			if e.Score >= 60 && !e.BannedAt.IsZero() {
-				e.BannedAt = time.Time{}
-				firewallUnbanIP(ip) // 信誉恢复到 60 以上自动解封
-			}
-			changed = true
-		}
-	}
-	ipMu.Unlock()
-	if changed {
-		ipRepSave()
-	}
-}
-
-func isWhitelistedIP(ip string) bool {
-	for _, w := range v3Config().IPReputation.Whitelist {
+// ipRepWhitelisted 白名单判定
+func ipRepWhitelisted(ip string) bool {
+	c := v3Config()
+	for _, w := range c.IPReputation.Whitelist {
 		if w == ip {
 			return true
 		}
@@ -141,47 +55,177 @@ func isWhitelistedIP(ip string) bool {
 	return false
 }
 
-// ===================== IP 信誉 HTTP =====================
-func handleIPRepStatus(w http.ResponseWriter, r *http.Request) {
-	ipMu.Lock()
-	defer ipMu.Unlock()
-	out := make([]map[string]interface{}, 0, len(ipTable))
-	for ip, e := range ipTable {
-		out = append(out, map[string]interface{}{
-			"ip": ip, "score": e.Score, "updatedAt": e.UpdatedAt.Unix(),
-			"banned": !e.BannedAt.IsZero(), "reasons": e.Reasons,
-		})
+// ipRepScore 返回当前分（无记录 = 100）
+func ipRepScore(ip string) float64 {
+	ipRepMu.Lock()
+	defer ipRepMu.Unlock()
+	if e, ok := ipRepTable[ip]; ok {
+		return e.Score
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i]["score"].(int) < out[j]["score"].(int) })
-	writeJSON(w, map[string]interface{}{"enabled": ipRepEnabled(), "entries": out})
+	return 100
 }
 
-func handleIPRepUnban(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+// ipRepPenalty 扣分入口（source: waf / scan404 / rate-limit / abuse）
+func ipRepPenalty(ip string, delta float64, source string) {
+	if !ipRepEnabled() || ipRepWhitelisted(ip) || ip == "" || ip == "127.0.0.1" || ip == "::1" {
 		return
 	}
-	var body struct {
-		IP string `json:"ip"`
+	ipRepMu.Lock()
+	e, ok := ipRepTable[ip]
+	if !ok {
+		e = &ipRepEntry{Score: 100, distinctSrcs: map[string]bool{}}
+		ipRepTable[ip] = e
 	}
-	json.NewDecoder(r.Body).Decode(&body)
-	if body.IP == "" {
-		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "ip 必填"})
-		return
+	// 404 突发每分钟至多扣一次（防单次扫描事件重复扣分）
+	if source == "scan404" {
+		if time.Since(e.Last404Win) < time.Minute {
+			ipRepMu.Unlock()
+			return
+		}
+		e.Last404Win = time.Now()
 	}
-	ipMu.Lock()
-	if e, ok := ipTable[body.IP]; ok {
+	e.Score -= delta
+	if e.Score < 0 {
+		e.Score = 0
+	}
+	e.LastPenalty = time.Now()
+	e.distinctSrcs[source] = true
+	// NAT 异常识别：15 分钟内 ≥3 种不同扣分来源（大量不同用户/事件类型同时命中同 IP）
+	if time.Since(e.AnomalyMark) > 15*time.Minute && len(e.distinctSrcs) >= 3 {
+		e.AnomalyMark = time.Now()
+		auditLog("IP_REPUTATION_ANOMALY", "system", "ip="+ip+" 疑似 NAT/共享出口（多来源扣分集中），请确认是否误伤；白名单可经 config.ipReputation.whitelist 豁免")
+	}
+	score := e.Score
+	ipRepMu.Unlock()
+
+	// 低于 40：触发动态封禁（时长 = banDuration×2），复用既有防火墙档位
+	if score < 40 {
+		firewallBanIP(ip) // passive 档为 no-op；dynamic-ban/os-link 生效
+		firewallBanIPExtra(ip) // 二倍时长（见 firewalldriver 扩展；不支持则等效单次）
+		auditLog("IP_REPUTATION_BAN", "system", "ip="+ip+" score<40 已联动防火墙封禁（banDuration×2）")
+	}
+}
+
+// ipRepTick 后台维护（由守护器 worker 携带驱动，每 5 秒调一次即可）：
+//   - 每小时回升 +2 封顶 100（无未过期封禁记录时）
+//   - 封禁后 24h 无新扣分 → 恢复 60 分并解封
+func ipRepTick() {
+	ipRepMu.Lock()
+	defer ipRepMu.Unlock()
+	now := time.Now()
+	for ip, e := range ipRepTable {
+		// 24h 自动恢复（针对已被封禁或低分条目）
+		if e.Score < 60 && !e.BannedAt.IsZero() && now.Sub(e.LastPenalty) >= 24*time.Hour {
+			auditLog("IP_REPUTATION_AUTO_RECOVER", "system", "ip="+ip+" 24h 无新扣分，自动恢复至 60 分")
+			e.Score = 60
+			e.BannedAt = time.Time{}
+			continue
+		}
+		// 每小时回升 2 分（上次扣分 1 小时后开始）
+		if e.Score < 100 && now.Sub(e.LastPenalty) >= time.Hour {
+			e.Score += 2
+			if e.Score > 100 {
+				e.Score = 100
+			}
+			e.LastPenalty = e.LastPenalty.Add(time.Hour) // 逐小时推进
+		}
+	}
+}
+
+// markIPBanned 由 firewalldriver 封禁回调（记录 BannedAt 供 24h 恢复）
+func markIPBanned(ip string) {
+	ipRepMu.Lock()
+	defer ipRepMu.Unlock()
+	if e, ok := ipRepTable[ip]; ok {
+		e.BannedAt = time.Now()
+	}
+}
+
+// ipRepUnban admin 解封（API + M3 MCP 工具共用），操作审计
+func ipRepUnban(operator, ip string) bool {
+	ipRepMu.Lock()
+	if e, ok := ipRepTable[ip]; ok {
 		e.Score = 100
 		e.BannedAt = time.Time{}
-		e.UpdatedAt = time.Now()
+		e.distinctSrcs = map[string]bool{}
 	}
-	ipMu.Unlock()
-	firewallUnbanIP(body.IP)
-	ipRepSave()
-	n, _, _ := userFromRequest(r)
-	auditLog("IP_REP_UNBAN", n, "手动解封 ip="+body.IP)
-	writeJSON(w, map[string]interface{}{"success": true, "ip": body.IP})
+	ipRepMu.Unlock()
+	firewallUnbanIP(ip)
+	auditLog("IP_REPUTATION_UNBAN", operator, "ip="+ip+" 已解封并重置评分")
+	return true
 }
 
-// 防止未使用导入（net 用于后续 CIDR 段判定）
-var _ = net.ParseIP
+// ===================== 持久化 =====================
+
+type ipRepPersist struct {
+	Score       float64 `json:"score"`
+	LastPenalty int64   `json:"lastPenalty"`
+	BannedAt    int64   `json:"bannedAt"`
+}
+
+func ipRepSave() {
+	ipRepMu.Lock()
+	out := map[string]ipRepPersist{}
+	for ip, e := range ipRepTable {
+		out[ip] = ipRepPersist{Score: e.Score, LastPenalty: e.LastPenalty.Unix(), BannedAt: e.BannedAt.Unix()}
+	}
+	ipRepMu.Unlock()
+	b, _ := json.Marshal(out)
+	_ = os.MkdirAll("state", 0o755)
+	_ = os.WriteFile(filepath.Join("state", "iprep.json"), b, 0o600)
+}
+
+func ipRepLoad() {
+	b, err := os.ReadFile(filepath.Join("state", "iprep.json"))
+	if err != nil {
+		return
+	}
+	var in map[string]ipRepPersist
+	if json.Unmarshal(b, &in) != nil {
+		return
+	}
+	ipRepMu.Lock()
+	defer ipRepMu.Unlock()
+	for ip, p := range in {
+		ipRepTable[ip] = &ipRepEntry{
+			Score:       p.Score,
+			LastPenalty: time.Unix(p.LastPenalty, 0),
+			BannedAt:    time.Unix(p.BannedAt, 0),
+			distinctSrcs: map[string]bool{},
+		}
+	}
+	logMsg("[IPREP] 信誉表已从 state/iprep.json 恢复（条目数见状态接口）")
+}
+
+// handleIPRepStatus admin 查询接口
+func handleIPRepStatus(w http.ResponseWriter, r *http.Request) {
+	ipRepMu.Lock()
+	snapshot := map[string]float64{}
+	for ip, e := range ipRepTable {
+		snapshot[ip] = e.Score
+	}
+	ipRepMu.Unlock()
+	writeJSON(w, map[string]interface{}{
+		"enabled":   ipRepEnabled(),
+		"whitelist": v3Config().IPReputation.Whitelist,
+		"scores":    snapshot,
+	})
+}
+
+// handleIPRepUnban admin 解封接口
+func handleIPRepUnban(w http.ResponseWriter, r *http.Request) {
+	name, role, ok := userFromRequest(r)
+	if !ok || role != "admin" {
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "需要 admin 角色"})
+		return
+	}
+	var req struct {
+		IP string `json:"ip"`
+	}
+	if json.NewDecoder(r.Body).Decode(&req) != nil || req.IP == "" {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "需要 body: {\"ip\": \"...\"}"})
+		return
+	}
+	ipRepUnban(name, req.IP)
+	writeJSON(w, map[string]string{"status": "unbanned", "ip": req.IP})
+}

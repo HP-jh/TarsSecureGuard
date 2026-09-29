@@ -144,7 +144,7 @@ func callExternalMCP(serverName, method, toolName string, args map[string]interf
 	stdout, _ := cmd.StdoutPipe()
 	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("启动 %s 失败: %v", serverName)
+		return nil, fmt.Errorf("启动 %s 失败: %v", serverName, err)
 	}
 	defer func() {
 		cmd.Process.Kill()
@@ -195,7 +195,7 @@ func callExternalMCP(serverName, method, toolName string, args map[string]interf
 		var resp struct {
 			ID     int             `json:"id"`
 			Result json.RawMessage `json:"result"`
-		Error  json.RawMessage `json:"error"`
+			Error  json.RawMessage `json:"error"`
 		}
 		if err := dec.Decode(&resp); err != nil {
 			return nil, err

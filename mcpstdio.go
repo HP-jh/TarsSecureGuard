@@ -98,7 +98,7 @@ func mcpToolList() []mcpToolDef {
 		},
 		{
 			Name:        "tars_ip_reputation_unban",
-			Description: "解封指定 IP 并重置信誉分（100）。需要管理员密钥，全程审计。",
+			Description: "解封指定 IP 并重置信誉分（100）。需要管理员密钥，操作全程审计。",
 			InputSchema: obj(map[string]interface{}{"ip": str("要解封的 IP 地址")}, []string{"ip", "adminKey"}),
 		},
 	}

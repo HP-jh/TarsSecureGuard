@@ -311,7 +311,7 @@ func handleDiscoveryResults(w http.ResponseWriter, r *http.Request) {
 // 按小时请求量统计：key 为 Unix 小时时间戳（time.Unix()/3600），供 /api/stats/history 查询
 var (
 	historyMu    sync.Mutex
-	hourlyCounts = map[int]time.Time{}
+	hourlyCounts = map[int64]int{}
 )
 
 // recordHourlyRequest 把当前小时的请求量 +1，并顺带清理 24 小时以前的旧桶（防 map 无限增长）

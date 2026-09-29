@@ -2,248 +2,214 @@
 
 # 🛡️ TarsSecureGuard
 
-**本机 AI 安全网关 · 一个二进制跑通全栈 · 完全开源（MIT）**
+### Your AI's Safety Belt —— 给你的 AI 系上安全带
 
-[![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6)](#)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.0.3-blue)](https://github.com/HP-jh/TarsSecureGuard/releases)
-[![Stars](https://img.shields.io/github/stars/HP-jh/TarsSecureGuard?color=yellow&style=flat&logo=github)](https://github.com/HP-jh/TarsSecureGuard/stargazers)
+<p>
+<b>解压即用</b> · <b>安全性强</b> · <b>无需配置</b> · <b>全平台兼容</b>
+</p>
 
-[English](README_EN.md) · [快速开始](#快速开始windows) · [构建](#构建) · [特性](#特性)
+<p>
+一个零依赖、单文件、纯静态的<b>本地 AI 安全网关</b>：统一纳管本地 GGUF / LM Studio / Ollama 与云端模型，<br/>
+在最外层强制开启 WAF、语义防护、分层限流、IP 信誉、RBAC、审计与 PII 脱敏，<br/>
+并以资源守护器、智能路由与模型评分，让本地 AI <b>跑得稳、选得优、守得住</b>。
+</p>
+
+<p>
+<img alt="Version" src="https://img.shields.io/badge/version-3.0.0-success">
+<img alt="Go" src="https://img.shields.io/badge/Go-1.22.5-00ADD8?logo=go&logoColor=white">
+<img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
+<img alt="Platforms" src="https://img.shields.io/badge/platform-6%20targets-blueviolet">
+<img alt="Tests" src="https://img.shields.io/badge/tests-race%20green">
+<img alt="License" src="https://img.shields.io/badge/license-MIT-orange">
+</p>
 
 </div>
 
-TarsSecureGuard 是一个跑在你本机的 **AI 安全网关**——在你所有 AI 客户端和后端模型之间，加一道“安检门”：统一鉴权、WAF 防护、多后端路由、审计日志、MCP 中继，一次全包。把 ChatBox / NextChat / Cursor / 任何 OpenAI 兼容客户端指向 `http://127.0.0.1:18889/v1`，所有请求先过网关，再到模型。
+---
 
-> 👦 这个项目是一个六年级学生用 AI 辅助完成的第一个 Go 开源项目，v1.0.3 起支持 **Windows / Linux / macOS** 三平台编译。如果你正在学编程，欢迎 fork 来玩；如果觉得有用，点个 ⭐ 就是最大的鼓励。
+## 📣 推荐语
 
-## 它解决什么问题
-
-本地同时跑着 llama.cpp、LM Studio、Ollama，还想接几个云端 OpenAI 兼容 API？很快会遇到：
-
-- 每个后端端口不同、协议细节不同，客户端配置乱成一团
-- 没有统一鉴权，任何进程都能白嫖你的模型
-- 本地 MCP 工具调用时，恶意 prompt 可能借工具读你硬盘
-- 出了事不知道是哪个后端挂了、哪个请求被拦了
-
-TarsSecureGuard 在中间加一层：**统一入口、统一鉴权、统一防护、统一日志**。
-
-## ✨ v1.0.3 新亮点
-
-| 能力 | 说明 |
-|---|---|
-| 🌍 **跨平台编译** | Windows / Linux / macOS 单二进制构建（build tags 拆分，含磁盘统计与子进程封装平台实现） |
-| 👥 **多用户 RBAC** | `admin / user / readonly` 三级权限，每人独立 API Key；不配置 `users` 时自动回退单管理员，**100% 向后兼容** |
-| 📜 **结构化审计日志** | 配置修改、模型启停、权限拒绝全部留痕，按日落盘 `logs/audit-*.log`，admin 可查 `GET /api/admin/audit-logs` |
-| 🧠 **Prompt Injection 防御** | strict 模式拦截 `ignore previous instructions`、jailbreak、DAN mode 等注入特征，命中返回 403 |
-| 🔏 **PII 检测与脱敏** | 聊天消息里的手机号 / 邮箱 / 信用卡号 / SSN 自动打成 `****`，不进后端、不落日志 |
-| 🔑 **密钥零明文** | `TARS_API_KEY` / `TARS_OPENAI_KEY` / `TARS_DEEPSEEK_KEY` / `TARS_SEARCH_KEY` 环境变量覆盖配置；所有接口返回 Key 一律 `***` |
-
-## 架构
-
-```
-ChatBox / NextChat / Cursor / 任意 OpenAI 客户端
-            │
-            ▼
-┌─────────────────────────────┐
-│  TarsSecureGuard :18889      │
-│  ┌─────────────────────────┐ │
-│  │ 鉴权 (API Key / RBAC)   │ │
-│  │ WAF (注入/遍历/XSS/PII/ │ │
-│  │      PromptInjection)   │ │
-│  │ 速率限制 · 审计日志     │ │
-│  └─────────────────────────┘ │
-│  路由：本地GGUF / LM Studio  │
-│       Ollama / 云端OpenAI    │
-│  MCP 中继 (JSON-RPC)         │
-│  内嵌 Web 控制台（测试用）   │
-└─────────────────────────────┘
-            │
-            ▼
-   llama.cpp :18890 / LM Studio :1234 /
-   Ollama :11434 / 云端 API
-```
-
-## 特性
-
-### 安全（v1.0.3 强化）
-
-- 👥 **多用户 RBAC**：`users[]` 支持 `admin / user / readonly`；admin 端点仅 admin 可访问，readonly 禁止写操作，权限拒绝自动记入审计
-- 📜 **审计日志**：`CONFIG_CHANGE` / `MODEL_START` / `MODEL_STOP` / `MODEL_DOWNLOAD` / `ACCESS_DENIED` 全留痕；默认开启，可按需关闭
-- 🧠 **Prompt Injection 检测**（strict）：识别越权指令、jailbreak、DAN mode 等特征，直接 403
-- 🔏 **PII 脱敏**：聊天请求在后端路由前自动脱敏，normal 模式不拦截只替换，strict 模式可拦截
-- 🔑 **环境变量覆盖密钥**：四种 `TARS_*_KEY` 环境变量优先级高于配置文件，明文不落盘
-
-### 网关层（核心）
-
-**网络与边界**
-- 🔒 **只监听 loopback**：绑定 `127.0.0.1:18889`，外部网络无法直连
-- 🛑 **CORS 白名单**：不返回 `*`，只回显 `127.0.0.1 / localhost / [::1]` 加网关端口
-- 🛡 **安全响应头**：`X-Frame-Options: DENY` / `nosniff` / `no-referrer`
-- 📦 **请求体硬上限 5MB**，超大 body 直接拒
-- ⏱ **Server 超时全配**：Read 60s / Write 600s / Idle 120s，慢连接攻击挡得住
-
-**鉴权**
-- 🔑 **入站一律校验**：所有 API 必须带 `X-API-Key` 或 `Authorization: Bearer <key>`，未授权 401 + `WWW-Authenticate`
-- ⏱ **常量时间比较**：`crypto/subtle.ConstantTimeCompare`，防时序侧信道
-- ✅ **配置修改白名单**：只能改白名单字段，防结构破坏
-
-**WAF**
-- 🛡 **6 类规则**：路径穿越（含 URL 编码变体）、命令注入、SQL 注入、XSS、PromptInjection、PII 泄漏
-- 🎯 **normal / strict 双模式**：normal 只扫工具参数（防聊天误报），strict 扫整个请求体
-- 🧠 **认识 function calling 结构**：定位 `params.arguments` / `args` 里的字符串值，不粗暴全文匹配
-- 🚦 **每 IP 速率限制**：10 秒窗口 120 请求，过期条目自动清理
-- 🕵️ **扫描器 UA 黑名单 + 敏感路径探测**：sqlmap / nikto / nuclei 等 UA 直接拦截；`/.env`、`/.git`、`/wp-admin` 等路径拒绝
-- 🚫 **异常 HTTP 方法拦截**：TRACE / CONNECT 等直接 403
-
-**文件系统隔离**
-- 📁 **`isPathAllowed` 边界严格**：必须“等于根目录”或“根+分隔符开头”，`D:\TarsSecureGuard` 不会误匹配 `...Evil`
-- 🪣 **`allowedRoots` 默认最小授权**：exe 目录 + 桌面/文档/下载
-
-**路由与 MCP**
-- 🛣 **多后端路由**：本地 GGUF（llama.cpp）· LM Studio · Ollama · OpenAI 兼容云端，自动探测与 failover
-- 🔗 **标准 MCP JSON-RPC 2024-11-05**：`initialize` / `tools/list` / `tools/call` / `ping`，兼容自定义 `{tool, args}`
-- 🧯 **外部 MCP stdio 子进程管理**：spawn、60s 超时、用完 `Kill + Wait` 回收句柄，Windows 下不弹黑框
-
-### 附属（开箱即测）
-
-- 🖥 **内嵌 Web 控制台**：仪表盘 / 聊天 / 模型管理 / WAF 日志 / 设备信息 / 审计日志，全部 `go:embed` 进单 exe
-- 🧰 **内置工具集**：文件读写、Web 搜索、URL 抓取、配置读写（验证网关用，非产品核心）
-- 🌐 **Web 搜索**：内置 Bing RSS，无需 API Key
-- 🧭 **首次运行向导**：环境检测 → 推荐模型下载 → 完成
-
-### 工程细节
-
-- 🪟 **BOM 兼容**：自动剥离 UTF-8 BOM，记事本保存不乱码
-- 🛡 **bool 零值陷阱防护**：没写 `wafEnabled` 默认开
-- 🚫 **解析失败不覆盖用户文件**
-- 💾 **HTTP 客户端分池**：短 / 长 / 下载专用
-- 🗑 **自动清理**：24 小时统计桶、过期限流条目防内存泄漏
-
-## 🚀 快速开始（Windows）
-
-1. 下载或构建 `TarsSecureGuard.exe`（见“构建”）
-2. 双击运行，浏览器自动打开控制台
-3. 首次运行向导：检测环境 → 下载推荐模型（约 1.9GB，可选）→ 完成
-
-**接入你的客户端**：Base URL 填
-
-```
-http://127.0.0.1:18889/v1
-```
-
-API Key 填 `config.json` 的 `security.apiKey`（默认 `tars-gateway-key`，**请务必改掉**）。
-
-> 所有默认路径基于 **exe 所在目录**：
-> ```
-> 你的文件夹/
-> ├── TarsSecureGuard.exe   ← 双击它
-> ├── config.json           ← 首次运行自动生成
-> ├── Models/               ← GGUF 模型放这里
-> └── llama/                ← llama-server 推理引擎
-> ```
-
-**Linux / macOS**：`go build` 后直接运行即可，配置、模型目录结构完全一致。
-
-## ⚙️ 配置
-
-配置文件 `config.json` 在 exe 同目录，首次运行自动生成。也可用参数 / 环境变量指定：
-
-```bash
-TarsSecureGuard -config D:\my\config.json   # 或
-TARS_CONFIG=D:\my\config.json ./TarsSecureGuard
-```
-
-| 字段 | 说明 | 默认值 |
-|---|---|---|
-| `security.apiKey` | 入站 API 密钥 | `tars-gateway-key` |
-| `security.wafEnabled` | WAF 开关 | `true` |
-| `security.mode` | `normal` / `strict` / `off` | `normal` |
-| `security.auditLogEnabled` | 审计日志开关 | `true` |
-| `users[]` | 多用户 RBAC：`{name, apiKey, role, enabled}`，role 为 `admin / user / readonly` | 空（回退单管理员） |
-| `paths.modelDir` | GGUF 模型目录 | exe 同目录 `Models/` |
-| `paths.llamaDir` | llama.cpp 引擎目录 | exe 同目录 `llama/` |
-| `paths.allowedRoots` | 文件工具读写白名单 | exe 目录 + 桌面/文档/下载 |
-| `cloud.openai/deepseek` | 云端 OpenAI 兼容服务 | 空 |
-| `search.engine` | `builtin` / `serper` | `builtin` |
-
-**环境变量覆盖密钥**（优先级高于配置文件）：`TARS_API_KEY`、`TARS_OPENAI_KEY`、`TARS_DEEPSEEK_KEY`、`TARS_SEARCH_KEY`。
-
-> 安全提示：务必修改 `security.apiKey` 默认值；多用户场景请在 `users[]` 里为每人配独立 Key 与角色；`allowedRoots` 保持最小授权。
-
-## 🧠 后端模型
-
-- **本地 GGUF**：把 `qwen2.5-3b-instruct-q4_k_m.gguf` 等放入 `Models/`，网关自动调 llama.cpp
-- **LM Studio / Ollama**：装着就自动发现（端口 1234 / 11434），还支持独立 llama.cpp（8080）
-- **云端 OpenAI 兼容**：`config.json` 填 base URL + key
-- Web 界面「Models → Scan Hardware」可一键下载推荐模型（Hugging Face 直链）
-
-## 🛠 构建
-
-需要 [Go 1.22+](https://go.dev/dl/)。
-
-```bash
-cd go-app
-# Windows
-GOOS=windows GOARCH=amd64 go build -o TarsSecureGuard.exe .
-# Linux
-GOOS=linux   GOARCH=amd64 go build -o tars-linux .
-# macOS
-GOOS=darwin  GOARCH=amd64 go build -o tars-macos .
-```
-
-或直接跑根目录 `build.bat`（Windows 一键）。前端经 `go:embed` 内嵌，改完前端重新 `go build`。
-
-## 📂 目录结构
-
-```
-TarsSecureGuard/
-├── go-app/
-│   ├── main.go              # 入口 / 路由 / RBAC 中间件 / 审计日志
-│   ├── config.go            # 配置结构 / 路径解析 / 热重载 / 环境变量覆盖
-│   ├── waf.go               # WAF 规则 / 速率限制 / PII 脱敏 / 拦截   ← 网关核心
-│   ├── models.go            # 后端路由：GGUF / LM Studio / Ollama / 云端
-│   ├── chat.go              # OpenAI 兼容 /v1 代理（含 PII 脱敏）
-│   ├── handlers.go          # 状态 / 安全 / 审计 / 配置 API
-│   ├── device.go            # 设备信息 / 服务发现（跨平台公共代码）
-│   ├── device_windows.go    # Windows 磁盘统计（build tags）
-│   ├── device_other.go      # Linux/macOS 磁盘统计（build tags）
-│   ├── process_windows.go   # Windows 子进程 HideWindow（build tags）
-│   ├── process_other.go     # 非 Windows 空实现（build tags）
-│   ├── tools.go / web.go / mcp.go / memory.go / logging.go / firewall.go
-│   ├── frontend/index.html  # 内嵌 Web 控制台
-│   └── config.json          # 本机配置（示例，含真实 Key 勿提交）
-├── build.bat / start.bat / start.sh
-├── CHANGES.md / OPTIMIZATION_REPORT.md
-├── LICENSE                  # MIT
-└── README.md
-```
-
-## 🤝 贡献
-
-欢迎提 Issue / PR。项目还很年轻，优先方向：
-
-- 🔀 跨平台 CI（GitHub Actions 矩阵编译）
-- 📊 Prometheus 指标 + wrk/k6 压测基准（对标 Bifrost 5000 QPS）
-- 🔐 JWT 升级：单 Key → 带过期与 Scope 的 Token
-- 🧱 跨平台防火墙驱动（iptables / pfctl）
-- 🧪 单元测试（WAF 规则、路径遍历防护是重点）
-
-## 📜 开源
-
-MIT 许可证，可自由使用、修改、分发（含商用）。详见 [LICENSE](LICENSE)。
-
-## ⚠️ 免责声明
-
-本项目为个人学习与本地使用设计，默认仅监听本机。请勿将未加固版本直接暴露公网；远程访问请自行加 TLS 与更严鉴权。
+> **不想配环境、不想写 YAML、不想让本地模型裸奔、也不想它在你电脑上失控？TarsSecureGuard 是你的答案。**
+>
+> 下载一个压缩包，解压，双击 —— 浏览器自动打开中文管理面板，本地模型、云端模型、搜索、工具、安全审计全部就位。
+> 它不是又一个需要 Docker + 数据库 + Redis 的"重型网关"，而是一个 **零依赖、纯静态、拷到 U 盘里都能跑** 的安全网关；
+> v3.0 更进一步，像安全带一样——平时无感，出事的瞬间把你牢牢护住。
+>
+> 当 LiteLLM 还在让你拉 1GB 镜像、New API 还在让你装 MySQL 时，TarsSecureGuard 已经替你把安全带系好了。
 
 ---
 
+## 🌟 介绍语
+
+TarsSecureGuard 是一款**本地优先（local-first）的 AI 安全网关**。它站在你和本地推理引擎（llama.cpp / LM Studio / Ollama）以及云端模型（OpenAI / DeepSeek / 自定义）之间，对外只暴露一个 OpenAI 兼容端点（HTTP 或 **stdio**），对内统一调度、统一治理、统一审计。
+
+### 四大核心特点
+
+| 特点 | 说明 |
+|------|------|
+| 📦 **解压即用** | 无需安装、无需容器、无需数据库。压缩包解压，双击 `start.bat` / `start.sh`，服务即起，浏览器自动打开中文面板。 |
+| 🔒 **安全性强** | Security Core 强制加载、**不可关闭**：WAF（路径穿越 / 命令注入 / SQLi / XSS / **Prompt 注入** / **PII 检测**）、**语义检测分级分流（fail-close）**、**三维令牌桶限流**、**本地 IP 信誉评分**、RBAC 三角色、结构化审计、PII 脱敏、SSRF 五红线、防火墙三档联动。 |
+| ⚙️ **无需配置** | 开箱即有合理默认；本地模型**自动发现**（每 60 秒探测 LM Studio / Ollama / llama.cpp）；`config.json` 改动 2 秒热重载，改完不重启。 |
+| 💻 **环境兼容性好** | 一份代码，六平台产物（macOS Intel/Apple Silicon、Linux x86_64/ARM64、Windows x64/ARM64）；`CGO_ENABLED=0` 纯静态，老内核、老发行版、内网隔离即拷即跑。 |
+
+### 💎 订阅版（Subscription）
+
+> **社区版完全免费、开源（MIT）；订阅版面向希望"省心 + 合规 + 持续更新"的用户。**
+
+| 能力 | 社区版（免费） | **订阅版（推荐）** |
+|------|:---:|:---:|
+| 网关 / 本地与云端模型 / WAF / 语义防护 / 限流 / IP 信誉 / RBAC / 审计 | ✅ | ✅ |
+| 资源守护器 / 智能路由 / 模型评分 / MCP stdio | ✅ | ✅ |
+| 全平台六架构产物 | ✅ | ✅ |
+| **一键更新包**（云盘最新版自动构建，免手动） | — | ✅ |
+| **安全规则库持续更新**（最新 Prompt 注入 / 越狱特征、IP 信誉策略） | 社区节奏 | **优先更新** |
+| **lm-eval 离线评测数据导入与调优建议** | 手动 | ✅ 专家调优 |
+| 私有化 / 内网合规部署支持 | — | ✅ |
+| 原厂技术支持与 SLA | — | ✅ |
+
+订阅即获得**持续的安全防护更新与省心交付**：你只管解压使用，防护、稳定性与兼容性由订阅持续兜底。
+
+---
+
+## 🧩 v3.0.0 能力一览（"Your AI's Safety Belt"）
+
+### A 线 · 资源守护器（resourceGuardian）
+- `GOMEMLIMIT` 软内存上限（min(物理 10%, 384MB)，eco 档 128MB，可覆盖）。
+- **L0–L3 分级响应**：L1 降级非核心 → L2 熔断高耗 → L3 优雅停机（30s drain + 审计刷盘 + 状态保存 + 退出码 42 + 冷却防风暴）。
+- L2/L3 以 **RSS 口径**判定，捕捉 CGO / 外部内存泄漏；eco 省资源档对 D 档硬件自动套用。
+
+### B 线 · 防护升级
+- **语义检测分级分流（semanticGuard）**：静态规则先行，灰区送本地 0.5B–1.5B 小模型判定；**fail-close 铁律**——引擎不可用直接 503，绝不放行；指纹缓存 + 灰区速率上限。
+- **三维令牌桶限流（rateLimiter）**：IP×端点类 / Key×端点类 / IP 总量，超限 429 并联动信誉扣分。
+- **本地 IP 信誉（ipReputation）**：起分 100，WAF/扫描/限流扣分，低分自动封禁、白名单、24h 自动恢复、NAT 异常告警、admin 解封。
+- 「**AI 只能加严**」单向合并铁律：安全策略只允许更严格，100% 单测 + 运行时审计。
+
+### C 线 · 两阶段智能路由
+- **smartRouter**：静态规则优先兜底 + **ε-greedy bandit**（ε 0.1→0.02 衰减），按成功率/时延历史自动优选后端；非 admin 反馈降权防伪造。
+- **scoreBoard**：运行时分（成功率×时延）融合 **lm-eval-harness** 离线评测（相对参考、诚实标注；Python 边车按需，不捆绑）。
+
+### D 线 · 生态位升维
+- **`--mcp-stdio`：JSON-RPC 2.0 over stdio**，任何本地 agent 接入即获全套防护——本版核心差异化。
+- 工具：`tars_guarded_chat` / `tars_guard_status` / `tars_route_preview` / `tars_model_score` / `tars_module_schema` / `tars_ip_reputation_unban`；管理操作需 `TSG_ADMIN_KEY`，全程审计。
+
+### E 线 · 稳定性工程
+- panic recovery 全覆盖；Go fuzzing（WAF / 配置解析 / 语义归一）；**8 小时 soak 压测脚本**（`soak.sh` / `soak.ps1`）；单元 + httptest 集成测试 `-race` 全绿。
+
+### 平台与交付
+- UI 全量中文化；**部署件齐全**：systemd unit、Dockerfile、docker-compose（rootless）、K8s sidecar 示例、macOS LaunchDaemon（见 [`deploy/`](./deploy)）。
+- `go.mod` 零第三方依赖，全部标准库 —— **零供应链攻击面**。
+
+---
+
+## 🏗️ 架构
+
+```
+                 ┌──────────────────────────────────────────────────┐
+ OpenAI SDK /    │            Security Core（强制·不可关闭）           │
+ 本地 Agent ───▶ │ WAF → 语义分流 → 限流 → IP信誉 → RBAC → 审计 → PII │
+ (HTTP / stdio)  └─────────────────────────┬────────────────────────┘
+                                           │
+                    ┌──────────────────────┴───────────────────────┐
+                    │   两阶段智能路由（静态规则 + ε-greedy bandit）  │
+                    └──────────────────────┬───────────────────────┘
+        ┌────────────┬────────────┬─────────┴────────┬────────────┬────────────┐
+        ▼            ▼            ▼                  ▼            ▼            ▼
+   本地 GGUF      LM Studio    Ollama            云端模型      工具/MCP     资源守护器
+  (llama.cpp)     :1234        :11434         OpenAI/DeepSeek  搜索/抓取    L0-L3/评分
+```
+
+---
+
+## 🚀 快速开始
+
+### Windows
+解压压缩包 → 双击 `start.bat`（未编译会自动 go build）→ 浏览器自动打开 `http://127.0.0.1:18889`。
+
+### macOS / Linux
+```sh
+unzip tarssecureguard-v3.0.0-src.zip && cd tarssecureguard-v3.0.0
+./start.sh
+```
+
+### MCP stdio 接入（核心差异化）
+```sh
+./tarssecureguard --mcp-stdio
+# 在支持 MCP stdio 的本地 agent 中把该命令注册为一个 MCP server，
+# 即自动获得 tars_guarded_chat 等全套受防护工具。
+```
+
+### 从源码构建（六平台）
+```sh
+GOOS=linux  GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+  -ldflags "-s -w -X main.version=3.0.0" -o tarssecureguard .
+go test -race ./...      # 单元 + 集成测试
+./soak.sh                # 8 小时稳定性压测（可选）
+```
+完整六平台构建命令与最低系统矩阵见 [COMPATIBILITY.md](./COMPATIBILITY.md)。
+
+> 默认管理端口 `18889`，本地模型端口 `18890`；默认 API Key `tars-gateway-key`，请在 `config.json` 修改或用环境变量 `TARS_API_KEY` 注入；管理操作可用 `TSG_ADMIN_KEY`。
+
+---
+
+## 🖥️ 跨平台兼容矩阵
+
+| 平台 | 最低系统 | 状态 |
+|------|----------|:---:|
+| macOS Intel (amd64) | macOS 10.15 Catalina | ✅ |
+| macOS Apple Silicon (arm64) | macOS 11 Big Sur | ✅ |
+| Linux x86_64 | 内核 2.6.32+（纯静态） | ✅ |
+| Linux ARM64 | 内核 2.6.32+（纯静态） | ✅ |
+| Windows x64 | Windows 10 / 11 | ✅ |
+| Windows ARM64 | Windows 10/11 on ARM | ⚠️ 实验性 |
+
+详见 [COMPATIBILITY.md](./COMPATIBILITY.md)。
+
+---
+
+## 🥊 最大竞争对手分析
+
+**结论：当前最大、最需要正面回应的竞争对手是 LiteLLM**（开源 AI 网关事实标准，约 6 万 Star，生态与心智最强）；国内市场 **New API / One API** 是 Go 路线心智领导者；"本地优先"定位上 **OmniRoute** 最接近。
+
+| 对手 | 优势 | 相对 TarsSecureGuard 的短板 |
+|------|------|----------------------------|
+| **LiteLLM**（最大对手） | 提供商覆盖最广、生态成熟、虚拟密钥/预算/重试完善、海外心智第一 | Python 技术栈，部署重（需 Postgres + Redis，镜像 500MB+，整套近 1GB）；云模型为中心；安全非默认卖点；无单文件解压即用；无语义 fail-close / 资源守护 |
+| **New API / One API**（国内心智） | Go 编写、国产模型全、渠道/令牌/计费/充值运营链路完整 | 定位"API 转售/运营计费"，需 MySQL + Redis；参数繁杂；非本地模型 / 单机安全场景设计 |
+| **OmniRoute**（本地优先） | 明确 local-first、Star 增长快、自动降级与多路由策略 | 偏"多供应商聚合路由"，安全治理（WAF/语义/RBAC/限流/IP 信誉/审计/PII）非核心；单文件零依赖内网合规并非其主张 |
+| **LM Studio / Ollama + OpenWebUI**（"够用"替代品） | 用户已安装、GUI 友好、模型发现方便 | 它们是**运行时**而非治理网关：不提供 WAF、语义防护、限流、IP 信誉、RBAC、审计、资源守护 —— TarsSecureGuard 恰好纳管并补齐这一层 |
+
+**差异化打法**：不拼"提供商数量"，而占据被忽视、对个人与内网极痛的生态位 —— **「零配置 + 单文件 + 安全默认开启 + 本地优先 + stdio 即插即护」**。重型网关服务于有平台团队的大企业；TarsSecureGuard 服务于"今天就想安全、稳定地把本地 AI 用起来"的个人、极客与隔离内网。
+
+---
+
+## 🏰 最深护城河分析
+
+**结论：最深的护城河是「Security Core」沉淀的信任资产与 LLM 安全防御知识库，并由「零依赖单文件」的零攻击面工程持续加固；v3.0 的 MCP stdio 让这套防护随接入自动分发，进一步扩大护城河。**
+
+护城河由浅到深分三层：
+
+1. **工程简洁层（易被复制，短期优势）**：零第三方依赖、纯静态单文件、六平台、资源守护与智能路由。对手能模仿，但需长期克制、放弃生态——多数团队做不到。
+
+2. **安全知识层（核心壁垒，随时间复利）**：Security Core 是一整套**针对 LLM 的防御资产**——WAF 与 Prompt 注入/越狱特征、语义灰区判定（fail-close）、IP 信誉行为指纹、三维限流、PII 模式与脱敏、SSRF 五红线、防火墙联动、审计体系，以及在"检出率 vs 误报率"上的持续调优。**真实样本越多 → 规则越准 → 误报越低 → 用户越多 → 样本越多**，自我强化飞轮，后发者无法靠一次抄代码补齐。
+
+3. **信任与分发层（最深、最难复制）**：安全产品的最终壁垒是**"从未出事"的信任记录**与合规心智；"安全永远无法关闭 / AI 只能加严"的设计承诺沉淀为默认选择。v3.0 的 **stdio 即插即护**意味着任何本地 agent 接入即继承整套防护——防护能力随接入自动扩散，形成**分发飞轮**。订阅版以持续安全更新与 SLA 把信任变现。信任无法在一个季度内建立，也无法被价格战摧毁。
+
+> **诚实判断**：项目处于成长期，护城河仍在"加宽中"——功能层面可被复制。真正的宽度由**采用量带来的防御数据 + stdio 分发飞轮 + 长期无事故信任记录**决定。订阅版的战略价值，正是把"持续安全更新"做成可复利、可收费、可沉淀信任的资产。
+
+---
+
+## 📚 文档
+
+- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.0.0 五线进展）
+- [COMPATIBILITY.md](./COMPATIBILITY.md) —— 跨平台兼容矩阵与构建指南
+- [OPTIMIZATION_REPORT.md](./OPTIMIZATION_REPORT.md) —— 优化报告与技术路线
+- [deploy/](./deploy) —— systemd / Docker / docker-compose / K8s / LaunchDaemon 部署件
+
+## 📄 许可证
+
+[MIT License](./LICENSE) —— 可自由使用、修改与分享。
+
 <div align="center">
 
-**如果这个项目对你有帮助，点个 ⭐ Star 支持一下作者吧！**
-
-[← 返回顶部](#tarssecureguard)
+🛡️ **TarsSecureGuard —— Your AI's Safety Belt。解压即用，安全常驻。**
 
 </div>

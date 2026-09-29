@@ -1,242 +1,330 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"math"
+	"net/http"
+	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
-// ===================== 硬件评估（v2.0.0 新增，模块 hardwareAdvisor）=====================
+// ===================== 硬件评估与提升建议引擎（v2.0.0）=====================
 //
-// 评估 CPU / 内存 / 磁盘 / GPU 四个维度，输出 0-100 分与档位（A/B/C/D），
-// 并给出是否适合跑本地大模型的结论与推荐参数。
+// 复用现有 device.go 采集（CPU 核数 / Sys alloc / 磁盘 / 本地服务），扩展：
+//   - 物理内存总量（跨平台：Windows GlobalMemoryStatusEx / Linux /proc/meminfo / macOS sysctl）
+//   - GPU 尽力探测（非必须，探测失败不影响评分，仅降档建议）
+//   - 四维评分（内存/CPU/磁盘/GPU，各 0-100）+ S/A/B/C/D 总评
+//   - 可执行建议引擎：每条建议含 现状(area/current) + 建议(recommendation) + 理由(reason)
+//     例如「物理内存 8GB -> 建议 3B 以下 Q4_K_M 量化模型、上下文 <=4k」
 
+// HardwareAdvice 单条提升建议
+type HardwareAdvice struct {
+	Area           string `json:"area"`           // memory | cpu | disk | gpu | general
+	Current        string `json:"current"`        // 现状描述
+	Recommendation string `json:"recommendation"` // 可执行建议
+	Reason         string `json:"reason"`         // 理由
+}
+
+// HardwareAssessment 硬件评估报告
 type HardwareAssessment struct {
-	Grade   string             `json:"grade"`   // A 优秀 | B 良好 | C 一般 | D 较弱
-	Scores  HardwareScores     `json:"scores"`  // 各维度得分
-	Advice  string             `json:"advice"`  // 总体建议
-	Details map[string]string  `json:"details"` // 探测明细
-	Model   ModelRecommendation `json:"modelRecommendation"`
+	Timestamp string `json:"timestamp"`
+	CPU       struct {
+		Cores int    `json:"cores"`
+		Arch  string `json:"arch"`
+	} `json:"cpu"`
+	Memory struct {
+		PhysicalGB float64 `json:"physicalGB"` // 物理内存总量
+		SysAllocGB float64 `json:"sysAllocGB"` // Go 运行时占用
+	} `json:"memory"`
+	Disk struct {
+		TotalGB float64 `json:"totalGB"`
+		FreeGB  float64 `json:"freeGB"`
+	} `json:"disk"`
+	GPU struct {
+		Detected bool   `json:"detected"`
+		Name     string `json:"name"`
+		Source   string `json:"source"`
+	} `json:"gpu"`
+	Scores struct {
+		CPU    int `json:"cpu"`
+		Memory int `json:"memory"`
+		Disk   int `json:"disk"`
+		GPU    int `json:"gpu"`
+		Total  int `json:"total"`
+	} `json:"scores"`
+	Grade             string           `json:"grade"` // S/A/B/C/D
+	Advice            []HardwareAdvice `json:"advice"`
+	RecommendedModel  string           `json:"recommendedModel"`  // 建议运行的本地模型档位
+	ContextWindowHint string           `json:"contextWindowHint"` // 建议上下文长度
 }
 
-type HardwareScores struct {
-	CPU    int `json:"cpu"`
-	Memory int `json:"memory"`
-	Disk   int `json:"disk"`
-	GPU    int `json:"gpu"`
-	Total  int `json:"total"`
-}
-
-type ModelRecommendation struct {
-	CanRunLocal  bool   `json:"canRunLocal"`
-	MaxModelSize string `json:"maxModelSize"` // 推荐最大参数量级
-	Quantization string `json:"quantization"` // 推荐量化格式
-	ContextSize  int    `json:"contextSize"`  // 推荐上下文长度
-	Reason       string `json:"reason"`
-}
-
-// assessHardware 执行硬件评估（纯本地探测，不联网）
+// assessHardware 生成硬件评估报告（评分 + 建议）
 func assessHardware() HardwareAssessment {
-	details := map[string]string{}
-
-	// ---- CPU ----
-	cores := runtime.NumCPU()
-	cpuScore := scoreCPU(cores)
-	details["cpuCores"] = fmt.Sprintf("%d 逻辑核心", cores)
-
-	// ---- 内存 ----
-	memGB := physicalMemoryGB()
-	memScore := scoreMemory(memGB)
-	details["memoryGB"] = fmt.Sprintf("%.1f GB 物理内存", memGB)
-
-	// ---- 磁盘 ----
-	diskTotal, diskFree := probeDisk()
-	diskScore := scoreDisk(diskTotal, diskFree)
-	details["diskTotalGB"] = fmt.Sprintf("%.0f GB", diskTotal)
-	details["diskFreeGB"] = fmt.Sprintf("%.0f GB 可用", diskFree)
-
-	// ---- GPU ----
-	gpuName, gpuVram := probeGPU()
-	gpuScore := scoreGPU(gpuVram)
-	if gpuName != "" {
-		details["gpu"] = gpuName
-		details["gpuVramGB"] = fmt.Sprintf("%.1f GB", gpuVram)
-	} else {
-		details["gpu"] = "未检测到独立 GPU（或当前平台不支持探测）"
+	var a HardwareAssessment
+	a.Timestamp = nowStamp()
+	a.CPU.Cores = runtime.NumCPU()
+	a.CPU.Arch = runtime.GOARCH
+	a.Memory.PhysicalGB = physicalMemoryGB()
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	a.Memory.SysAllocGB = float64(ms.Sys) / 1024 / 1024 / 1024
+	if du, err := getDiskUsage(exeDrive()); err == nil {
+		a.Disk.TotalGB = float64(du.Total) / 1024 / 1024 / 1024
+		a.Disk.FreeGB = float64(du.Free) / 1024 / 1024 / 1024
 	}
+	a.GPU.Name, a.GPU.Source = detectGPU()
+	a.GPU.Detected = a.GPU.Name != ""
 
-	total := (cpuScore + memScore + diskScore + gpuScore) / 4
-	grade := gradeFromScore(total)
-	rec := recommendModel(memGB, gpuVram, grade)
-	advice := buildAdvice(grade, rec)
+	// 四维评分
+	a.Scores.CPU = scoreCPU(a.CPU.Cores)
+	a.Scores.Memory = scoreMemory(a.Memory.PhysicalGB)
+	a.Scores.Disk = scoreDisk(a.Disk.FreeGB)
+	a.Scores.GPU = scoreGPU(a.GPU.Detected)
+	a.Scores.Total = (a.Scores.CPU + a.Scores.Memory + a.Scores.Disk + a.Scores.GPU) / 4
+	a.Grade = gradeFrom(a.Scores.Total)
 
-	return HardwareAssessment{
-		Grade:   grade,
-		Scores:  HardwareScores{CPU: cpuScore, Memory: memScore, Disk: diskScore, GPU: gpuScore, Total: total},
-		Advice:  advice,
-		Details: details,
-		Model:   rec,
-	}
+	a.RecommendedModel, a.ContextWindowHint = recommendModelTier(a.Memory.PhysicalGB, a.GPU.Detected)
+	a.Advice = buildAdvice(&a)
+	return a
 }
 
 func scoreCPU(cores int) int {
 	switch {
 	case cores >= 16:
-		return 95
-	case cores >= 12:
-		return 85
+		return 100
 	case cores >= 8:
-		return 70
+		return 85
 	case cores >= 4:
-		return 50
+		return 65
+	case cores >= 2:
+		return 45
 	default:
-		return 30
+		return 25
 	}
 }
 
 func scoreMemory(gb float64) int {
 	switch {
+	case gb >= 64:
+		return 100
 	case gb >= 32:
-		return 95
+		return 90
 	case gb >= 16:
-		return 80
+		return 75
 	case gb >= 8:
-		return 60
+		return 55
 	case gb >= 4:
+		return 30
+	default:
+		return 15
+	}
+}
+
+func scoreDisk(freeGB float64) int {
+	switch {
+	case freeGB >= 100:
+		return 100
+	case freeGB >= 50:
+		return 80
+	case freeGB >= 20:
+		return 60
+	case freeGB >= 10:
 		return 40
 	default:
 		return 20
 	}
 }
 
-func scoreDisk(totalGB, freeGB float64) int {
-	// 可用空间是关键：至少要放得下模型文件
-	switch {
-	case freeGB >= 100:
-		return 90
-	case freeGB >= 50:
-		return 75
-	case freeGB >= 20:
-		return 55
-	case freeGB >= 10:
-		return 35
-	default:
-		return 15
+func scoreGPU(detected bool) int {
+	if detected {
+		return 90 // 检测到独显/独立 GPU 即高档（精确型号分档留给后续）
 	}
+	return 30
 }
 
-func scoreGPU(vramGB float64) int {
+func gradeFrom(total int) string {
 	switch {
-	case vramGB >= 16:
-		return 95
-	case vramGB >= 12:
-		return 85
-	case vramGB >= 8:
-		return 70
-	case vramGB >= 4:
-		return 50
-	case vramGB >= 2:
-		return 35
-	default:
-		return 20 // 无独显也能 CPU 跑，只是慢
-	}
-}
-
-func gradeFromScore(s int) string {
-	switch {
-	case s >= 85:
+	case total >= 90:
+		return "S"
+	case total >= 75:
 		return "A"
-	case s >= 70:
+	case total >= 55:
 		return "B"
-	case s >= 50:
+	case total >= 35:
 		return "C"
 	default:
 		return "D"
 	}
 }
 
-// recommendModel 根据内存/显存推荐可跑的模型量级
-func recommendModel(memGB, vramGB float64, grade string) ModelRecommendation {
-	// 可用预算：优先显存，否则取内存的 60%（留系统与其他程序）
-	budget := vramGB
-	if budget < 2 {
-		budget = memGB * 0.6
-	}
-	rec := ModelRecommendation{Quantization: "Q4_K_M", ContextSize: 2048}
-	// Q4 量化下每 1B 参数约 0.6-0.7GB；粗略映射
+// recommendModelTier 按物理内存给出建议模型档位与上下文长度
+func recommendModelTier(memGB float64, hasGPU bool) (string, string) {
 	switch {
-	case budget >= 10:
-		rec.CanRunLocal = true
-		rec.MaxModelSize = "14B"
-		rec.Quantization = "Q4_K_M"
-		rec.ContextSize = 4096
-		rec.Reason = "资源充足，可流畅运行 14B 级 Q4 量化模型"
-	case budget >= 6:
-		rec.CanRunLocal = true
-		rec.MaxModelSize = "7B-8B"
-		rec.Quantization = "Q4_K_M"
-		rec.ContextSize = 4096
-		rec.Reason = "可运行 7B/8B 级 Q4 量化模型，响应速度可接受"
-	case budget >= 3.5:
-		rec.CanRunLocal = true
-		rec.MaxModelSize = "3B"
-		rec.Quantization = "Q4_K_M"
-		rec.ContextSize = 2048
-		rec.Reason = "可运行 3B 级 Q4 量化小模型，建议短上下文"
-	case budget >= 2:
-		rec.CanRunLocal = true
-		rec.MaxModelSize = "1.5B"
-		rec.Quantization = "Q4_0"
-		rec.ContextSize = 1024
-		rec.Reason = "仅推荐 0.5B-1.5B 级小模型，速度较慢"
+	case memGB >= 32:
+		return "14B 及以上（Q4_K_M 起步，如 qwen2.5-14b / 32b 视显存）", "8k-16k"
+	case memGB >= 16:
+		return "7B-14B（Q4_K_M 量化，如 qwen2.5-7b）", "4k-8k"
+	case memGB >= 8:
+		return "3B 以下（Q4_K_M 量化，如 qwen2.5-3b）", "4k 以内"
 	default:
-		rec.CanRunLocal = false
-		rec.MaxModelSize = "不建议本地推理"
-		rec.Quantization = "-"
-		rec.ContextSize = 0
-		rec.Reason = "资源不足，建议使用云端模型或升级硬件"
+		return "不建议本地推理（优先云端路由）", "2k 以内"
 	}
-	return rec
 }
 
-func buildAdvice(grade string, rec ModelRecommendation) string {
-	var b strings.Builder
-	switch grade {
-	case "A":
-		b.WriteString("硬件优秀，本地大模型体验良好。")
-	case "B":
-		b.WriteString("硬件良好，可胜任多数本地模型场景。")
-	case "C":
-		b.WriteString("硬件一般，建议使用 3B 以内小模型或云端模型。")
-	case "D":
-		b.WriteString("硬件较弱，本地推理体验有限，默认以云端模型为主。")
+// buildAdvice 生成可执行建议（每条含现状/建议/理由；无短板时也给出总评建议）
+func buildAdvice(a *HardwareAssessment) []HardwareAdvice {
+	adv := []HardwareAdvice{}
+	// 内存
+	memGB := a.Memory.PhysicalGB
+	adv = append(adv, HardwareAdvice{
+		Area:           "memory",
+		Current:        fmt.Sprintf("物理内存 %.1fGB（当前运行模型: %s）", memGB, modelDisplayName()),
+		Recommendation: fmt.Sprintf("建议运行模型档位: %s；上下文 %s", a.RecommendedModel, a.ContextWindowHint),
+		Reason:         "本地推理常驻内存约为模型量化体积的 1.2-1.5 倍，超配会触发 swap 拖慢整机",
+	})
+	if memGB < 8 {
+		adv = append(adv, HardwareAdvice{
+			Area:           "memory",
+			Current:        fmt.Sprintf("物理内存仅 %.1fGB", memGB),
+			Recommendation: "优先使用云端模型路由（cloudModels 模块），本地仅跑 1.5B-3B 小模型；条件允许升级到 16GB",
+			Reason:         "8GB 以下同时跑系统 + llama-server 容易 OOM 被内核杀进程",
+		})
 	}
-	b.WriteString(rec.Reason)
-	b.WriteString("。")
-	return b.String()
+	// 磁盘
+	if a.Disk.FreeGB < 10 {
+		adv = append(adv, HardwareAdvice{
+			Area:           "disk",
+			Current:        fmt.Sprintf("模型盘可用空间仅 %.1fGB", a.Disk.FreeGB),
+			Recommendation: "清理 Models 目录中不用的 GGUF 文件或把 modelDir 迁到大容量磁盘（7B Q4_K_M 约需 4.5GB、14B 约 9GB）",
+			Reason:         "模型下载与 kv-cache 落盘都会失败在磁盘写满的临界点",
+		})
+	} else if a.Disk.FreeGB < 20 {
+		adv = append(adv, HardwareAdvice{
+			Area:           "disk",
+			Current:        fmt.Sprintf("模型盘可用 %.1fGB", a.Disk.FreeGB),
+			Recommendation: "下载 14B 级模型前先确认余量（Q4_K_M 约 9GB），建议保留 20GB 以上缓冲",
+			Reason:         "避免下载到一半磁盘写满留下损坏文件",
+		})
+	}
+	// GPU
+	if !a.GPU.Detected {
+		adv = append(adv, HardwareAdvice{
+			Area:           "gpu",
+			Current:        "未探测到独立 GPU（" + a.GPU.Source + "）",
+			Recommendation: "CPU 推理建议：选择 Q4_K_M 及以下量化、并发限制为 1（-c 1）；或优先走云端路由降低本地负载",
+			Reason:         "无独显时 CPU 推理吞吐约 3-8 token/s（7B 档），并发会显著劣化响应时间",
+		})
+	}
+	// CPU
+	if a.CPU.Cores < 4 {
+		adv = append(adv, HardwareAdvice{
+			Area:           "cpu",
+			Current:        fmt.Sprintf("CPU 仅 %d 核", a.CPU.Cores),
+			Recommendation: "本地模型选择 1.5B-3B；网关与本机其他应用争抢 CPU 时优先保障网关（nice/亲和性），或改走云端",
+			Reason:         "CPU 核数不足时 llama-server 线程池与系统进程互相抢占，延迟不可控",
+		})
+	}
+	// 总评兜底（保证任何硬件都有可执行建议）
+	adv = append(adv, HardwareAdvice{
+		Area:           "general",
+		Current:        fmt.Sprintf("综合评分 %d/100（%s 档）", a.Scores.Total, a.Grade),
+		Recommendation: fmt.Sprintf("当前配置推荐运行: %s", a.RecommendedModel),
+		Reason:         "按内存主导 + GPU/CPU 辅助的木桶原则给出，与 stats 面板的实际吞吐交叉验证后微调",
+	})
+	return adv
 }
 
-// probeDisk 探测磁盘总量与可用空间（GB）
-func probeDisk() (float64, float64) {
-	if du, err := getDiskUsage(exeDrive()); err == nil {
-		gb := func(b uint64) float64 { return float64(b) / 1024 / 1024 / 1024 }
-		return gb(du.Total), gb(du.Free)
+func modelDisplayName() string {
+	running, cur := modelState()
+	if !running || cur == "" {
+		return "未运行"
 	}
-	return 0, 0
+	return cur
 }
 
-// ===================== 硬件评估 HTTP =====================
+// detectGPU 尽力探测独立 GPU（失败不影响评分，返回探测来源说明）
+// v2.1.0 跨平台补全：每个平台提供主探测 + 回退探测，且全部带 5 秒超时
+// （system_profiler / powershell 在部分机器上可能长时间无响应，防阻塞评估接口）
+func detectGPU() (name, source string) {
+	switch runtime.GOOS {
+	case "windows":
+		// 主探测：wmic（Windows 10 / 早期 Windows 11 可用）
+		if out, err := runCmdTimeout(5, "wmic", "path", "win32_VideoController", "get", "name"); err == nil {
+			for _, line := range strings.Split(out, "\n") {
+				l := strings.TrimSpace(line)
+				if l != "" && !strings.EqualFold(l, "name") {
+					return l, "wmic win32_VideoController"
+				}
+			}
+		}
+		// 回退：PowerShell Get-CimInstance（Windows 11 24H2+ 移除了 wmic）
+		if out, err := runCmdTimeout(8, "powershell", "-NoProfile", "-Command",
+			"Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"); err == nil {
+			for _, line := range strings.Split(out, "\n") {
+				l := strings.TrimSpace(line)
+				if l != "" {
+					return l, "powershell Get-CimInstance Win32_VideoController"
+				}
+			}
+		}
+		return "", "wmic / powershell 均不可用或无显卡记录"
+	case "linux":
+		// 主探测：lspci（桌面发行版通常自带）
+		if out, err := runCmdTimeout(5, "lspci"); err == nil {
+			for _, line := range strings.Split(out, "\n") {
+				if strings.Contains(strings.ToLower(line), "vga") || strings.Contains(strings.ToLower(line), "3d controller") {
+					seg := strings.SplitN(line, ":", 3)
+					if len(seg) == 3 {
+						return strings.TrimSpace(seg[2]), "lspci"
+					}
+				}
+			}
+		}
+		// 回退：nvidia-smi（无 lspci 的最小化服务器 / 容器环境）
+		if out, err := runCmdTimeout(5, "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"); err == nil {
+			for _, line := range strings.Split(out, "\n") {
+				l := strings.TrimSpace(line)
+				if l != "" {
+					return l, "nvidia-smi"
+				}
+			}
+		}
+		return "", "lspci / nvidia-smi 均不可用或无独立显卡"
+	case "darwin":
+		// macOS：system_profiler（Intel 核显与 Apple Silicon 均能识别）
+		if out, err := runCmdTimeout(8, "system_profiler", "SPDisplaysDataType"); err == nil {
+			for _, line := range strings.Split(out, "\n") {
+				if strings.Contains(line, "Chipset Model") {
+					seg := strings.SplitN(line, ":", 2)
+					if len(seg) == 2 {
+						n := strings.TrimSpace(seg[1])
+						if n != "" {
+							return n, "system_profiler SPDisplaysDataType"
+						}
+					}
+				}
+			}
+		}
+		return "", "system_profiler 不可用或未返回 Chipset Model"
+	}
+	return "", "平台不支持 GPU 探测"
+}
+
+// runCmdTimeout 带超时的命令探测（GPU 检测专用：外部工具可能挂起，绝不阻塞评估接口）
+func runCmdTimeout(sec int, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(sec)*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+// handleHardwareAssessment GET /api/admin/hardware/assessment（hardwareAdvisor 模块）
 func handleHardwareAssessment(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
-		return
-	}
-	a := assessHardware()
-	n, _, _ := userFromRequest(r)
-	auditLog("HARDWARE_ASSESS", n, fmt.Sprintf("档位 %s 总分 %d 推荐 %s", a.Grade, a.Scores.Total, a.Model.MaxModelSize))
-	writeJSON(w, a)
+	writeJSON(w, assessHardware())
 }
 
-// 避免未使用导入（math 在更细粒度评分时使用）
-var _ = math.Round
+func nowStamp() string {
+	return time.Now().Format("2006-01-02 15:04:05")
+}

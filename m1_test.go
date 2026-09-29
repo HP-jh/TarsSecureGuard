@@ -109,12 +109,12 @@ func TestTakeTokenRefills(t *testing.T) {
 
 func TestEndpointClass(t *testing.T) {
 	cases := map[string]string{
-		"/api/chat/completions":    "chat",
-		"/api/urgent/chat":         "chat",
-		"/api/admin/models":         "model",
+		"/api/chat/completions": "chat",
+		"/api/urgent/chat":      "chat",
+		"/api/admin/models":     "model",
 		"/api/admin/model/download": "model",
-		"/api/admin/config":         "admin",
-		"/api/search":               "other",
+		"/api/admin/config":     "admin",
+		"/api/search":           "other",
 	}
 	for path, want := range cases {
 		if got := endpointClass(path); got != want {
