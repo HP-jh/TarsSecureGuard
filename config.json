@@ -1,0 +1,94 @@
+{
+  "cloud": {
+    "openai": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "deepseek": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "custom": null
+  },
+  "search": {
+    "engine": "builtin",
+    "apiKey": ""
+  },
+  "security": {
+    "wafEnabled": true,
+    "mode": "normal",
+    "apiKey": "tars-gateway-key",
+    "firewallLock": null,
+    "auditLogEnabled": true,
+    "firewall": {
+      "policy": "passive",
+      "banDuration": ""
+    }
+  },
+  "users": null,
+  "mcp": {
+    "externalServers": [
+      {
+        "name": "filesystem",
+        "command": "C:\\Program Files\\nodejs\\node.exe",
+        "args": [
+          "D:\\AI-Tools\\MCP-Servers\\node_modules\\@modelcontextprotocol\\server-filesystem\\dist\\index.js",
+          "D:\\",
+          "C:\\Users\\q1736\\Desktop",
+          "C:\\Users\\q1736\\Documents",
+          "C:\\Users\\q1736\\Downloads"
+        ],
+        "enabled": true
+      },
+      {
+        "name": "fetch",
+        "command": "C:\\Users\\q1736\\AppData\\Local\\Python\\bin\\python.exe",
+        "args": [
+          "-m",
+          "mcp_server_fetch"
+        ],
+        "enabled": true
+      }
+    ]
+  },
+  "paths": {
+    "modelDir": "/home/gem/.aily/workdir/task_7690562725516168128/dev/smoke/Models",
+    "llamaDir": "/home/gem/.aily/workdir/task_7690562725516168128/dev/smoke/llama",
+    "allowedRoots": [
+      "/home/gem/.aily/workdir/task_7690562725516168128/dev/smoke",
+      "/home/gem/.aily/workdir/task_7690562725516168128/dev"
+    ]
+  },
+  "modules": {
+    "autoDiscovery": true,
+    "autoStartModel": false,
+    "builtinTools": true,
+    "chatApi": true,
+    "cloudModels": true,
+    "customAgents": false,
+    "customTools": false,
+    "hardwareAdvisor": true,
+    "localModels": true,
+    "mcpExternal": true,
+    "memory": true,
+    "modelDownload": true,
+    "openapiTools": true,
+    "resourceGuardian": true,
+    "stats": true,
+    "urgentChat": false,
+    "webFetch": true,
+    "webSearch": true
+  },
+  "customTools": null,
+  "customAgents": null,
+  "direct": {
+    "transport": "native",
+    "grpcSidecar": {
+      "address": ""
+    }
+  }
+}
