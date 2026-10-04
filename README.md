@@ -46,7 +46,7 @@ TarsSecureGuard 是一款**本地优先（local-first）的 AI 网关——AI �
 
 > 家里的路由器不生产网线，也不生产网站——它让每一台设备都能安全上网。TarsSecureGuard 不生产模型，也不绑架你用某个客户端——**它让每一个 AI 客户端都能安全地用上每一个模型。** 这件事，我们打算做到极致：能连的连上，暂时连不上的，给你一份可执行的对接清单（见 `docs/v3.2.0-unconnectable.md`）。
 
-> **不是 LiteLLM 替代品，也不是某个 OpenRouter 的本地版**——LiteLLM 解决"我能调几个 provider"（Python + Docker + Redis + Postgres 的重型网关），TSG 解决**"我所有 AI 客户端 + 所有模型 + 所有协议怎么连、怎么管、怎么安全"**（Go 单二进制 6.8 MB、零依赖、拷到 U 盘里都能跑）。**路由器 + 网关 + 安全带**，三件事由一个文件搞定。
+> **不是 LiteLLM 替代品**——LiteLLM 解决"调几个 provider"（Python + Docker + Redis + Postgres 的重型网关），TSG 解决**"AI 软件 + 模型 + 协议怎么连、怎么管、怎么安全"**（Go 单二进制 6.8 MB、零依赖）。**路由器 + 网关 + 安全带**，三件事由一个文件搞定。
 
 ### v3.2.0 新增 · Universal Connector 路线
 
