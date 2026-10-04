@@ -15,7 +15,7 @@
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.2.0-success">
+<img alt="Version" src="https://img.shields.io/badge/version-3.2.1-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
@@ -45,8 +45,6 @@
 TarsSecureGuard 是一款**本地优先（local-first）的 AI 网关——AI 时代的路由器**。它站在你和所有 AI 能力之间：左边是你的 AI 软件（Claude Desktop、Cursor、Cline、Windsurf、Codex CLI……任选），右边是 24 家云端模型商 + 8 种本地推理运行时（任连）；对外暴露一个 OpenAI 兼容端点（HTTP 或 **stdio**）+ MCP，对内统一调度、统一治理、统一审计。
 
 > 家里的路由器不生产网线，也不生产网站——它让每一台设备都能安全上网。TarsSecureGuard 不生产模型，也不绑架你用某个客户端——**它让每一个 AI 客户端都能安全地用上每一个模型。** 这件事，我们打算做到极致：能连的连上，暂时连不上的，给你一份可执行的对接清单（见 `docs/v3.2.0-unconnectable.md`）。
-
-> **不是 LiteLLM 替代品**——LiteLLM 解决"调几个 provider"（Python + Docker + Redis + Postgres 的重型网关），TSG 解决**"AI 软件 + 模型 + 协议怎么连、怎么管、怎么安全"**（Go 单二进制 6.8 MB、零依赖）。**路由器 + 网关 + 安全带**，三件事由一个文件搞定。
 
 ### v3.2.0 新增 · Universal Connector 路线
 
@@ -151,6 +149,9 @@ unzip tarssecureguard-v3.0.0-src.zip && cd tarssecureguard-v3.0.0
 ./start.sh
 ```
 
+### 桌面客户端（v3.2.1 新增，不依赖浏览器）
+从 [Release](../../releases) 下载安装包（Windows `.exe` / macOS `.dmg` / Linux `.deb`·`.AppImage`）→ 双击安装 → **原生窗口**直接打开中文管理台，全程不打开浏览器。壳内自动拉起网关 sidecar，关窗即停、无残留进程；数据落在系统用户数据目录。详见 [docs/v3.2.1-desktop-client.md](./docs/v3.2.1-desktop-client.md)。
+
 ### MCP stdio 接入（核心差异化）
 ```sh
 ./tarssecureguard --mcp-stdio
@@ -219,7 +220,8 @@ go test -race ./...      # 单元 + 集成测试
 
 ## 📚 文档
 
-- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.2.0 连接性大版本）
+- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.2.1 桌面客户端、v3.2.0 连接性大版本）
+- [docs/v3.2.1-desktop-client.md](./docs/v3.2.1-desktop-client.md) —— **桌面客户端**：Tauri 壳设计决策、构建与验收
 - [docs/v3.2.0-connectivity.md](./docs/v3.2.0-connectivity.md) —— **连接指南**：13 个 AI 客户端接入 + 24 云端 provider + 8 本地运行时
 - [docs/v3.2.0-performance.md](./docs/v3.2.0-performance.md) —— **性能基准**：P99 / 连接复用率 / 缓存命中率（可复现）
 - [docs/v3.2.0-unconnectable.md](./docs/v3.2.0-unconnectable.md) —— **暂不可连接清单**：16 项 + 逐家接入方案草稿

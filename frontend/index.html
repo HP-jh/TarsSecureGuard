@@ -271,7 +271,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v2.1.0 CROSS-PLATFORM</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.2.1 DESKTOP</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('chat',this)"><span class="ic"><svg><use href="#i-chat"/></svg></span> AI Chat</div></div>
@@ -550,7 +550,10 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
 function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
-function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||''},o.headers||{});return fetch(u,o).then(function(r){if(r.status===401){var k=prompt('网关密钥未配置或已失效（零信任基线：默认密钥通道须显式启用）。\n请输入安装目录 gateway-key.txt 中的网关密钥：');if(k){localStorage.setItem('tsg_api_key',k);return api(u,o);}throw new Error('HTTP 401');}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
+/* v3.2.1 桌面客户端（Tauri）：前端资产由 tauri://localhost 服务，API 跨源指向本地网关；
+   浏览器模式下（页面即由网关服务）AB 为空串，行为与历史版本一致 */
+var AB=(location.protocol==='tauri:'||location.hostname==='tauri.localhost')?'http://127.0.0.1:18889':'';
+function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||''},o.headers||{});return fetch(AB+u,o).then(function(r){if(r.status===401){var k=prompt('网关密钥未配置或已失效（零信任基线：默认密钥通道须显式启用）。\n请输入安装目录 gateway-key.txt 中的网关密钥：');if(k){localStorage.setItem('tsg_api_key',k);return api(u,o);}throw new Error('HTTP 401');}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
 function toast(msg,type){var w=$('toast-wrap');var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;w.appendChild(t);setTimeout(function(){t.classList.add('hide');setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},350)},2800);while(w.children.length>4)w.removeChild(w.firstChild);}
 function btnLoad(btn,on){if(!btn)return;if(typeof btn==='string')btn=$(btn);if(!btn)return;btn.classList.toggle('loading',!!on);btn.disabled=!!on;}
 function togglePwd(id,btn){var i=$(id);var show=i.type==='password';i.type=show?'text':'password';btn.innerHTML='<svg><use href="#i-eye'+(show?'off':'')+'"/></svg>';}
@@ -1030,6 +1033,25 @@ function wzNext(){wzStep++;if(wzStep>3)return;wzNav();}
 function wzBack(){wzStep--;if(wzStep<1)wzStep=1;wzNav();}
 function wzClose(){$('wizard').style.display='none';
   if(!$('wz-again').checked)localStorage.setItem('tsg_wizard_done','1');}
+
+/* ============ v3.2.1 桌面客户端（Tauri）启动遮罩 ============ */
+/* 后端 sidecar 未就绪时显示过渡态；仅桌面模式启用，浏览器模式（页面由网关服务）直接跳过 */
+(function(){
+  if(location.protocol!=='tauri:'&&location.hostname!=='tauri.localhost')return;
+  var st=document.createElement('style');
+  st.textContent='@keyframes tsgspin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(st);
+  var m=document.createElement('div');
+  m.id='tsg-boot';
+  m.style.cssText='position:fixed;inset:0;z-index:9999;background:#101418;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-size:14px;color:#9aa4b2;font-family:system-ui,sans-serif';
+  m.innerHTML='<div style="width:36px;height:36px;border:3px solid #2b3540;border-top-color:#4f8cff;border-radius:50%;animation:tsgspin 1s linear infinite"></div><div id="tsg-boot-txt">TarsSecureGuard 后端启动中…</div>';
+  document.body.appendChild(m);
+  var n=0,tm=null;
+  function done(){clearTimeout(tm);if(m.parentNode)m.parentNode.removeChild(m);}
+  function fail(){n++;if(n>=30)document.getElementById('tsg-boot-txt').textContent='后端启动超时：请查看数据目录 logs/ 下的日志后重试';if(n<90)tm=setTimeout(probe,1000);}
+  function probe(){fetch(AB+'/health',{cache:'no-store'}).then(function(r){r.ok?done():fail()}).catch(function(){fail()});}
+  probe();
+})();
 
 /* ============ 启动 ============ */
 $('c-in').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});

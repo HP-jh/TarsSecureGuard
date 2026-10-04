@@ -27,14 +27,14 @@ type Config struct {
 		WAFEnabled        bool        `json:"wafEnabled"`
 		Mode              string      `json:"mode"` // normal | strict（off 已废弃：安全模块不可关闭）
 		APIKey            string      `json:"apiKey"`
-		FirewallLock      *bool       `json:"firewallLock"`      // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
-		AuditLogEnabled   bool        `json:"auditLogEnabled"`   // 审计日志开关（默认 true）
+		FirewallLock      *bool       `json:"firewallLock"`    // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
+		AuditLogEnabled   bool        `json:"auditLogEnabled"` // 审计日志开关（默认 true）
 		Firewall          FirewallCfg `json:"firewall"`
 		DefaultKeyAllowed *bool       `json:"defaultKeyAllowed"` // v3.0.4 零信任：默认密钥通道显式 enable（nil=false，见 whitelist.go [ZT_DEFAULT_DENY]）
 	} `json:"security"`
-	Users   []User    `json:"users"`   // 多用户 RBAC（空则回退单管理员模式）
+	Users   []User     `json:"users"`   // 多用户 RBAC（空则回退单管理员模式）
 	Tenants TenantsCfg `json:"tenants"` // v3.0.4 多租户配置（user/group/role 三层，见 tenant.go）
-	MCP   struct {
+	MCP     struct {
 		ExternalServers []ExtServer `json:"externalServers"`
 	} `json:"mcp"`
 	Paths struct {
@@ -287,8 +287,16 @@ func saveConfig() {
 
 // ===================== 路径解析（开源化：默认以 exe 所在目录为基准） =====================
 
-// appDir 返回 exe 所在目录；所有默认路径都以此为基准，解压即用。
+// appDir 返回应用数据目录；所有默认路径都以此为基准，解压即用。
+// v3.2.1：桌面客户端（Tauri 壳）通过 TSG_APP_DIR 指向系统用户数据目录——
+// 桌面安装位置（Windows Program Files、Linux /usr/bin、macOS /Applications、
+// AppImage 只读 squashfs）对普通用户不可写，直接沿用 exe 目录会导致
+// config.json / logs / gateway-key.txt 落盘失败。
+// CLI / systemd / Docker 部署不设该变量，行为与历史版本完全一致。
 func appDir() string {
+	if d := os.Getenv("TSG_APP_DIR"); d != "" {
+		return d
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return "."

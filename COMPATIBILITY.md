@@ -85,7 +85,19 @@ done
 - **Linux**：`chmod +x` 后直接运行（静态产物，无运行库要求）；`./start.sh` 首次会自动编译，也可直接用 dist 内产物。
 - **Windows**：双击 `start.bat` 或直接运行 exe；Windows 11 24H2+ 已移除 wmic，v2.1.0 的 GPU 探测已自动回落 PowerShell `Get-CimInstance`，无需干预。
 
-## 五、验证记录（2026-09-28，Linux 沙箱）
+## 五、桌面客户端（v3.2.1，Tauri 2）构建与系统要求
+
+桌面安装包 = Rust 壳（`src-tauri/`）+ Go 网关 sidecar，系统要求**高于** CLI 单文件形态：
+
+| 平台 | 最低系统 | WebView 运行时 |
+|---|---|---|
+| Windows x64 | Windows 10 1809+ | WebView2（未预装时安装包内引导器联网安装；Win11 一般已内置） |
+| macOS (universal) | macOS 11 Big Sur | WKWebView（系统内置，零额外安装） |
+| Linux x86_64 | 任意支持 webkit2gtk-4.1 的发行版 | webkit2gtk-4.1（deb 已声明依赖） |
+
+构建工具链：Rust 1.90+（Tauri 2.12 MSRV）、Go 1.22.5+、Node 20+（`@tauri-apps/cli@^2`）；Linux 构建机另需 `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf`。CI（`desktop-release.yml`）已封装三平台全流程，构建命令详见 `docs/v3.2.1-desktop-client.md`。
+
+## 六、验证记录（2026-09-28，Linux 沙箱）
 
 | 验证项 | 方法 | 结果 |
 |--------|------|------|

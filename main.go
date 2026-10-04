@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.2.0"
+var version = "3.2.1"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -101,6 +101,8 @@ func main() {
 			return
 		}
 	}
+	// v3.2.1：桌面客户端模式标记——由 Tauri 壳以 sidecar 方式拉起时传 --no-browser，抑制自动打开浏览器
+	noBrowser = scanNoBrowserFlag(os.Args)
 	// v3.0.0 D 线：MCP stdio 模式（--mcp-stdio）—— 任何本地 agent 的安全带
 	if mcpIsStdioFlag(os.Args[1:]) {
 		initFileLogging()
@@ -271,11 +273,13 @@ func main() {
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
 	go watchConfig()
 
-	// 打开浏览器
-	go func() {
-		time.Sleep(1 * time.Second)
-		openBrowser(fmt.Sprintf("http://127.0.0.1:%d", port))
-	}()
+	// 打开浏览器（v3.2.1：--no-browser 桌面客户端模式下抑制——窗口由 Tauri 壳承载，不再依赖浏览器）
+	if !noBrowser {
+		go func() {
+			time.Sleep(1 * time.Second)
+			openBrowser(fmt.Sprintf("http://127.0.0.1:%d", port))
+		}()
+	}
 
 	log.Printf("TarsSecureGuard v%s running at http://127.0.0.1:%d", version, port)
 	if err := server.ListenAndServe(); err != nil {
@@ -423,6 +427,15 @@ func isTrustedOrigin(o string) bool {
 	u, err := url.Parse(o)
 	if err != nil {
 		return false
+	}
+	// v3.2.1：Tauri 桌面客户端窗口 origin——macOS/Linux 为 tauri://localhost，
+	// Windows 为 http(s)://tauri.localhost。仅窗口 origin 本身受信，鉴权链（API key/RBAC）照常执行；
+	// 网关仅监听 127.0.0.1，本机任意进程本可直连，此信任不扩大远程攻击面。
+	if u.Scheme == "tauri" && u.Host == "localhost" {
+		return true
+	}
+	if (u.Scheme == "http" || u.Scheme == "https") && u.Host == "tauri.localhost" {
+		return true
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return false
@@ -667,6 +680,19 @@ func writeJSON(w http.ResponseWriter, data interface{}) {
 func writeJSONStatus(w http.ResponseWriter, code int, data interface{}) {
 	w.WriteHeader(code)
 	writeJSON(w, data)
+}
+
+// v3.2.1：桌面客户端模式标记——true 时不自动打开浏览器（Tauri 壳以 sidecar 拉起网关并传 --no-browser）
+var noBrowser = false
+
+// scanNoBrowserFlag 扫描参数中的 --no-browser / -no-browser 标记（布尔开关，无值）
+func scanNoBrowserFlag(args []string) bool {
+	for _, a := range args {
+		if a == "--no-browser" || a == "-no-browser" {
+			return true
+		}
+	}
+	return false
 }
 
 func openBrowser(url string) {

@@ -1,3 +1,33 @@
+# TarsSecureGuard v3.2.1 · 桌面客户端 —— 本地 Tauri 客户端，不依赖浏览器
+
+> 设计决策、模块拆分、构建与验收说明见 `docs/v3.2.1-desktop-client.md`。
+> **CLI / systemd / Docker 部署零变化**：网关仍为单文件零依赖二进制，桌面客户端是叠加的第四种交付形态。
+
+## 一、桌面客户端（Tauri 2 壳，`src-tauri/`）
+
+- **原生窗口，零浏览器依赖**：Tauri 2.12（2.x 当前稳定线）用系统自带 WebView（Windows WebView2 / macOS WKWebView / Linux webkit2gtk）承载窗口，用户无需安装任何浏览器。
+- **Sidecar 外嵌模式**：Go 网关按 target-triple 命名（`binaries/tsg-<triple>`）打进安装包，由 Rust 壳以 `--no-browser` 拉起；UI 与业务逻辑 100% 复用网关 embed 的管理台（1040 行单文件前端），壳仅约 250 行 Rust。
+- **连接模式**：壳启动先探 `127.0.0.1:18889/health`，已有实例（CLI / systemd 起的）直接复用，不重复拉起、退出不杀外部实例。
+- **数据目录**：桌面安装位置（Program Files、/usr/bin、AppImage 只读 squashfs）不可写，壳经环境变量 `TSG_APP_DIR` 把网关数据目录指到系统用户数据目录；不设置该变量时行为与历史版本一致。
+
+## 二、网关最小适配（Go 侧，全部带单测）
+
+- `--no-browser` 启动标记：sidecar 模式抑制"自动打开浏览器"（浏览器窗口由壳承载）。
+- `isTrustedOrigin` 信任 Tauri 窗口 origin（`tauri://localhost` / `http(s)://tauri.localhost`）：仅窗口 origin 本身受信，API Key / RBAC / WAF / 审计链照常执行；网关仅监听 127.0.0.1，本机进程本可直连，不扩大远程攻击面。
+- `TSG_APP_DIR` 环境变量单点覆盖 `appDir()`：config.json / logs / gateway-key.txt / whitelist-integrity / quota 数据全部跟随。
+- 前端 `api()` 增加 API BASE（仅桌面模式指向 `http://127.0.0.1:18889`，浏览器模式为空串零影响）+ 桌面启动遮罩（后端未就绪时的过渡态）。
+
+## 三、构建与分发
+
+- 三平台安装包经 GitHub Actions matrix 出包（`.github/workflows/desktop-release.yml`）：Windows NSIS（currentUser 安装 + WebView2 引导）、macOS universal dmg（amd64+arm64 lipo）、Linux deb + AppImage；`workflow_dispatch` 出 artifacts，推 `v3.2.*` tag 自动挂 Release。
+- 安装包体积预估 15～25MB（Go 网关约 10MB + 壳 + 前端 <1MB），Win/macOS 用户无需预装 WebView 运行时。
+
+## 四、明确不在本版范围（留 v3.2.2+）
+
+WebSocket 事件流（维持 3s/5s 轮询）、单实例锁、自动更新（updater）、系统托盘、keychain 存密钥、开机自启、Windows Job Object 兜底（正常关窗已确保无残留进程；壳被强杀时 sidecar 可能残留为已知限制）。
+
+---
+
 # TarsSecureGuard Go v3.2.0 · 连接做到极致 —— AI 软件生态全连接 · 变更说明
 
 > 完整连接指南见 `docs/v3.2.0-connectivity.md`；性能基准见 `docs/v3.2.0-performance.md`；不可连接清单见 `docs/v3.2.0-unconnectable.md`。
@@ -34,8 +64,6 @@
   （security-analyst 不输出攻击利用细节）、扁平结构预留 i18n 空间；安全护栏措辞未削弱。
 - README / 介绍语 / tagline 重定位为「The Router of the AI Era」；13 客户端接入指南；不可连接清单 16 项。
 - **2026-10-04 二次打磨**：推荐语聚焦"一把密钥连一切"叙事——路由器角色 + Universal Connector + Coding Plan + 50 集成路线 + 三种纳入模式（embed / federate / wrap-cli-as-mcp）写进第一屏；介绍语新增「Universal Connector 路线」章节、含三种纳入模式表；保留"安全带"已有认知资产，强化对比 LiteLLM / New API 的差异化卖点；端口 `18889` 显式化（v3.2.0 起统一）。
-- **2026-10-04 三次打磨**：基于「vs LiteLLM 不是同一赛道」反馈，介绍语在「家里的路由器」段之后插入对比段：LiteLLM = "我能调几个 provider"（Python + Docker + Redis + Postgres 的重型网关）vs TSG = "我所有 AI 客户端 + 所有模型 + 所有协议怎么连、怎么管、怎么安全"（Go 单二进制 6.8 MB、零依赖、拷到 U 盘里都能跑）；定位凝练为**路由器 + 网关 + 安全带**三件事由一个文件搞定；不诋毁对手，只说 TSG 的差异点。
-- **2026-10-04 四次打磨**：README 介绍语对比段精简对齐 HelloGitHub 优化版锚句：去 OpenRouter 反例（避免给读者绕弯）、去"我所有 AI 客户端"赘述（用"AI 软件 + 模型 + 协议"更紧凑）、加"路由器 + 网关 + 安全带"作为三合一锚点的强调位。
 
 ## 五、管理端点与配置
 
