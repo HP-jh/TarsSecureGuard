@@ -1,0 +1,15 @@
+{
+  "id": "google-gemini",
+  "name": "Google Gemini",
+  "kind": "cloud",
+  "protocol": "gemini",
+  "baseURL": "https://generativelanguage.googleapis.com",
+  "chatPath": "/v1beta/models/{model}:generateContent",
+  "keyEnv": "TARS_GEMINI_KEY",
+  "docs": "https://ai.google.dev/api/generate-content",
+  "models": [
+    "gemini-2.5-pro",
+    "gemini-2.5-flash"
+  ],
+  "notes": "原生 generateContent；密钥经 x-goog-api-key 头发送"
+}

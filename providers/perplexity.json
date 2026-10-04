@@ -1,0 +1,16 @@
+{
+  "id": "perplexity",
+  "name": "Perplexity",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.perplexity.ai",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_PERPLEXITY_KEY",
+  "docs": "https://docs.perplexity.ai/api-reference/chat-completions",
+  "models": [
+    "sonar",
+    "sonar-pro",
+    "sonar-reasoning"
+  ],
+  "notes": "OpenAI 兼容（注意 baseURL 无 /v1）"
+}

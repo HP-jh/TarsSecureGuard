@@ -1,0 +1,15 @@
+{
+  "id": "xai",
+  "name": "xAI (Grok)",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.x.ai/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_XAI_KEY",
+  "docs": "https://docs.x.ai/",
+  "models": [
+    "grok-4",
+    "grok-3"
+  ],
+  "notes": "OpenAI 兼容"
+}

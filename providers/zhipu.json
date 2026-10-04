@@ -1,0 +1,16 @@
+{
+  "id": "zhipu",
+  "name": "智谱 GLM",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://open.bigmodel.cn/api/paas/v4",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_ZHIPU_KEY",
+  "docs": "https://open.bigmodel.cn/dev/api",
+  "models": [
+    "glm-4.5",
+    "glm-4.5-air",
+    "glm-4-flash"
+  ],
+  "notes": "OpenAI 兼容"
+}

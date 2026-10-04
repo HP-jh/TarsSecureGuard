@@ -56,6 +56,8 @@ var moduleRegistry = []Module{
 	{ID: "semanticGuard", Name: "Semantic Guard", Description: "语义分级分流：静态规则 + 灰区送本地小模型（fail-close，AI 只能加严）", Category: "security", Default: true, HasWorker: false},
 	{ID: "smartRouter", Name: "Smart Router", Description: "两阶段路由：静态规则优先 + ε-greedy bandit 优化自动分支（非 admin 反馈降权防伪造）", Category: "ops", Default: true, HasWorker: false},
 	{ID: "scoreBoard", Name: "Score Board", Description: "模型评分榜：运行时分融合 lm-eval-harness 离线评测（相对参考，诚实标注）", Category: "ops", Default: true, HasWorker: false},
+	// v3.0.1：sidecar 外置模块宿主（modules.d + SHA-256 钉扎 + 低权限代理）
+	{ID: "sidecarHub", Name: "Sidecar Hub", Description: "外置模块宿主：modules.d manifest + SHA-256 钉扎 + 生命周期监管 + /api/ext/ 低权限反向代理", Category: "tools", Default: true, HasWorker: true},
 }
 
 // securityModuleDesc 安全模块在模块列表中的展示形态（locked，无开关）

@@ -98,6 +98,32 @@ func getModels() []ModelInfo {
 			ms = append(ms, ModelInfo{ID: mdl, Name: mdl, Type: "chat", Status: "configured", Source: "cloud", Backend: cc.Name})
 		}
 	}
+	// v3.2.0 provider-registry：注册表 provider 的模型清单并入面板。
+	// 模型 ID 带前缀 "providerId/model"（与路由一致）；云端仅在配置密钥后显示 online，
+	// 本地运行时标 discovered（由各自服务探测真实状态，这里只列清单）。
+	if cloudN, localN := providerCount(); cloudN+localN > 0 {
+		preg.mu.RLock()
+		for _, id := range preg.order {
+			spec := preg.specs[id]
+			ready, reason := providerReady(spec)
+			status := "needs-key"
+			if spec.Kind == "local" {
+				status = "discovered"
+			} else if ready {
+				status = "online"
+			} else if reason == "disabled" {
+				continue
+			}
+			backend := spec.Name
+			for _, mdl := range providerEffectiveModels(spec) {
+				ms = append(ms, ModelInfo{
+					ID: spec.ID + "/" + mdl, Name: mdl, Type: "chat",
+					Status: status, Source: spec.Kind, Backend: backend,
+				})
+			}
+		}
+		preg.mu.RUnlock()
+	}
 	// 合并后台自动发现的模型（新增）：按 ID 去重，补充上面实时探测未覆盖的来源
 	seen := map[string]bool{}
 	for _, m := range ms {

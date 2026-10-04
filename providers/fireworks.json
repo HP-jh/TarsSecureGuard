@@ -1,0 +1,14 @@
+{
+  "id": "fireworks",
+  "name": "Fireworks AI",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.fireworks.ai/inference/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_FIREWORKS_KEY",
+  "docs": "https://docs.fireworks.ai/api-reference/post-chatcompletions",
+  "models": [
+    "accounts/fireworks/models/llama-v3p3-70b-instruct"
+  ],
+  "notes": "OpenAI 兼容"
+}

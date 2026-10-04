@@ -407,7 +407,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <!-- ===== MCP ===== -->
 <div class="page" id="p-mcp">
 <div class="card"><div class="card-title"><span class="d"></span>MCP 中继中心 <span class="right"><button class="btn btn-s btn-sm" onclick="loadMcp()">刷新</button></span></div><div id="mcp-content"><div class="skel skel-row" style="width:85%"></div><div class="skel skel-row" style="width:65%"></div></div></div>
-<div class="card"><div class="card-title"><span class="d"></span>MCP 工具测试</div><div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"><input class="input" id="m-tool" placeholder="工具名" style="flex:1;min-width:120px"><input class="input" id="m-args" placeholder='Arguments JSON (e.g. {"key":"value"})' style="flex:2;min-width:200px"><button class="btn btn-p" id="btn-mcp" onclick="callMcp()"><span class="spinner"></span>调用</button></div>
+<div class="card"><div class="card-title"><span class="d"></span>MCP 工具测试</div><div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"><input class="input" id="m-tool" placeholder="工具名" style="flex:1;min-width:120px"><input class="input" id="m-args" placeholder='参数 JSON（如 {"key":"value"}）' style="flex:2;min-width:200px"><button class="btn btn-p" id="btn-mcp" onclick="callMcp()"><span class="spinner"></span>调用</button></div>
 <div id="m-result" class="log-box" style="min-height:100px">等待工具调用…</div></div></div>
 
 <!-- ===== Discovery ===== -->
@@ -550,14 +550,14 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
 function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
-function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||'tars-gateway-key'},o.headers||{});return fetch(u,o).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()});}
+function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||''},o.headers||{});return fetch(u,o).then(function(r){if(r.status===401){var k=prompt('网关密钥未配置或已失效（零信任基线：默认密钥通道须显式启用）。\n请输入安装目录 gateway-key.txt 中的网关密钥：');if(k){localStorage.setItem('tsg_api_key',k);return api(u,o);}throw new Error('HTTP 401');}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
 function toast(msg,type){var w=$('toast-wrap');var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;w.appendChild(t);setTimeout(function(){t.classList.add('hide');setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},350)},2800);while(w.children.length>4)w.removeChild(w.firstChild);}
 function btnLoad(btn,on){if(!btn)return;if(typeof btn==='string')btn=$(btn);if(!btn)return;btn.classList.toggle('loading',!!on);btn.disabled=!!on;}
 function togglePwd(id,btn){var i=$(id);var show=i.type==='password';i.type=show?'text':'password';btn.innerHTML='<svg><use href="#i-eye'+(show?'off':'')+'"/></svg>';}
 
 /* ============ 确认对话框 ============ */
 var cfmCb=null;
-function confirmDlg(title,msg,cb,okText){$('cfm-title').textContent=title;$('cfm-msg').textContent=msg;$('cfm-yes').textContent=okText||'Confirm';cfmCb=cb;$('cfm').classList.add('show');}
+function confirmDlg(title,msg,cb,okText){$('cfm-title').textContent=title;$('cfm-msg').textContent=msg;$('cfm-yes').textContent=okText||'确认';cfmCb=cb;$('cfm').classList.add('show');}
 function cfmYes(){$('cfm').classList.remove('show');if(cfmCb){var c=cfmCb;cfmCb=null;c();}}
 function cfmNo(){$('cfm').classList.remove('show');cfmCb=null;}
 
@@ -577,31 +577,31 @@ window.addEventListener('hashchange',pgFromHash);
 
 /* ============ 命令面板 Ctrl+K ============ */
 var PAL=[
- {n:'Dashboard',k:'overview monitor kpi',a:function(){jump('dashboard')}},
- {n:'AI Chat',k:'chat conversation',a:function(){jump('chat')}},
- {n:'Models',k:'model management list',a:function(){jump('models')}},
- {n:'Agents',k:'agent run execute',a:function(){jump('agents')}},
- {n:'Urgent',k:'urgent priority',a:function(){jump('urgent')}},
- {n:'Fallback',k:'fallback degrade',a:function(){jump('fallback')}},
- {n:'Web Search',k:'search serper',a:function(){jump('search')}},
- {n:'Feishu',k:'feishu lark',a:function(){jump('feishu')}},
- {n:'MCP Tools',k:'mcp relay tool',a:function(){jump('mcp')}},
- {n:'Discovery',k:'discovery scan network',a:function(){jump('discovery')}},
- {n:'Security',k:'security waf mode',a:function(){jump('security')}},
- {n:'WAF Logs',k:'waf block logs',a:function(){jump('waf')}},
- {n:'Device',k:'device hardware cpu',a:function(){jump('device')}},
- {n:'Logs',k:'logs viewer system',a:function(){jump('logs')}},
- {n:'Settings',k:'settings config editor',a:function(){jump('settings')}},
- {n:'About',k:'about version info',a:function(){jump('about')}},
- {n:'Scan Hardware',k:'action scan device',a:function(){jump('models');scanDev();}},
- {n:'Start Local Model',k:'action start model',a:function(){startModel();}},
- {n:'Refresh Dashboard',k:'action refresh stats',a:function(){updStats();toast('Stats refreshed','ok');}},
- {n:'Shortcut Help',k:'help keyboard',a:function(){openHelp();}}
+ {n:'仪表盘',k:'overview monitor kpi 仪表盘',a:function(){jump('dashboard')}},
+ {n:'AI 对话',k:'chat conversation 对话',a:function(){jump('chat')}},
+ {n:'模型',k:'model management list 模型',a:function(){jump('models')}},
+ {n:'Agent 角色',k:'agent run execute 角色',a:function(){jump('agents')}},
+ {n:'紧急通道',k:'urgent priority 紧急',a:function(){jump('urgent')}},
+ {n:'自动回退',k:'fallback degrade 回退',a:function(){jump('fallback')}},
+ {n:'网页搜索',k:'search serper 搜索',a:function(){jump('search')}},
+ {n:'飞书',k:'feishu lark 飞书',a:function(){jump('feishu')}},
+ {n:'MCP 工具',k:'mcp relay tool 工具',a:function(){jump('mcp')}},
+ {n:'服务发现',k:'discovery scan network 发现',a:function(){jump('discovery')}},
+ {n:'安全',k:'security waf mode 安全',a:function(){jump('security')}},
+ {n:'WAF 日志',k:'waf block logs 日志',a:function(){jump('waf')}},
+ {n:'设备',k:'device hardware cpu 设备',a:function(){jump('device')}},
+ {n:'日志',k:'logs viewer system 日志',a:function(){jump('logs')}},
+ {n:'设置',k:'settings config editor 设置',a:function(){jump('settings')}},
+ {n:'关于',k:'about version info 关于',a:function(){jump('about')}},
+ {n:'扫描硬件',k:'action scan device 扫描硬件',a:function(){jump('models');scanDev();}},
+ {n:'启动本地模型',k:'action start model 启动本地模型',a:function(){startModel();}},
+ {n:'刷新仪表盘',k:'action refresh stats 刷新仪表盘',a:function(){updStats();toast('统计已刷新','ok');}},
+ {n:'快捷键帮助',k:'help keyboard 快捷键',a:function(){openHelp();}}
 ];
 var palSel=0,palItems=[];
 function openPalette(){$('palette').classList.add('show');$('pal-in').value='';renderPal();setTimeout(function(){$('pal-in').focus()},30);}
 function closePalette(){$('palette').classList.remove('show');}
-function renderPal(){var q=$('pal-in').value.trim().toLowerCase();palItems=PAL.filter(function(p){return !q||p.n.toLowerCase().indexOf(q)>-1||p.k.indexOf(q)>-1});palSel=0;var h='';palItems.forEach(function(p,i){h+='<div class="palette-item'+(i===palSel?' sel':'')+'" data-i="'+i+'" onclick="palGo('+i+')" onmousemove="palHover('+i+')"><span style="color:var(--cyan);width:16px;text-align:center">&#8250;</span>'+p.n+'<span class="pk">'+(p.k.split(' ')[0]==='action'?'ACTION':'PAGE')+'</span></div>';});$('pal-list').innerHTML=h||'<div class="empty" style="padding:18px">No match</div>';}
+function renderPal(){var q=$('pal-in').value.trim().toLowerCase();palItems=PAL.filter(function(p){return !q||p.n.toLowerCase().indexOf(q)>-1||p.k.indexOf(q)>-1});palSel=0;var h='';palItems.forEach(function(p,i){h+='<div class="palette-item'+(i===palSel?' sel':'')+'" data-i="'+i+'" onclick="palGo('+i+')" onmousemove="palHover('+i+')"><span style="color:var(--cyan);width:16px;text-align:center">&#8250;</span>'+p.n+'<span class="pk">'+(p.k.split(' ')[0]==='action'?'ACTION':'PAGE')+'</span></div>';});$('pal-list').innerHTML=h||'<div class="empty" style="padding:18px">无匹配结果。</div>';}
 function palHover(i){palSel=i;document.querySelectorAll('.palette-item').forEach(function(x){x.classList.toggle('sel',+x.getAttribute('data-i')===i)});}
 function palGo(i){if(!palItems[i])return;closePalette();palItems[i].a();}
 function palKey(e){if(e.key==='ArrowDown'){e.preventDefault();palSel=Math.min(palSel+1,palItems.length-1);palHover(palSel);}else if(e.key==='ArrowUp'){e.preventDefault();palSel=Math.max(palSel-1,0);palHover(palSel);}else if(e.key==='Enter'){e.preventDefault();palGo(palSel);}}
@@ -629,21 +629,21 @@ function updStats(){var t0=Date.now();api('/api/status').then(function(d){
   var run=d.device&&d.device.localModelRunning;
   $('s-local').textContent=run?'ON':'OFF';
   $('s-local').style.setProperty('--c1',run?'#3fb950':'#f85149');$('s-local').style.setProperty('--c2',run?'#39c5cf':'#d29922');
-  $('s-local-sub').textContent=run?'local backend active':'local backend stopped';
+  $('s-local-sub').textContent=run?'本地后端运行中':'本地后端已停止';
   var up=st.uptime||0;$('ut').textContent=fmtUp(up);
   $('r-uptime').textContent=fmtUp(up);
   $('r-lat').textContent=(Date.now()-t0)+' ms';
   $('r-mem').textContent=d.device&&d.device.memory?d.device.memory:'--';
-  var be=[];if(d.device&&d.device.lmstudio)be.push('LM Studio');if(d.device&&d.device.ollama)be.push('Ollama');if(run)be.push('Embedded');
-  $('r-backend').textContent=be.length?be.join(' + '):'Offline only';
+  var be=[];if(d.device&&d.device.lmstudio)be.push('LM Studio');if(d.device&&d.device.ollama)be.push('Ollama');if(run)be.push('内置引擎');
+  $('r-backend').textContent=be.length?be.join(' + '):'仅离线';
   var sb=$('sb');sb.classList.remove('off');$('sm').textContent='运行中';
   var si='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">'
-    +'<div><b style="color:var(--text2)">Version:</b> '+esc(d.version||'-')+'</div>'
-    +'<div><b style="color:var(--text2)">Mode:</b> '+esc(d.shield_mode||'-')+'</div>'
-    +'<div><b style="color:var(--text2)">CPU:</b> '+esc(d.device&&d.device.cpu?d.device.cpu:'-')+'</div>'
-    +'<div><b style="color:var(--text2)">Memory:</b> '+esc(d.device&&d.device.memory?d.device.memory:'-')+'</div>'
-    +'<div><b style="color:var(--text2)">Local Model:</b> '+(run?'<span class="tag on">运行中</span>':'<span class="tag off">Stopped</span>')+'</div>'
-    +'<div><b style="color:var(--text2)">OS:</b> '+esc(d.device&&d.device.os?d.device.os:'-')+'</div></div>';
+    +'<div><b style="color:var(--text2)">版本：</b> '+esc(d.version||'-')+'</div>'
+    +'<div><b style="color:var(--text2)">模式：</b> '+esc(d.shield_mode||'-')+'</div>'
+    +'<div><b style="color:var(--text2)">CPU：</b> '+esc(d.device&&d.device.cpu?d.device.cpu:'-')+'</div>'
+    +'<div><b style="color:var(--text2)">内存：</b> '+esc(d.device&&d.device.memory?d.device.memory:'-')+'</div>'
+    +'<div><b style="color:var(--text2)">本地模型：</b> '+(run?'<span class="tag on">运行中</span>':'<span class="tag off">已停止</span>')+'</div>'
+    +'<div><b style="color:var(--text2)">操作系统：</b> '+esc(d.device&&d.device.os?d.device.os:'-')+'</div></div>';
   $('sys-info').innerHTML=si;
   if(d.device&&d.device.modelDir){var md=$('ab-mdir');if(md)md.textContent=d.device.modelDir;}
   /* 趋势采样：按轮询间隔统计新增请求数 */
@@ -651,14 +651,14 @@ function updStats(){var t0=Date.now();api('/api/status').then(function(d){
   if(lastTotal!==null){var delta=Math.max(0,tot-lastTotal);TREND.push({t:now,v:delta});if(TREND.length>TREND_MAX)TREND.shift();drawTrend();}
   lastTotal=tot;lastT=now;
   if(!window.__wzShown){window.__wzShown=true;if(d.device&&d.device.localModels&&d.device.localModels.length===0)showWizard();}
-}).catch(function(){var sb=$('sb');sb.classList.add('off');$('sm').textContent='Unreachable';});}
+}).catch(function(){var sb=$('sb');sb.classList.add('off');$('sm').textContent='不可达';});}
 
 function drawTrend(){var cv=$('trend-cv');if(!cv)return;var wrap=cv.parentElement;var dpr=window.devicePixelRatio||1;
   var w=wrap.clientWidth,h=wrap.clientHeight;if(w<10)return;
   if(cv.width!==w*dpr){cv.width=w*dpr;cv.height=h*dpr;}
   var ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
   var pad={l:34,r:8,t:10,b:20};var iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;
-  var data=TREND;if(!data.length){ctx.fillStyle='#545d68';ctx.font='11px sans-serif';ctx.fillText('Collecting live samples... (updates every 5s)',pad.l+8,h/2);return;}
+  var data=TREND;if(!data.length){ctx.fillStyle='#545d68';ctx.font='11px sans-serif';ctx.fillText('正在采集实时样本…（每 5 秒更新）',pad.l+8,h/2);return;}
   var max=1;data.forEach(function(p){if(p.v>max)max=p.v});max=Math.ceil(max*1.15);
   /* 网格 + Y 轴 */
   ctx.strokeStyle='rgba(139,148,158,.12)';ctx.fillStyle='#545d68';ctx.font='9px sans-serif';ctx.lineWidth=1;
@@ -683,7 +683,7 @@ function drawTrend(){var cv=$('trend-cv');if(!cv)return;var wrap=cv.parentElemen
   wrap.addEventListener('mousemove',function(e){var g=cv._geom;if(!g||!TREND.length)return;var r=wrap.getBoundingClientRect();var mx=e.clientX-r.left;
     var best=null,bd=1e9;TREND.forEach(function(p){var x=g.xOf(p.t);var d=Math.abs(x-mx);if(d<bd){bd=d;best=p;}});
     if(!best)return;var tip=$('trend-tip');tip.style.display='block';
-    tip.innerHTML='<b>'+best.v+'</b> req &middot; '+new Date(best.t).toLocaleTimeString();
+    tip.innerHTML='<b>'+best.v+'</b> 次请求 &middot; '+new Date(best.t).toLocaleTimeString();
     var bx=g.xOf(best.t);tip.style.left=Math.min(Math.max(bx-40,0),r.width-110)+'px';tip.style.top='2px';});
   wrap.addEventListener('mouseleave',function(){$('trend-tip').style.display='none';});
   window.addEventListener('resize',function(){if(curPage==='dashboard')drawTrend();});
@@ -699,162 +699,162 @@ function sendChat(){var inp=$('c-in');var t=inp.value.trim();if(!t)return;inp.va
     var r=d.choices?d.choices[0].message.content:JSON.stringify(d);
     $(id).innerHTML='<div class="msg-av">AI</div><div><div class="msg-b">'+esc(r)+'</div><div class="msg-t">'+new Date().toLocaleTimeString()+'</div></div>';
     m.scrollTop=m.scrollHeight;btnLoad('c-send',false);
-  }).catch(function(e){$(id).innerHTML='<div class="msg-av">AI</div><div><div class="msg-b" style="color:var(--red)">Error: '+esc(e.message)+'</div></div>';btnLoad('c-send',false);toast('Chat failed: '+e.message,'err');});}
+  }).catch(function(e){$(id).innerHTML='<div class="msg-av">AI</div><div><div class="msg-b" style="color:var(--red)">错误：'+esc(e.message)+'</div></div>';btnLoad('c-send',false);toast('对话失败：'+e.message,'err');});}
 
 
 /* ============ 模型：列表 + 监控 + 启停 + 下载 ============ */
 function loadModels(manual){api('/api/admin/models').then(function(d){
   var ms=d.models||[];
-  if(!ms.length){$('model-list').innerHTML='<div class="empty"><div class="ic">O</div>No models found. Use "Scan Hardware" to download a recommended model, or put GGUF files into the Models folder next to the app.</div>';return;}
+  if(!ms.length){$('model-list').innerHTML='<div class="empty"><div class="ic">O</div>未找到模型。可点击“扫描硬件”下载推荐模型，或将 GGUF 文件放入应用旁的 Models 目录。</div>';return;}
   var h='<div class="grid-2">';
   ms.forEach(function(m){
     var on=(m.status==='online');
     h+='<div class="model-card"><div class="mn">'+esc(m.name||m.id||'?')
-      +'<span class="tag '+(m.source==='local'?'loc':'clo')+'">'+(m.source==='local'?'LOCAL':'CLOUD')+'</span>'
+      +'<span class="tag '+(m.source==='local'?'loc':'clo')+'">'+(m.source==='local'?'本地':'云端')+'</span>'
       +'<span class="tag '+(on?'on':'off')+'">'+(m.status||'offline')+'</span></div>'
-      +'<div class="model-meta"><span>Type <b>'+esc(m.type||'chat')+'</b></span><span>Size <b>'+esc(m.size||'-')+'</b></span><span>Response <b>'+(m.latency?m.latency+' ms':'--')+'</b></span></div>'
+      +'<div class="model-meta"><span>类型 <b>'+esc(m.type||'chat')+'</b></span><span>大小 <b>'+esc(m.size||'-')+'</b></span><span>响应 <b>'+(m.latency?m.latency+' ms':'--')+'</b></span></div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
       +(on
-        ?'<button class="btn btn-d btn-sm" onclick="stopModel(this,\''+esc(m.name||m.id||'')+'\')">Stop</button>'
-        :'<button class="btn btn-s btn-sm" onclick="startModel(this)">Start</button>')
+        ?'<button class="btn btn-d btn-sm" onclick="stopModel(this,\''+esc(m.name||m.id||'')+'\')">停止</button>'
+        :'<button class="btn btn-s btn-sm" onclick="startModel(this)">启动</button>')
       +'</div></div>';
   });
   h+='</div>';$('model-list').innerHTML=h;
-  if(manual)toast('Model list refreshed','ok');
-}).catch(function(e){$('model-list').innerHTML='<div class="empty">Failed to load: '+esc(e.message)+'</div>';});}
+  if(manual)toast('模型列表已刷新','ok');
+}).catch(function(e){$('model-list').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>';});}
 function loadModelMonitor(){var t0=Date.now();api('/api/status').then(function(d){
   var run=d.device&&d.device.localModelRunning;
   var h='<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;line-height:2">'
-    +'<div><span style="color:var(--text2)">Runtime: </span>'+(run?'<span class="tag on">Online</span>':'<span class="tag off">Offline</span>')+'</div>'
-    +'<div><span style="color:var(--text2)">后端：</span><b>'+((d.device&&d.device.lmstudio)?'LM Studio':(d.device&&d.device.ollama)?'Ollama':(run?'Embedded':'None'))+'</b></div>'
-    +'<div><span style="color:var(--text2)">Local Models: </span><b>'+(d.device&&d.device.localModels?d.device.localModels.length:0)+'</b></div>'
+    +'<div><span style="color:var(--text2)">运行时：</span>'+(run?'<span class="tag on">在线</span>':'<span class="tag off">离线</span>')+'</div>'
+    +'<div><span style="color:var(--text2)">后端：</span><b>'+((d.device&&d.device.lmstudio)?'LM Studio':(d.device&&d.device.ollama)?'Ollama':(run?'内置':'无'))+'</b></div>'
+    +'<div><span style="color:var(--text2)">本地模型：</span><b>'+(d.device&&d.device.localModels?d.device.localModels.length:0)+'</b></div>'
     +'<div><span style="color:var(--text2)">API 时延：</span><b>'+(Date.now()-t0)+' ms</b></div>'
     +'<div><span style="color:var(--text2)">模型目录：</span><b style="color:var(--cyan)">'+esc(d.device&&d.device.modelDir?d.device.modelDir:'-')+'</b></div></div>'
     +'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
     +(run?'<button class="btn btn-d btn-sm" onclick="stopModel(this)">Stop Local Model</button>':'<button class="btn btn-p btn-sm" onclick="startModel(this)">Start Local Model</button>')
     +'<button class="btn btn-g btn-sm" onclick="openModelsFolder()">打开模型目录</button></div>';
   $('model-monitor').innerHTML=h;
-}).catch(function(e){$('model-monitor').innerHTML='<div class="empty">Monitor unavailable: '+esc(e.message)+'</div>';});}
+}).catch(function(e){$('model-monitor').innerHTML='<div class="empty">监控数据不可用：'+esc(e.message)+'</div>';});}
 function startModel(btn){btnLoad(btn,true);api('/api/admin/models/start',{method:'POST'}).then(function(){
-  toast('Starting local model...','ok');btnLoad(btn,false);
+  toast('正在启动本地模型…','ok');btnLoad(btn,false);
   setTimeout(function(){loadModelMonitor();loadModels();updStats();},3000);
-}).catch(function(e){btnLoad(btn,false);toast('Start failed: '+e.message,'err');});}
+}).catch(function(e){btnLoad(btn,false);toast('启动失败：'+e.message,'err');});}
 function stopModel(btn,name){
-  confirmDlg('Stop Model','确认停止'+(name?'模型 "'+name+'"':'本地模型')+'？进行中的请求会被中断。',function(){
+  confirmDlg('停止模型','确认停止'+(name?'模型 "'+name+'"':'本地模型')+'？进行中的请求会被中断。',function(){
     btnLoad(btn,true);
     api('/api/admin/models/stop',{method:'POST'}).then(function(){
-      toast('Model stopped','ok');btnLoad(btn,false);
+      toast('模型已停止','ok');btnLoad(btn,false);
       setTimeout(function(){loadModelMonitor();loadModels();updStats();},1500);
-    }).catch(function(e){btnLoad(btn,false);toast('Stop failed: '+e.message+'（后端可能未提供 stop 端点）','err');});
-  },'Stop');
+    }).catch(function(e){btnLoad(btn,false);toast('停止失败：'+e.message+'（后端可能未提供 stop 端点）','err');});
+  },'停止');
 }
 function scanDev(){var b=$('btn-scan');btnLoad(b,true);
   $('dev-scan').innerHTML='<div class="skel skel-row" style="width:80%"></div><div class="skel skel-row" style="width:60%"></div><div class="skel skel-row" style="width:70%"></div>';
   api('/api/admin/device/scan',{method:'POST'}).then(function(d){
-    var h='<div class="grid-4" style="margin-bottom:14px"><div class="fg"><label class="lbl">CPU</label><div style="font-size:13px;font-weight:600">'+esc(d.cpu)+'</div></div><div class="fg"><label class="lbl">Memory</label><div style="font-size:13px;font-weight:600">'+esc(d.memory)+'</div></div><div class="fg"><label class="lbl">GPU</label><div style="font-size:13px;font-weight:600">'+esc(d.gpu)+'</div></div><div class="fg"><label class="lbl">Disk</label><div style="font-size:13px;font-weight:600">'+esc(d.disk)+'</div></div></div>';
-    if(d.recommendations&&d.recommendations.length){h+='<div class="lbl" style="margin-bottom:8px">Recommended Models</div>';d.recommendations.forEach(function(r){h+='<div style="padding:10px 14px;background:var(--bg1);border-radius:10px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);gap:8px;flex-wrap:wrap"><div><b style="font-size:12px">'+esc(r.name)+'</b> <span class="tag loc" style="margin-left:6px">'+esc(r.size)+'</span></div><button class="btn btn-p btn-sm" onclick="dlM(\''+r.url+'\',\''+r.name+'\')">下载</button></div>';});}
-    $('dev-scan').innerHTML=h;toast('Device scan complete','ok');btnLoad(b,false);
-  }).catch(function(e){$('dev-scan').innerHTML='<div class="empty">Scan failed: '+esc(e.message)+'</div>';btnLoad(b,false);toast('扫描失败：'+e.message,'err');});}
-function dlM(u,n){api('/api/admin/model/download',{method:'POST',body:JSON.stringify({url:u,name:n})}).then(function(){toast('Download started: '+n,'ok');pollDl(n);}).catch(function(e){toast('失败：'+e.message,'err');});}
+    var h='<div class="grid-4" style="margin-bottom:14px"><div class="fg"><label class="lbl">CPU</label><div style="font-size:13px;font-weight:600">'+esc(d.cpu)+'</div></div><div class="fg"><label class="lbl">内存</label><div style="font-size:13px;font-weight:600">'+esc(d.memory)+'</div></div><div class="fg"><label class="lbl">GPU</label><div style="font-size:13px;font-weight:600">'+esc(d.gpu)+'</div></div><div class="fg"><label class="lbl">磁盘</label><div style="font-size:13px;font-weight:600">'+esc(d.disk)+'</div></div></div>';
+    if(d.recommendations&&d.recommendations.length){h+='<div class="lbl" style="margin-bottom:8px">推荐模型</div>';d.recommendations.forEach(function(r){h+='<div style="padding:10px 14px;background:var(--bg1);border-radius:10px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);gap:8px;flex-wrap:wrap"><div><b style="font-size:12px">'+esc(r.name)+'</b> <span class="tag loc" style="margin-left:6px">'+esc(r.size)+'</span></div><button class="btn btn-p btn-sm" onclick="dlM(\''+r.url+'\',\''+r.name+'\')">下载</button></div>';});}
+    $('dev-scan').innerHTML=h;toast('设备扫描完成','ok');btnLoad(b,false);
+  }).catch(function(e){$('dev-scan').innerHTML='<div class="empty">扫描失败：'+esc(e.message)+'</div>';btnLoad(b,false);toast('扫描失败：'+e.message,'err');});}
+function dlM(u,n){api('/api/admin/model/download',{method:'POST',body:JSON.stringify({url:u,name:n})}).then(function(){toast('开始下载：'+n,'ok');pollDl(n);}).catch(function(e){toast('失败：'+e.message,'err');});}
 function pollDl(n){var box=$('dev-scan');var bar=document.createElement('div');bar.style.cssText='margin-bottom:10px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:11px;color:var(--text2)';
-  bar.innerHTML='<div style="margin-bottom:6px">Downloading <b style="color:var(--cyan)">'+esc(n)+'</b>... <span id="dl-pct">0%</span></div><div class="progress"><div class="progress-bar" id="dl-bar" style="width:0%"></div></div>';
+  bar.innerHTML='<div style="margin-bottom:6px">正在下载 <b style="color:var(--cyan)">'+esc(n)+'</b>... <span id="dl-pct">0%</span></div><div class="progress"><div class="progress-bar" id="dl-bar" style="width:0%"></div></div>';
   box.insertBefore(bar,box.firstChild);
   var it=setInterval(function(){api('/api/admin/model/download/status').then(function(d){
     var dl=(d.downloads||[]).filter(function(x){return x.name===n})[0];if(!dl){clearInterval(it);return;}
     var pct=dl.pct||0;var pb=$('dl-bar'),pt=$('dl-pct');if(pb)pb.style.width=pct+'%';if(pt)pt.textContent=pct+'%';
     if(dl.done){clearInterval(it);setTimeout(function(){if(bar.parentNode)bar.parentNode.removeChild(bar)},800);
-      if(dl.error){toast('Download failed: '+dl.error,'err');}else{toast('Download complete: '+n,'ok');loadModels();}}
+      if(dl.error){toast('下载失败：'+dl.error,'err');}else{toast('下载完成：'+n,'ok');loadModels();}}
   }).catch(function(){clearInterval(it);});},2000);}
 
 /* ============ Agents ============ */
-var AG=[{id:'code-assistant',name:'Code Assistant',icon:'C',desc:'Code generation, review, and debugging',c:'#58a6ff'},{id:'writing-assistant',name:'Writing Assistant',icon:'W',desc:'Writing, polishing, and translation',c:'#bc8cff'},{id:'urgent-responder',name:'Urgent Responder',icon:'!',desc:'Fastest priority response',c:'#f85149'},{id:'security-analyst',name:'Security Analyst',icon:'S',desc:'Security audit and threat analysis',c:'#3fb950'},{id:'translator',name:'Translator',icon:'T',desc:'Multi-language translation',c:'#39c5cf'},{id:'summarizer',name:'Summarizer',icon:'D',desc:'Text summarization and extraction',c:'#d29922'},{id:'data-analyst',name:'Data Analyst',icon:'A',desc:'Data analysis and insights',c:'#f778ba'}];
+var AG=[{id:'code-assistant',name:'代码助手',icon:'C',desc:'代码生成、审查与调试',c:'#58a6ff'},{id:'writing-assistant',name:'写作助手',icon:'W',desc:'写作、润色与翻译',c:'#bc8cff'},{id:'urgent-responder',name:'紧急响应员',icon:'!',desc:'最高优先级快速响应',c:'#f85149'},{id:'security-analyst',name:'安全分析师',icon:'S',desc:'安全审计与威胁分析',c:'#3fb950'},{id:'translator',name:'翻译官',icon:'T',desc:'多语言翻译',c:'#39c5cf'},{id:'summarizer',name:'摘要助手',icon:'D',desc:'文本摘要与信息提取',c:'#d29922'},{id:'data-analyst',name:'数据分析员',icon:'A',desc:'数据分析与洞察',c:'#f778ba'}];
 function loadAgents(){var h='';AG.forEach(function(a){h+='<div class="agent-card" onclick="selA(\''+a.id+'\')"><div class="ai" style="background:'+a.c+'">'+a.icon+'</div><h4>'+a.name+'</h4><p>'+a.desc+'</p></div>';});
   $('agent-grid').innerHTML=h;var s=$('a-sel');s.innerHTML=AG.map(function(a){return '<option value="'+a.id+'">'+a.icon+' '+a.name+'</option>'}).join('');}
-function selA(id){$('a-sel').value=id;$('a-in').focus();toast('Selected: '+id,'ok');}
-function runAgent(){var id=$('a-sel').value;var t=$('a-in').value.trim();if(!t){toast('Please enter a task','err');return;}
-  $('a-result').textContent='[i] Executing agent: '+id+'...';btnLoad('btn-agent',true);
+function selA(id){$('a-sel').value=id;$('a-in').focus();toast('已选择：'+id,'ok');}
+function runAgent(){var id=$('a-sel').value;var t=$('a-in').value.trim();if(!t){toast('请输入任务内容','err');return;}
+  $('a-result').textContent='[i] 正在执行 Agent：'+id+'…';btnLoad('btn-agent',true);
   api('/api/admin/agents/'+id+'/run',{method:'POST',body:JSON.stringify({prompt:t})}).then(function(d){
-    $('a-result').textContent='[s] Success\n\n'+(d.response||d.error||JSON.stringify(d,null,2));btnLoad('btn-agent',false);toast('Agent finished','ok');
-  }).catch(function(e){$('a-result').innerHTML='<span class="e">[e] Error: '+esc(e.message)+'</span>';btnLoad('btn-agent',false);toast('Agent failed: '+e.message,'err');});}
-function sendUrgent(){var t=$('u-in').value.trim();if(!t){toast('Please enter urgent task','err');return;}
-  $('u-result').textContent='[i] Executing urgent task...';btnLoad('btn-urgent',true);
+    $('a-result').textContent='[s] 成功\n\n'+(d.response||d.error||JSON.stringify(d,null,2));btnLoad('btn-agent',false);toast('Agent 执行完成','ok');
+  }).catch(function(e){$('a-result').innerHTML='<span class="e">[e] 错误：'+esc(e.message)+'</span>';btnLoad('btn-agent',false);toast('Agent 执行失败：'+e.message,'err');});}
+function sendUrgent(){var t=$('u-in').value.trim();if(!t){toast('请输入紧急任务','err');return;}
+  $('u-result').textContent='[i] 正在执行紧急任务…';btnLoad('btn-urgent',true);
   api('/api/urgent/chat',{method:'POST',body:JSON.stringify({prompt:t})}).then(function(d){
-    $('u-result').textContent='[s] Urgent response\n\n'+(d.response||JSON.stringify(d,null,2));btnLoad('btn-urgent',false);
-  }).catch(function(e){$('u-result').innerHTML='<span class="e">[e] Error: '+esc(e.message)+'</span>';btnLoad('btn-urgent',false);toast('失败：'+e.message,'err');});}
+    $('u-result').textContent='[s] 紧急响应\n\n'+(d.response||JSON.stringify(d,null,2));btnLoad('btn-urgent',false);
+  }).catch(function(e){$('u-result').innerHTML='<span class="e">[e] 错误：'+esc(e.message)+'</span>';btnLoad('btn-urgent',false);toast('失败：'+e.message,'err');});}
 
 
 /* ============ Fallback / MCP / Discovery / Search / Feishu ============ */
 function loadFallback(){api('/api/admin/fallback/status').then(function(d){
-  var h='<div style="font-size:11px;color:var(--muted);margin-bottom:12px">自动回退已内置启用：连续 '+d.threshold+' 次失败自动切换到 '+esc(d.target)+' 后端。无需手动配置。</div><div class="grid-2"><div class="fg"><label class="lbl">Auto Fallback</label><div style="font-size:13px;font-weight:600;color:var(--green)">'+(d.enabled?'Enabled':'Disabled')+'</div></div><div class="fg"><label class="lbl">Failure Threshold</label><div style="font-size:13px;font-weight:600">'+d.threshold+'</div></div><div class="fg"><label class="lbl">Fallback Target</label><div style="font-size:13px;font-weight:600">'+esc(d.target)+'</div></div><div class="fg"><label class="lbl">Auto Recover</label><div style="font-size:13px;font-weight:600;color:var(--green)">'+(d.autoRecover?'Enabled':'Disabled')+'</div></div></div>';
-  $('fb-content').innerHTML=h;}).catch(function(e){$('fb-content').innerHTML='<div class="empty">Failed: '+esc(e.message)+'</div>'});}
+  var h='<div style="font-size:11px;color:var(--muted);margin-bottom:12px">自动回退已内置启用：连续 '+d.threshold+' 次失败自动切换到 '+esc(d.target)+' 后端。无需手动配置。</div><div class="grid-2"><div class="fg"><label class="lbl">自动回退</label><div style="font-size:13px;font-weight:600;color:var(--green)">'+(d.enabled?'已启用':'已禁用')+'</div></div><div class="fg"><label class="lbl">失败阈值</label><div style="font-size:13px;font-weight:600">'+d.threshold+'</div></div><div class="fg"><label class="lbl">回退目标</label><div style="font-size:13px;font-weight:600">'+esc(d.target)+'</div></div><div class="fg"><label class="lbl">自动恢复</label><div style="font-size:13px;font-weight:600;color:var(--green)">'+(d.autoRecover?'已启用':'已禁用')+'</div></div></div>';
+  $('fb-content').innerHTML=h;}).catch(function(e){$('fb-content').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>'});}
 function loadMcp(){api('/mcp',{method:'POST',body:JSON.stringify({tool:'_list'})}).then(function(d){
-  var t=d.tools||[];var h='<div style="margin-bottom:12px">Registered Tools: <b style="color:var(--cyan);font-size:15px">'+t.length+'</b></div>';
-  if(t.length){h+='<table><thead><tr><th>工具名</th><th>Description</th><th>状态</th></tr></thead><tbody>';t.forEach(function(x){h+='<tr><td><b>'+esc(x.name)+'</b></td><td>'+esc(x.description||'-')+'</td><td><span class="tag on">Ready</span></td></tr>';});h+='</tbody></table>';}
-  else h+='<div class="empty">No MCP tools registered. Configure MCP servers in Settings.</div>';
-  $('mcp-content').innerHTML=h;}).catch(function(){$('mcp-content').innerHTML='<div class="empty">MCP relay not configured</div>';});}
-function callMcp(){var t=$('m-tool').value.trim();var a=$('m-args').value.trim();if(!t){toast('Please enter tool name','err');return;}
-  $('m-result').textContent='[i] Calling tool: '+t+'...';btnLoad('btn-mcp',true);
-  try{var ao=a?JSON.parse(a):{};}catch(e){$('m-result').textContent='[e] Invalid JSON arguments';btnLoad('btn-mcp',false);return;}
+  var t=d.tools||[];var h='<div style="margin-bottom:12px">已注册工具：<b style="color:var(--cyan);font-size:15px">'+t.length+'</b></div>';
+  if(t.length){h+='<table><thead><tr><th>工具名</th><th>描述</th><th>状态</th></tr></thead><tbody>';t.forEach(function(x){h+='<tr><td><b>'+esc(x.name)+'</b></td><td>'+esc(x.description||'-')+'</td><td><span class="tag on">就绪</span></td></tr>';});h+='</tbody></table>';}
+  else h+='<div class="empty">尚未注册 MCP 工具。请在设置中配置 MCP 服务器。</div>';
+  $('mcp-content').innerHTML=h;}).catch(function(){$('mcp-content').innerHTML='<div class="empty">MCP 中继未配置</div>';});}
+function callMcp(){var t=$('m-tool').value.trim();var a=$('m-args').value.trim();if(!t){toast('请输入工具名','err');return;}
+  $('m-result').textContent='[i] 正在调用工具：'+t+'…';btnLoad('btn-mcp',true);
+  try{var ao=a?JSON.parse(a):{};}catch(e){$('m-result').textContent='[e] 参数 JSON 格式无效';btnLoad('btn-mcp',false);return;}
   api('/mcp',{method:'POST',body:JSON.stringify({tool:t,args:ao})}).then(function(d){
-    $('m-result').textContent='[s] Result\n\n'+JSON.stringify(d,null,2);btnLoad('btn-mcp',false);
-  }).catch(function(e){$('m-result').innerHTML='<span class="e">[e] Error: '+esc(e.message)+'</span>';btnLoad('btn-mcp',false);});}
+    $('m-result').textContent='[s] 结果\n\n'+JSON.stringify(d,null,2);btnLoad('btn-mcp',false);
+  }).catch(function(e){$('m-result').innerHTML='<span class="e">[e] 错误：'+esc(e.message)+'</span>';btnLoad('btn-mcp',false);});}
 function scanNetwork(){btnLoad('btn-disc',true);
-  api('/api/admin/v32/auto-discovery/scan',{method:'POST'}).then(function(){toast('Scan started','ok');btnLoad('btn-disc',false);setTimeout(loadDiscovery,3000);})
+  api('/api/admin/v32/auto-discovery/scan',{method:'POST'}).then(function(){toast('扫描已开始','ok');btnLoad('btn-disc',false);setTimeout(loadDiscovery,3000);})
   .catch(function(e){btnLoad('btn-disc',false);toast('扫描失败：'+e.message,'err');});}
 function loadDiscovery(){api('/api/admin/v32/auto-discovery/results').then(function(d){
   var t=d.services||[];
-  if(t.length){var h='<table><thead><tr><th>工具名</th><th>Type</th><th>Address</th><th>状态</th></tr></thead><tbody>';
+  if(t.length){var h='<table><thead><tr><th>工具名</th><th>类型</th><th>地址</th><th>状态</th></tr></thead><tbody>';
     t.forEach(function(x){h+='<tr><td><b>'+esc(x.name||x.tool||'?')+'</b></td><td>'+esc(x.type||'-')+'</td><td>'+esc(x.url||x.address||'-')+'</td><td><span class="tag '+(x.status==='online'?'on':'off')+'">'+esc(x.status||'unknown')+'</span></td></tr>';});
     h+='</tbody></table>';$('disc-content').innerHTML=h;}
-  else $('disc-content').innerHTML='<div class="empty"><div class="ic">*</div>No tools discovered. Click "Scan Network" to search.</div>';
-}).catch(function(){$('disc-content').innerHTML='<div class="empty">No tools discovered.</div>';});}
-function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('Please enter search query','err');return;}
-  $('se-result').textContent='[i] Searching: '+q+'...';btnLoad(btn,true);
+  else $('disc-content').innerHTML='<div class="empty"><div class="ic">*</div>未发现工具。点击“扫描网络”进行搜索。</div>';
+}).catch(function(){$('disc-content').innerHTML='<div class="empty">未发现工具。</div>';});}
+function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('请输入搜索关键词','err');return;}
+  $('se-result').textContent='[i] 正在搜索：'+q+'…';btnLoad(btn,true);
   api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){
-    $('se-result').textContent='[s] Search complete\n\n'+JSON.stringify(d,null,2);btnLoad(btn,false);
+    $('se-result').textContent='[s] 搜索完成\n\n'+JSON.stringify(d,null,2);btnLoad(btn,false);
   }).catch(function(e){$('se-result').innerHTML='<span class="e">[e] Failed: '+esc(e.message)+'</span>';btnLoad(btn,false);});}
 function saveSearch(btn){var b={'search.engine':$('se-eng').value};var k=$('se-key').value.trim();if(k)b['search.apiKey']=k;btnLoad(btn,true);
   api('/api/admin/config',{method:'POST',body:JSON.stringify(b)}).then(function(d){
-    toast('Search config saved ('+d.applied+' items)','ok');$('se-key').value='';btnLoad(btn,false);
+    toast('搜索配置已保存（'+d.applied+' 项）','ok');$('se-key').value='';btnLoad(btn,false);
   }).catch(function(e){btnLoad(btn,false);toast('失败：'+e.message,'err');});}
-function testFeishu(btn){$('fs-result').textContent='[i] Testing Feishu connection...';btnLoad(btn,true);
+function testFeishu(btn){$('fs-result').textContent='[i] 正在测试飞书连接…';btnLoad(btn,true);
   api('/api/feishu/test',{method:'POST'}).then(function(d){
-    $('fs-result').textContent='[s] Connection test\n\n'+JSON.stringify(d,null,2);btnLoad(btn,false);
+    $('fs-result').textContent='[s] 连接测试\n\n'+JSON.stringify(d,null,2);btnLoad(btn,false);
   }).catch(function(e){$('fs-result').innerHTML='<span class="e">[e] Failed: '+esc(e.message)+'</span>';btnLoad(btn,false);});}
-function fsAct(a){$('fs-result').textContent='[i] Action: '+a+'\n\nConfigure Feishu App ID and Secret to use this feature.';}
+function fsAct(a){$('fs-result').textContent='[i] 动作：'+a+'\n\n需在设置中配置飞书 App ID 与 Secret 后才能使用该功能。';}
 
 /* ============ Security / WAF / Device ============ */
 function loadSec(){api('/api/admin/security/status').then(function(d){
   var h='<div class="stats-grid" style="margin-bottom:14px">'
     +'<div class="stat" style="--c1:#d29922;--c2:#f85149"><div class="l">WAF 拦截</div><div class="v">'+d.wafBlockCount+'</div></div>'
-    +'<div class="stat" style="--c1:#f85149;--c2:#f778ba"><div class="l">Threat Intel</div><div class="v">'+d.threatIntelBlockCount+'</div></div>'
-    +'<div class="stat" style="--c1:#58a6ff;--c2:#39c5cf"><div class="l">Domain Blocks</div><div class="v">'+d.domainBlockCount+'</div></div>'
-    +'<div class="stat" style="--c1:#d29922;--c2:#d29922"><div class="l">Safe Mode</div><div class="v">'+d.safeModeTriggerCount+'</div></div></div>';
+    +'<div class="stat" style="--c1:#f85149;--c2:#f778ba"><div class="l">威胁情报拦截</div><div class="v">'+d.threatIntelBlockCount+'</div></div>'
+    +'<div class="stat" style="--c1:#58a6ff;--c2:#39c5cf"><div class="l">域名拦截</div><div class="v">'+d.domainBlockCount+'</div></div>'
+    +'<div class="stat" style="--c1:#d29922;--c2:#d29922"><div class="l">安全模式触发</div><div class="v">'+d.safeModeTriggerCount+'</div></div></div>';
   var fw=(d.firewall&&d.firewall.policy)||'passive';
   h+='<div class="grid-2"><div class="fg"><label class="lbl">安全模式</label><select class="input" id="sec-mode"><option value="normal" '+(d.mode==='normal'?'selected':'')+'>标准</option><option value="strict" '+(d.mode==='strict'?'selected':'')+'>严格</option></select><div style="font-size:10px;color:var(--muted);margin-top:4px">off 已在 v2.0 废弃（安全模块不可关闭）</div></div>'
     +'<div class="fg"><label class="lbl">WAF 防护</label><div style="display:flex;align-items:center;gap:8px"><label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label><span class="tag" style="background:rgba(63,185,80,.15);color:#3fb950">强制开启 · 不可关闭</span></div></div>'
-    +'<div class="fg"><label class="lbl">Firewall Policy（v2.0 三档）</label><select class="input" id="sec-fw"><option value="passive" '+(fw==='passive'?'selected':'')+'>passive · 被动检测（默认）</option><option value="dynamic-ban" '+(fw==='dynamic-ban'?'selected':'')+'>dynamic-ban · 动态封禁</option><option value="os-link" '+(fw==='os-link'?'selected':'')+'>os-link · 系统防火墙联动（单实例+管理员在场）</option></select></div></div>';
-  h+='<button class="btn btn-p" id="btn-secsave" onclick="saveSec(this)"><span class="spinner"></span>Save Security Settings</button>';
-  $('sec-content').innerHTML=h;}).catch(function(e){$('sec-content').innerHTML='<div class="empty">Failed: '+esc(e.message)+'</div>'});}
+    +'<div class="fg"><label class="lbl">防火墙策略（v2.0 三档）</label><select class="input" id="sec-fw"><option value="passive" '+(fw==='passive'?'selected':'')+'>passive · 被动检测（默认）</option><option value="dynamic-ban" '+(fw==='dynamic-ban'?'selected':'')+'>dynamic-ban · 动态封禁</option><option value="os-link" '+(fw==='os-link'?'selected':'')+'>os-link · 系统防火墙联动（单实例+管理员在场）</option></select></div></div>';
+  h+='<button class="btn btn-p" id="btn-secsave" onclick="saveSec(this)"><span class="spinner"></span>保存安全设置</button>';
+  $('sec-content').innerHTML=h;}).catch(function(e){$('sec-content').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>'});}
 function saveSec(btn){var mode=$('sec-mode').value;var fw=$('sec-fw')?$('sec-fw').value:'passive';btnLoad(btn,true);
   api('/api/admin/config',{method:'POST',body:JSON.stringify({'security.mode':mode,'security.firewall.policy':fw})}).then(function(d){
-    toast('Security settings saved','ok');btnLoad(btn,false);loadSec();
+    toast('安全设置已保存','ok');btnLoad(btn,false);loadSec();
   }).catch(function(e){btnLoad(btn,false);toast('失败：'+e.message,'err')});}
 function loadWaf(){api('/api/admin/security/waf-logs').then(function(d){
-  var l=d.logs||[];$('waf-content').textContent=Array.isArray(l)?(l.join('\n')||'[s] No WAF blocks recorded. System is clean.'):JSON.stringify(d,null,2);
-}).catch(function(e){$('waf-content').textContent='[e] Failed: '+e.message;});}
+  var l=d.logs||[];$('waf-content').textContent=Array.isArray(l)?(l.join('\n')||'[s] 无 WAF 拦截记录，系统干净。'):JSON.stringify(d,null,2);
+}).catch(function(e){$('waf-content').textContent='[e] 失败：'+e.message;});}
 /* ============ v2.0.0 模块管理 ============ */
 function loadModules(){api('/api/admin/modules').then(function(d){
   var ms=d.modules||[];var h='';
   ms.forEach(function(m){
     var locked=m.locked;
-    var depTxt=(m.deps&&m.deps.length)?' · depends: '+m.deps.join(', '):'';
+    var depTxt=(m.deps&&m.deps.length)?' · 依赖：'+m.deps.join(', '):'';
     h+='<div style="display:flex;align-items:center;gap:12px;background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px">'
       +'<div style="flex:1;min-width:0">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:13px">'+esc(m.name)+'</b>'
       +'<span class="tag '+(m.enabled?'on':'off')+'">'+esc(m.category||'')+'</span>'
       +(locked?'<span class="tag" style="background:rgba(248,81,73,.15);color:#f85149">LOCKED 强制加载</span>':'')
-      +(m.hasWorker?'<span class="tag loc">worker</span>':'')
+      +(m.hasWorker?'<span class="tag loc">后台任务</span>':'')
       +'</div>'
       +'<div style="font-size:11px;color:var(--muted);margin-top:3px">'+esc(m.description||'')+esc(depTxt)+'</div></div>'
       +(locked
@@ -864,10 +864,10 @@ function loadModules(){api('/api/admin/modules').then(function(d){
   });
   h+='<div style="font-size:10px;color:var(--muted);margin-top:6px">提示：模块开关即时生效并落审计日志；被依赖的模块需先关闭依赖方。</div>';
   $('mod-list').innerHTML=h;
-}).catch(function(e){$('mod-list').innerHTML='<div class="empty">Failed: '+esc(e.message)+'</div>'});}
+}).catch(function(e){$('mod-list').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>'});}
 function toggleModule(id,on,el){
   api('/api/admin/modules',{method:'POST',body:JSON.stringify({id:id,enabled:on})}).then(function(d){
-    toast('Module '+id+' -> '+(on?'ON':'OFF'),'ok');loadModules();
+    toast('模块 '+id+' 已'+(on?'开启':'关闭'),'ok');loadModules();
   }).catch(function(e){if(el)el.checked=!on;toast('失败：'+esc(e.message),'err');});}
 
 /* ============ v2.0.0 硬件评估 ============ */
@@ -889,14 +889,14 @@ function loadHw(){api('/api/admin/hardware/assessment').then(function(d){
         +'<div style="font-size:11px;color:var(--muted)">'+esc(String(a.reason||''))+'</div></div>';
     });}
   $('hw-content').innerHTML=h;
-}).catch(function(e){$('hw-content').innerHTML='<div class="empty">Failed: '+esc(e.message)+'</div>'});}
+}).catch(function(e){$('hw-content').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>'});}
 
 function loadDev(){api('/api/admin/device').then(function(d){
   var h='<div class="grid-2">';for(var k in d){if(typeof d[k]!=='object'&&!Array.isArray(d[k]))h+='<div class="fg"><label class="lbl">'+esc(k.toUpperCase())+'</label><div style="font-size:13px;font-weight:600">'+esc(String(d[k]))+'</div></div>';}
   h+='</div>';
-  if(d.localModels&&d.localModels.length){h+='<div class="lbl" style="margin-top:14px;margin-bottom:8px">Local Models</div><table><thead><tr><th>Name</th><th>Size</th><th>状态</th></tr></thead><tbody>';
+  if(d.localModels&&d.localModels.length){h+='<div class="lbl" style="margin-top:14px;margin-bottom:8px">本地模型</div><table><thead><tr><th>名称</th><th>大小</th><th>状态</th></tr></thead><tbody>';
     d.localModels.forEach(function(m){h+='<tr><td>'+esc(m.name)+'</td><td>'+esc(m.size)+'</td><td><span class="tag '+(m.status==='online'?'on':'off')+'">'+esc(m.status)+'</span></td></tr>';});h+='</tbody></table>';}
-  $('dev-content').innerHTML=h;}).catch(function(e){$('dev-content').innerHTML='<div class="empty">Failed: '+esc(e.message)+'</div>'});}
+  $('dev-content').innerHTML=h;}).catch(function(e){$('dev-content').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>'});}
 
 
 /* ============ 日志查看器 ============ */
@@ -911,7 +911,7 @@ function loadLogs(silent){api('/api/admin/logs').then(function(d){
   var l=d.logs||[];
   LOGS=(Array.isArray(l)?l:[JSON.stringify(d)]).slice(-LOG_MAX).map(function(x){return String(x)});
   renderLogs();
-}).catch(function(e){if(!silent)$('log-content').textContent='[e] Failed: '+e.message;});}
+}).catch(function(e){if(!silent)$('log-content').textContent='[e] 失败：'+e.message;});}
 function renderLogs(){var box=$('log-content');if(!box)return;
   var q=$('lg-q')?$('lg-q').value.trim():'';
   var nearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<60;
@@ -925,20 +925,20 @@ function renderLogs(){var box=$('log-content');if(!box)return;
     if(q){escLine=escLine.replace(new RegExp('('+escRe(esc(q))+')','gi'),'<mark>$1</mark>');}
     h+='<span class="log-line '+LVCLS[lv]+'">'+escLine+'</span>';
   });
-  box.innerHTML=h||'<span style="color:var(--muted)">No matching logs.</span>';
+  box.innerHTML=h||'<span style="color:var(--muted)">无匹配的日志。</span>';
   var c=$('lg-count');if(c)c.textContent=shown;
   if(nearBottom||!renderLogs._n)box.scrollTop=box.scrollHeight;renderLogs._n=1;
 }
 function setLv(lv,btn){LOG_LV=lv;document.querySelectorAll('.lvl-chip').forEach(function(x){x.classList.toggle('on',x===btn)});renderLogs();}
-function clearLogs(){confirmDlg('Clear Logs','确认清空当前日志视图？将从后端请求清空日志（若后端支持）。',function(){
+function clearLogs(){confirmDlg('清空日志','确认清空当前日志视图？将从后端请求清空日志（若后端支持）。',function(){
   LOGS=[];renderLogs();
-  api('/api/admin/logs/clear',{method:'POST'}).then(function(){toast('Logs cleared','ok');}).catch(function(){toast('本地视图已清空（后端未提供清空端点）','ok');});
-},'Clear');}
-function exportLogs(){var txt=LOGS.join('\n');if(!txt){toast('No logs to export','err');return;}
+  api('/api/admin/logs/clear',{method:'POST'}).then(function(){toast('日志已清空','ok');}).catch(function(){toast('本地视图已清空（后端未提供清空端点）','ok');});
+},'清空');}
+function exportLogs(){var txt=LOGS.join('\n');if(!txt){toast('暂无可导出的日志','err');return;}
   var blob=new Blob([txt],{type:'text/plain'});var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download='tarsguard-logs-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.txt';
   document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);document.body.removeChild(a)},100);
-  toast('Logs exported ('+LOGS.length+' lines)','ok');}
+  toast('日志已导出（'+LOGS.length+' 行）','ok');}
 /* 日志页激活时每 3s 增量刷新 */
 setInterval(function(){if(curPage==='logs'&&$('lg-auto')&&$('lg-auto').checked)loadLogs(true);},3000);
 
@@ -957,32 +957,32 @@ function loadSettings(){api('/api/admin/config').then(function(d){
   h+='<div class="fg"><label class="lbl">安全模式</label><select class="input" id="st-mode"><option value="normal" '+(sec.mode==='normal'?'selected':'')+'>标准</option><option value="strict" '+(sec.mode==='strict'?'selected':'')+'>严格</option></select><div style="font-size:10px;color:var(--muted);margin-top:4px">off 已废弃，安全模块强制加载</div></div>';
   h+='<div class="fg"><label class="lbl">WAF 防护</label><div style="display:flex;align-items:center;gap:8px"><label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label><span class="tag" style="background:rgba(63,185,80,.15);color:#3fb950">强制开启 · 不可关闭</span></div></div>';
   var fwS=(((d.security||{}).firewall)||{}).policy||'passive';var dtS=(d.direct||{}).transport||'native';
-  h+='<div class="fg"><label class="lbl">Firewall Policy（v2.0 三档）</label><select class="input" id="st-fw"><option value="passive" '+(fwS==='passive'?'selected':'')+'>passive · 被动检测（默认）</option><option value="dynamic-ban" '+(fwS==='dynamic-ban'?'selected':'')+'>dynamic-ban · 动态封禁</option><option value="os-link" '+(fwS==='os-link'?'selected':'')+'>os-link · 系统防火墙联动</option></select></div>';
-  h+='<div class="fg"><label class="lbl">Direct Transport（v2.0 切换点）</label><select class="input" id="st-dt"><option value="native" '+(dtS==='native'?'selected':'')+'>native · 原生直连（默认）</option><option value="grpc-sidecar" '+(dtS==='grpc-sidecar'?'selected':'')+'>grpc-sidecar · gRPC 边车（预留）</option></select></div>';
+  h+='<div class="fg"><label class="lbl">防火墙策略（v2.0 三档）</label><select class="input" id="st-fw"><option value="passive" '+(fwS==='passive'?'selected':'')+'>passive · 被动检测（默认）</option><option value="dynamic-ban" '+(fwS==='dynamic-ban'?'selected':'')+'>dynamic-ban · 动态封禁</option><option value="os-link" '+(fwS==='os-link'?'selected':'')+'>os-link · 系统防火墙联动</option></select></div>';
+  h+='<div class="fg"><label class="lbl">直连传输（v2.0 切换点）</label><select class="input" id="st-dt"><option value="native" '+(dtS==='native'?'selected':'')+'>native · 原生直连（默认）</option><option value="grpc-sidecar" '+(dtS==='grpc-sidecar'?'selected':'')+'>grpc-sidecar · gRPC 边车（预留）</option></select></div>';
   h+='<div class="fg"><label class="lbl">API Key</label><div class="pwd-wrap"><input class="input" id="st-key" type="password" placeholder="留空表示不修改" autocomplete="off"><button class="eye" onclick="togglePwd(\'st-key\',this)" type="button"><svg><use href="#i-eye"/></svg></button></div></div>';
   h+='<div class="fg"><label class="lbl">搜索引擎</label><select class="input" id="st-eng"><option value="builtin" '+(se.engine==='builtin'?'selected':'')+'>builtin (Bing RSS)</option><option value="serper" '+(se.engine==='serper'?'selected':'')+'>serper</option></select></div>';
-  h+='<div class="fg"><label class="lbl">Search API Key (serper)</label><div class="pwd-wrap"><input class="input" id="st-sekey" type="password" placeholder="留空表示不修改" autocomplete="off"><button class="eye" onclick="togglePwd(\'st-sekey\',this)" type="button"><svg><use href="#i-eye"/></svg></button></div></div>';
-  h+='<div class="fg"><label class="lbl">Listen Port</label><input class="input" id="st-port" type="number" min="1" max="65535" placeholder="18889" value="'+esc(String(port))+'"></div>';
-  h+='<div class="fg" style="grid-column:1/-1"><label class="lbl">Model Directory</label><input class="input" id="st-mdir" placeholder="模型目录路径" value="'+esc(String(mdir))+'"></div>';
+  h+='<div class="fg"><label class="lbl">搜索 API Key（serper）</label><div class="pwd-wrap"><input class="input" id="st-sekey" type="password" placeholder="留空表示不修改" autocomplete="off"><button class="eye" onclick="togglePwd(\'st-sekey\',this)" type="button"><svg><use href="#i-eye"/></svg></button></div></div>';
+  h+='<div class="fg"><label class="lbl">监听端口</label><input class="input" id="st-port" type="number" min="1" max="65535" placeholder="18889" value="'+esc(String(port))+'"></div>';
+  h+='<div class="fg" style="grid-column:1/-1"><label class="lbl">模型目录</label><input class="input" id="st-mdir" placeholder="模型目录路径" value="'+esc(String(mdir))+'"></div>';
   h+='</div>';
   /* CORS 白名单 */
-  h+='<div class="fg"><label class="lbl">CORS Whitelist <span style="color:var(--muted);font-weight:400">（允许跨域调用 API 的来源）</span></label><div id="cors-list"></div>';
-  h+='<div style="display:flex;gap:8px;margin-top:8px"><input class="input" id="cors-new" placeholder="https://example.com 或 *" style="flex:1" onkeydown="if(event.key===\'Enter\')addCors()"><button class="btn btn-g btn-sm" onclick="addCors()">Add</button></div></div>';
-  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><button class="btn btn-p" id="btn-setsave" onclick="saveSettings(this)"><span class="spinner"></span>Save Settings</button><span style="font-size:10px;color:var(--muted)">Key 类字段留空表示不修改当前值</span></div>';
+  h+='<div class="fg"><label class="lbl">CORS 白名单 <span style="color:var(--muted);font-weight:400">（允许跨域调用 API 的来源）</span></label><div id="cors-list"></div>';
+  h+='<div style="display:flex;gap:8px;margin-top:8px"><input class="input" id="cors-new" placeholder="https://example.com 或 *" style="flex:1" onkeydown="if(event.key===\'Enter\')addCors()"><button class="btn btn-g btn-sm" onclick="addCors()">添加</button></div></div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><button class="btn btn-p" id="btn-setsave" onclick="saveSettings(this)"><span class="spinner"></span>保存设置</button><span style="font-size:10px;color:var(--muted)">Key 类字段留空表示不修改当前值</span></div>';
   $('set-content').innerHTML=h;renderCors();
-}).catch(function(e){$('set-content').innerHTML='<div class="empty">Failed: '+esc(e.message)+'</div>'});}
+}).catch(function(e){$('set-content').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>'});}
 function renderCors(){var el=$('cors-list');if(!el)return;
   if(!CORS_LIST.length){el.innerHTML='<div style="font-size:11px;color:var(--muted);padding:6px 0">暂无白名单条目（默认仅同源访问）</div>';return;}
   var h='';CORS_LIST.forEach(function(c,i){
     h+='<div style="display:flex;align-items:center;gap:8px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:7px 12px;margin-bottom:6px">'
       +'<span style="flex:1;font-size:12px;font-family:Consolas,monospace;color:var(--cyan)">'+esc(c)+'</span>'
-      +'<button class="btn btn-d btn-sm" onclick="delCors('+i+')">Remove</button></div>';});
+      +'<button class="btn btn-d btn-sm" onclick="delCors('+i+')">移除</button></div>';});
   el.innerHTML=h;}
 function addCors(){var v=$('cors-new').value.trim();if(!v)return;
-  if(CORS_LIST.indexOf(v)>-1){toast('Already in whitelist','err');return;}
-  CORS_LIST.push(v);$('cors-new').value='';renderCors();toast('Added: '+v,'ok');}
+  if(CORS_LIST.indexOf(v)>-1){toast('该条目已在白名单中','err');return;}
+  CORS_LIST.push(v);$('cors-new').value='';renderCors();toast('已添加：'+v,'ok');}
 function delCors(i){var c=CORS_LIST[i];
-  confirmDlg('Remove CORS Entry','确认从白名单移除 "'+c+'"？（保存后生效）',function(){CORS_LIST.splice(i,1);renderCors();toast('Removed: '+c,'ok');},'Remove');}
+  confirmDlg('移除 CORS 白名单条目','确认从白名单移除 "'+c+'"？（保存后生效）',function(){CORS_LIST.splice(i,1);renderCors();toast('已移除：'+c,'ok');},'移除');}
 function saveSettings(btn){
   var b={'security.mode':$('st-mode').value,'search.engine':$('st-eng').value};
   if($('st-fw'))b['security.firewall.policy']=$('st-fw').value;
@@ -995,7 +995,7 @@ function saveSettings(btn){
   b['server.corsWhitelist']=CORS_LIST;
   btnLoad(btn,true);
   api('/api/admin/config',{method:'POST',body:JSON.stringify(b)}).then(function(d){
-    toast('Settings saved ('+(d.applied!==undefined?d.applied+' items':'done')+')','ok');btnLoad(btn,false);loadSettings();
+    toast('设置已保存（'+(d.applied!==undefined?d.applied+' 项':'完成')+')','ok');btnLoad(btn,false);loadSettings();
   }).catch(function(e){btnLoad(btn,false);toast('失败：'+e.message,'err')});}
 
 /* ============ 新手向导 ============ */
@@ -1004,23 +1004,23 @@ function showWizard(){if(localStorage.getItem('tsg_wizard_done')==='1')return;
   $('wizard').style.display='flex';renderWzEnv();renderWzModels();}
 function renderWzEnv(){api('/api/status').then(function(d){
   var h='';
-  h+='<div><b style="color:var(--text2)">Gateway:</b> <span class="tag on">运行中</span></div>';
-  h+='<div><b style="color:var(--text2)">Local Models:</b> '+(d.device&&d.device.localModels?d.device.localModels.length:0)+' found</div>';
-  h+='<div><b style="color:var(--text2)">Model Dir:</b> <span style="color:var(--cyan)">'+esc(d.device&&d.device.modelDir?d.device.modelDir:'-')+'</span></div>';
+  h+='<div><b style="color:var(--text2)">网关：</b> <span class="tag on">运行中</span></div>';
+  h+='<div><b style="color:var(--text2)">本地模型：</b> '+(d.device&&d.device.localModels?d.device.localModels.length:0)+' 个</div>';
+  h+='<div><b style="color:var(--text2)">模型目录：</b> <span style="color:var(--cyan)">'+esc(d.device&&d.device.modelDir?d.device.modelDir:'-')+'</span></div>';
   var backends=[];if(d.device&&d.device.lmstudio)backends.push('LM Studio');if(d.device&&d.device.ollama)backends.push('Ollama');
-  h+='<div><b style="color:var(--text2)">AI Backends:</b> '+(backends.length?backends.join(', '):'None (offline only)')+'</div>';
+  h+='<div><b style="color:var(--text2)">AI 后端：</b> '+(backends.length?backends.join(', '):'无（仅离线）')+'</div>';
   $('wz-env').innerHTML=h;
-}).catch(function(){$('wz-env').innerHTML='<div>Gateway check failed. Is the app still running?</div>';});}
+}).catch(function(){$('wz-env').innerHTML='<div>网关健康检查失败。应用是否仍在运行？</div>';});}
 function renderWzModels(){api('/api/admin/device/scan',{method:'POST'}).then(function(d){
   var h='';
   if(d.recommendations&&d.recommendations.length){
     d.recommendations.forEach(function(r){
       h+='<div style="padding:10px 14px;background:var(--bg2);border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);gap:8px;flex-wrap:wrap"><div><b style="font-size:12px">'+esc(r.name)+'</b> <span class="tag loc" style="margin-left:6px">'+esc(r.size)+'</span></div><button class="btn btn-p btn-sm" onclick="dlM(\''+r.url+'\',\''+r.name+'\')">下载</button></div>';});
-  } else h='<div style="font-size:11px;color:var(--muted)">No recommendations available.</div>';
+  } else h='<div style="font-size:11px;color:var(--muted)">暂无可用推荐。</div>';
   $('wz-models').innerHTML=h;
-}).catch(function(){$('wz-models').innerHTML='<div style="font-size:11px;color:var(--muted)">Could not load recommendations.</div>';});}
+}).catch(function(){$('wz-models').innerHTML='<div style="font-size:11px;color:var(--muted)">推荐列表加载失败。</div>';});}
 function openModelsFolder(){api('/api/admin/models/open',{method:'POST'}).then(function(d){
-  if(d.success)toast('Opened models folder','ok');else toast('失败：'+(d.error||'unknown'),'err');
+  if(d.success)toast('已打开模型目录','ok');else toast('失败：'+(d.error||'unknown'),'err');
 }).catch(function(e){toast('失败：'+e.message,'err')});}
 function wzNav(){document.querySelectorAll('#wz-step .wz-step').forEach(function(x,i){x.style.display=(i+1===wzStep)?'':'none';});
   $('wz-back').style.display=wzStep>1?'':'none';

@@ -24,14 +24,16 @@ type Config struct {
 		APIKey string `json:"apiKey"`
 	} `json:"search"`
 	Security struct {
-		WAFEnabled      bool        `json:"wafEnabled"`
-		Mode            string      `json:"mode"` // normal | strict（off 已废弃：安全模块不可关闭）
-		APIKey          string      `json:"apiKey"`
-		FirewallLock    *bool       `json:"firewallLock"`    // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
-		AuditLogEnabled bool        `json:"auditLogEnabled"` // 审计日志开关（默认 true）
-		Firewall        FirewallCfg `json:"firewall"`
+		WAFEnabled        bool        `json:"wafEnabled"`
+		Mode              string      `json:"mode"` // normal | strict（off 已废弃：安全模块不可关闭）
+		APIKey            string      `json:"apiKey"`
+		FirewallLock      *bool       `json:"firewallLock"`      // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
+		AuditLogEnabled   bool        `json:"auditLogEnabled"`   // 审计日志开关（默认 true）
+		Firewall          FirewallCfg `json:"firewall"`
+		DefaultKeyAllowed *bool       `json:"defaultKeyAllowed"` // v3.0.4 零信任：默认密钥通道显式 enable（nil=false，见 whitelist.go [ZT_DEFAULT_DENY]）
 	} `json:"security"`
-	Users []User `json:"users"` // 多用户 RBAC（空则回退单管理员模式）
+	Users   []User    `json:"users"`   // 多用户 RBAC（空则回退单管理员模式）
+	Tenants TenantsCfg `json:"tenants"` // v3.0.4 多租户配置（user/group/role 三层，见 tenant.go）
 	MCP   struct {
 		ExternalServers []ExtServer `json:"externalServers"`
 	} `json:"mcp"`
@@ -45,6 +47,16 @@ type Config struct {
 	CustomTools  []CustomTool     `json:"customTools"`  // 用户自定义 HTTP 转发工具（SSRF 加固）
 	CustomAgents []CustomAgentDef `json:"customAgents"` // 用户自定义 agent 角色
 	Direct       DirectCfg        `json:"direct"`       // 系统直连层传输切换点
+	// v3.0.1 修复：v3 扩展段（resource / rateLimit / ipReputation / semanticGuard /
+	// router / tier1 均为顶层键）此前不在 Config 主结构内，saveConfig 重写 config.json
+	// 时整段丢失——tier1.enabled 等开关一次热重载即被静默重置（违反 [TIER1_TOGGLE]）。
+	// 匿名内嵌后字段按各自 JSON 标签提升到顶层、随 cfg 持久化；运行时读值仍统一走
+	// v3Config() 快照（guardsupport.go），此处只作落盘载体。
+	V3Config
+	// v3.2.0 连接层扩展段（provider registry / circuit / responseCache / pool），
+	// 同样匿名内嵌提升到顶层，随 cfg 持久化（见 providerregistry.go / circuit.go /
+	// adapters.go / pool.go）。
+	V32Config
 }
 
 // FirewallCfg 防火墙策略档位（passive | dynamic-ban | os-link，默认 passive）
@@ -71,10 +83,12 @@ type CustomAgentDef struct {
 
 // User 单用户配置（RBAC）
 type User struct {
-	Name    string `json:"name"`
-	APIKey  string `json:"apiKey"`
-	Role    string `json:"role"` // admin | user | readonly
-	Enabled bool   `json:"enabled"`
+	Name    string   `json:"name"`
+	APIKey  string   `json:"apiKey"`
+	Role    string   `json:"role"`   // admin | user | readonly | team_lead | auditor | global_admin | global_auditor
+	Tenant  string   `json:"tenant"` // v3.0.4 所属租户（空 = default；全局角色忽略）
+	Groups  []string `json:"groups"` // v3.0.4 所属组（组级配额 / 组级审计视图）
+	Enabled bool     `json:"enabled"`
 }
 
 type CloudCfg struct {
@@ -82,6 +96,32 @@ type CloudCfg struct {
 	BaseURL string   `json:"baseUrl"`
 	APIKey  string   `json:"apiKey"`
 	Models  []string `json:"models"`
+}
+
+// ProviderOverride v3.2.0 单个 provider 的运行时覆盖（config.json providers 段）
+type ProviderOverride struct {
+	APIKey  string   `json:"apiKey"`
+	BaseURL string   `json:"baseUrl"`
+	Enabled *bool    `json:"enabled"`
+	Models  []string `json:"models"`
+}
+
+// V32Config v3.2.0 连接层扩展段（顶层键：providers / circuit / responseCache / pool）
+type V32Config struct {
+	Providers map[string]ProviderOverride `json:"providers"`
+	Circuit   struct {
+		FailureThreshold int `json:"failureThreshold"` // 连续失败熔断阈值，默认 5
+		OpenSeconds      int `json:"openSeconds"`      // 熔断冷却时长，默认 30
+		ProbeIntervalSec int `json:"probeIntervalSec"` // 健康探测间隔，默认 60；0 = 关闭
+	} `json:"circuit"`
+	ResponseCache struct {
+		Enabled    *bool `json:"enabled"`    // 默认 true
+		TTLSec     int   `json:"ttlSec"`     // 默认 300
+		MaxEntries int   `json:"maxEntries"` // 默认 256
+	} `json:"responseCache"`
+	Pool struct {
+		MaxIdleConnsPerHost int `json:"maxIdleConnsPerHost"` // 默认 32
+	} `json:"pool"`
 }
 
 type ExtServer struct {
@@ -99,6 +139,10 @@ func loadConfig() {
 	cfg.Search.Engine = "builtin"
 	cfg.MCP.ExternalServers = []ExtServer{}
 	parsed := false
+	freshInstall := false
+	if _, statErr := os.Stat(configPath); statErr != nil {
+		freshInstall = true // v3.0.4：全新安装（无 config.json）——默认密钥通道显式化的判定依据
+	}
 	if data, err := os.ReadFile(configPath); err == nil {
 		// 剥离 UTF-8 BOM：记事本等编辑器保存的 JSON 可能带 BOM，Go 解析会失败
 		data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
@@ -108,6 +152,19 @@ func loadConfig() {
 			parsed = true
 			// v3.0.0：加载 v3 扩展段（resource / rateLimit / ipReputation）
 			loadV3Config(data)
+			// v3.0.1：cfg 侧扩展段布尔指针默认值补齐（nil → true），避免落盘 "enabled": null；
+			// 语义与 v3Config() 读取侧默认（nil = 开启）一致
+			for _, p := range []**bool{
+				&cfg.V3Config.IPReputation.Enabled,
+				&cfg.V3Config.SemanticGuard.Enabled,
+				&cfg.V3Config.Router.Enabled,
+				&cfg.V3Config.Tier1.Enabled,
+			} {
+				if *p == nil {
+					t := true
+					*p = &t
+				}
+			}
 			// 配置中未显式声明 wafEnabled 时保持默认开启（bool 零值会误关 WAF）
 			if !bytes.Contains(data, []byte(`"wafEnabled"`)) {
 				cfg.Security.WAFEnabled = true
@@ -131,6 +188,14 @@ func loadConfig() {
 	if cfg.MCP.ExternalServers == nil {
 		cfg.MCP.ExternalServers = []ExtServer{}
 	}
+	// v3.2.0：providers 段默认空 map（避免落盘 null）；响应缓存开关 nil → true
+	if cfg.V32Config.Providers == nil {
+		cfg.V32Config.Providers = map[string]ProviderOverride{}
+	}
+	if cfg.V32Config.ResponseCache.Enabled == nil {
+		t := true
+		cfg.V32Config.ResponseCache.Enabled = &t
+	}
 	// 环境变量可覆盖敏感 Key（防止明文落盘）
 	if v := os.Getenv("TARS_API_KEY"); v != "" {
 		cfg.Security.APIKey = v
@@ -150,11 +215,26 @@ func loadConfig() {
 	// （loadConfig 是启动加载与热重载的共同入口，两条路径都生效）
 	validateAndCorrectConfig()
 	applyModulesFromConfig()
-	// 仅当配置解析成功时才回写（解析失败时绝不覆盖用户文件）；
+	// v3.0.4 [ZT_EXPLICIT]：白名单值域校验——IP 白名单禁 CIDR/通配（精确 IP 才可放行）、
+	// 文件根必须绝对路径且无通配；非法值剔除并审计（不拒绝整份配置，坏值出局）
+	wlValidateOnLoad()
+	// v3.0.4 零信任：默认密钥通道处置（全新安装显式化 / 存量升级自动轮换）。
+	// 仅在配置解析成功或全新安装时执行——解析失败（损坏文件）保持内存默认态待修复，
+	// 避免每次启动都随机轮换导致密钥漂移。
+	if parsed || freshInstall {
+		enforceDefaultKeyChannel(freshInstall)
+	}
+	// v3.0.4 多租户：用户归属校验（失败回退上一版本用户表）+ 租户配置校验
+	// （失败保持上一版本生效，[CFG_ATOMIC_SWAP]）+ 全局收紧级联
+	applyTenantsFromLoad()
+	// 仅当配置解析成功（或全新安装首建）时才回写（解析失败时绝不覆盖用户文件）；
 	// 回写必须发生在纠正之后，确保后门值（wafEnabled:false / mode:"off"）不会原样落盘
-	if parsed {
+	if parsed || freshInstall {
 		saveConfig()
 	}
+	// v3.0.4 零信任：白名单基线对账（boot 建基线/完整性校验；热重载 diff 审计）。
+	// 置于 saveConfig 之后：基线失配回退的值已随本次回写持久化，篡改值被淘汰出局。
+	wlReconcile("load")
 	// 记录当前配置文件指纹，作为热重载的基线（含纠正后回写的内容，防止自触发）
 	markConfigLoaded()
 }
@@ -393,8 +473,15 @@ func watchConfig() {
 		logMsg("[CONFIG] 检测到配置文件变化，自动重载...")
 		auditLog("CONFIG_HOT_RELOAD", "system", "外部 config.json 变更已热重载（含模块/防火墙对齐）") // v3.0.0 B 线：热重载审计
 		loadConfig()
+		// v3.0.1 Tier 1：配置热重载触发缓存全量失效
+		//（[TIER1_CACHE_DEGRADE] 条件 3：热重载 / 安全级别变更 / 开关切换 / POLICY_VIOLATION）
+		tier1CacheInvalidate("config_hot_reload")
+		// v3.2.0：协议适配缓存 / 响应缓存同样全量失效（provider 密钥与端点可能已变）
+		v32CacheInvalidate("config_hot_reload")
 		// v2.0.0：模块工作者与防火墙档位随配置对齐（路由经 moduleRoute 包装即时生效）
 		reconcileModuleWorkers()
+		// v3.0.1：sidecar 钉扎 / manifest / 下发配置变化时按需重载（changeKey 不变者不动）
+		sidecarHotRescan()
 		firewallReconcile()
 		// loadConfig 内部 markConfigLoaded 已刷新基线（含 saveConfig 回写后的内容）
 		logMsg("[CONFIG] 配置重载完成")

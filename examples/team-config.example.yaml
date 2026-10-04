@@ -1,0 +1,108 @@
+# TarsSecureGuard v3.0.4 多租户 team 场景配置示例（YAML 参考稿）
+# 说明：TSG 运行时读取的是 config.json；本 YAML 为 team 场景的**人读版**，
+# 字段与 JSON 完全一一对应，落地时按 examples/team-config.example.json 转写。
+#
+# 锦衣卫裁定 TSG-ZT-MT-2026-0929 红线（实装位置）：
+#   [ZT_DEFAULT_DENY]   默认拒绝：白名单/例外项无显式 enable 不放行（whitelist.go enforceDefaultKeyChannel）
+#   [ZT_EXPLICIT]       显式声明：IP 白名单禁 CIDR/通配；文件根须绝对路径无通配
+#   [ZT_CHANGE_AUDIT]   变更审计：WHITELIST_ADD/REMOVE/MODIFY + 前后 SHA-256
+#   [ZT_INTEGRITY]      完整性：基线失配拒绝加载（回退上一版本，不降级）
+#   [MT_AUDIT_ISOLATION] 审计按 tenant_id 硬隔离；global 跨租户查询记 AUDIT_CROSS_TENANT_ACCESS
+#   [RBAC_NO_INHERIT]   角色零自动继承：7 角色 × 9 端点类逐格显式授权（rbacMatrix）
+#   [RBAC_TEAM_LEAD]    team_lead 权限天花板：无任何管理面写权限（防自授权）
+#   [RBAC_AUDITOR_RO]   auditor 只读铁律：写请求 handler 入口层硬拒
+#   [CFG_TEAM_SCHEMA]   team 段独立 schema 校验（非法值 TEAM_CONFIG_SCHEMA_FAIL，保持上一版本）
+#   [CFG_RULES_ABCD]    冲突规则 A/B/C/D 代码层硬编码，禁合并语义
+#   [CFG_ATOMIC_SWAP]   校验通过 → 审计 → 原子替换（TEAM_CONFIG_APPLY）
+#   [MT_QUOTA_HARD]     全局 token 硬上限 = 各租户配额之和上限
+
+security:
+  apiKey: "<随机密钥>"          # 存量升级若仍是默认密钥且未显式 allow → 启动自动轮换（gateway-key.txt）
+  defaultKeyAllowed: false      # [ZT_DEFAULT_DENY] 默认密钥通道默认关闭；仅本机单用户场景可显式 true
+  auditLogEnabled: true
+  wafEnabled: true              # 不可关闭（security-core 铁律）
+  mode: normal
+
+# ===================== 多租户（v3.0.4 新增顶层段）=====================
+tenants:
+  globalTokenCapPerDay: 1000000   # [MT_QUOTA_HARD] 全局硬上限：各租户 tokensPerDay 之和不得超过
+  list:
+    - id: team-a                 # 小写字母/数字开头，可含 - _，≤64 字符
+      name: 团队A
+      enabled: true              # 显式 enable（零信任：无 enable 不放行）
+      quota:                     # [MT_QUOTA] 三层日配额（0 = 不限；Rule C：用户/组 ≤ 租户）
+        tokensPerDay: 500000
+        tokensPerUserPerDay: 50000
+        tokensPerGroupPerDay: 200000
+      router:                    # [MT_ROUTER] 模型路由偏好（Rule A：缺省取全集；组优先于租户）
+        preferredBackends: [llama, ollama]   # 只能在全局候选集 llama/lmstudio/ollama 内
+      rateLimit:                 # [MT_RATELIMIT] 只允许比全局更严（放宽 → TEAM_CONFIG_SCHEMA_FAIL）
+        chatPerMin: 30
+        adminPerMin: 8
+        modelPerMin: 5
+      groups:                    # group 层（user/group/role 三层中的 group）
+        - id: g-core
+          name: 核心组
+          quota:
+            tokensPerDay: 200000
+          router:
+            preferredBackends: [ollama]
+    - id: team-b
+      name: 团队B
+      enabled: true
+      quota:
+        tokensPerDay: 300000     # team-a(500000)+team-b(300000) ≤ 1000000 ✓
+      groups:
+        - id: g-ext
+          name: 外协组
+
+# ===================== 用户表（user/group/role 三层）==================
+# 角色枚举：admin / user / readonly / team_lead / auditor（租户内）
+#           global_admin / global_auditor（全局，tenant 留空）
+users:
+  - name: root                   # 全局管理员：跨租户管理与安全项变更
+    apiKey: "<随机>"
+    role: global_admin
+    enabled: true                # tenant 留空 = 全局
+  - name: aud-g                  # 全局审计：只读一切、跨租户查询记 AUDIT_CROSS_TENANT_ACCESS
+    apiKey: "<随机>"
+    role: global_auditor
+    enabled: true
+  - name: alice                  # 团队A 管理员：仅本租户运营项（安全项写仍须 global_admin）
+    apiKey: "<随机>"
+    role: admin
+    tenant: team-a
+    enabled: true
+  - name: lead-core              # team_lead：带队（chat/工具/本组审计只读），零管理面写权限
+    apiKey: "<随机>"
+    role: team_lead
+    tenant: team-a
+    groups: [g-core]
+    enabled: true
+  - name: bob                    # 普通用户
+    apiKey: "<随机>"
+    role: user
+    tenant: team-a
+    groups: [g-core]
+    enabled: true
+  - name: carol                  # 只读用户：GET 之外全拒
+    apiKey: "<随机>"
+    role: readonly
+    tenant: team-b
+    enabled: true
+  - name: aud-a                  # 租户审计：本租户只读审计，一切写请求入口层硬拒
+    apiKey: "<随机>"
+    role: auditor
+    tenant: team-a
+    enabled: true
+
+# ===================== 全局面板（v3 级，既有）========================
+v3:
+  rateLimit:                     # 租户阈值只许比这里更严
+    chatPerMin: 60
+    adminPerMin: 10
+    modelPerMin: 6
+    perIpTotal: 240
+  ipReputation:
+    enabled: true
+    whitelist: []                # [ZT_EXPLICIT] 只接受精确 IP；CIDR/通配一律拒绝（WHITELIST_INVALID_ENTRY）

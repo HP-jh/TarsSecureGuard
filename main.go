@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.0.0"
+var version = "3.2.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -90,6 +90,17 @@ var (
 
 // ===================== HTTP 主入口 =====================
 func main() {
+	// v3.0.5：self-diagnostic 子命令（tsg doctor）——不启动网关，检查后退出
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "doctor":
+			runDoctor(os.Args[2:])
+			return
+		case "version", "-v", "--version":
+			fmt.Println("TarsSecureGuard v" + version)
+			return
+		}
+	}
 	// v3.0.0 D 线：MCP stdio 模式（--mcp-stdio）—— 任何本地 agent 的安全带
 	if mcpIsStdioFlag(os.Args[1:]) {
 		initFileLogging()
@@ -106,6 +117,9 @@ func main() {
 	initFileLogging()
 	resolveConfigPath()
 	loadConfig()
+	// v3.0.1 Tier 1：进程重启 = 缓存全量失效（HMAC 密钥仅存内存，重启后旧缓存必校验失败；
+	// 启动即删除，把「正常重启」与「运行中篡改」区分开，后者才落 AUDIT_TIER1_CACHE_TAMPER）
+	tier1StartupClear()
 	// v3.0.0 A/B 线初始化：守护器状态恢复 + IP 信誉表加载 + 内存软上限
 	loadGuardState()
 	ipRepLoad()
@@ -113,6 +127,14 @@ func main() {
 	// v3.0.0 C 线初始化：bandit 状态恢复 + lm-eval 离线评测导入（可选，相对参考）
 	rtLoad()
 	sbLoadLMEval()
+	// v3.2.0 provider-registry：加载内置 provider 清单（go:embed 编译进二进制）。
+	// 启动即校验：云端 provider 不足 20 个视为打包损坏，直接拒绝启动（fail-fast）。
+	if err := loadProviderRegistry(); err != nil {
+		log.Fatalf("provider registry load failed: %v", err)
+	}
+	// v3.2.0 连接池：共享 http.Transport（连接复用 + HTTP/2 + 复用率指标），
+	// 替换 v3.0.5 的默认 Transport；初始化后 httpClientShort/Long 共用同一池。
+	initPooledClients(cfg.V32Config.Pool.MaxIdleConnsPerHost)
 	// eco 档：异步硬件评估，D 档设备自动套用省资源默认值
 	go func() {
 		if a := assessHardware(); a.Grade == "D" {
@@ -123,6 +145,7 @@ func main() {
 	registerV2Tools() // v2.0.0 新增内置工具（硬件评估等）
 	loadMemory()
 	firewallReconcile() // 防火墙策略档位（passive/dynamic-ban/os-link，默认 passive）
+	quotaLoad()         // v3.0.4 [MT_QUOTA]：恢复上一次运行的日配额用量（data/quota-usage.json）
 
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
 
@@ -151,14 +174,21 @@ func main() {
 	mux.HandleFunc("/api/admin/security/waf-logs", handleWAFLogs)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
 	mux.HandleFunc("/api/admin/audit-logs", handleAuditLogs)
+	// v3.0.4 多租户 / 零信任面板：租户状态（含配额用量、按组 audit 视图）、白名单注册表
+	mux.HandleFunc("/api/admin/tenants/status", handleTenantsStatus)
+	mux.HandleFunc("/api/admin/whitelist/status", handleWhitelistStatus)
+	mux.HandleFunc("/api/admin/audit/group-summary", handleAuditGroupSummary)
 	mux.HandleFunc("/api/admin/config", handleConfig)
 	mux.HandleFunc("/api/admin/modules", handleModules)                                                        // v2.0.0 模块管理
 	mux.HandleFunc("/api/admin/hardware/assessment", moduleRoute("hardwareAdvisor", handleHardwareAssessment)) // v2.0.0 硬件评估
 	// v3.0.0 B 线：IP 信誉查询与 admin 解封（裁定 6）
 	mux.HandleFunc("/api/admin/iprep/status", handleIPRepStatus)
 	mux.HandleFunc("/api/admin/semantic/status", handleSemanticStatus)
-	mux.HandleFunc("/api/admin/router/status", handleRouterStatus) // v3.0.0 C 线：路由决策透明化
-	mux.HandleFunc("/api/admin/scoreboard", handleScoreBoard)     // v3.0.0 C 线：模型评分榜
+	mux.HandleFunc("/api/admin/router/status", handleRouterStatus)                              // v3.0.0 C 线：路由决策透明化
+	mux.HandleFunc("/api/admin/scoreboard", handleScoreBoard)                                   // v3.0.0 C 线：模型评分榜
+	mux.HandleFunc("/api/admin/sidecar/status", moduleRoute("sidecarHub", handleSidecarStatus)) // v3.0.1：sidecar 宿主状态面板
+	mux.HandleFunc("/api/admin/sidecar/reload", moduleRoute("sidecarHub", handleSidecarReload)) // v3.0.1：全量重载（admin）
+	mux.HandleFunc("/api/ext/", moduleRoute("sidecarHub", handleSidecarProxy))                  // v3.0.1：外置模块反向代理（过网关 WAF/RBAC/审计）
 	mux.HandleFunc("/api/admin/iprep/unban", handleIPRepUnban)
 	// v3.0.0 A 线：资源守护器面板数据
 	mux.HandleFunc("/api/admin/guard/status", handleGuardStatus)
@@ -171,10 +201,27 @@ func main() {
 	mux.HandleFunc("/api/tools/", moduleRoute("builtinTools", handleToolCall))
 	mux.HandleFunc("/v1/", moduleRoute("chatApi", handleV1))
 	mux.HandleFunc("/v1", moduleRoute("chatApi", handleV1Root))
+	// v3.0.5 可观测性端点：
+	//   /metrics —— Prometheus 拉取（经 gatewayMiddleware 鉴权；RBAC 归 app 类全角色可读）
+	//   /api/admin/traces —— 最近 trace 与 span 时间线（admin.read 类，admin/审计角色可读）
+	mux.HandleFunc("/metrics", handleMetrics)
+	mux.HandleFunc("/api/admin/traces", handleTraces)
 
+	// v3.2.0 连接性管理端点（admin.read 类，RBAC 沿用 /api/admin 前缀矩阵）：
+	//   /api/admin/v32/providers         —— provider 注册表（keySet 布尔，永不回显密钥）
+	//   /api/admin/v32/providers/probe   —— 主动健康探测（POST，admin.write 类）
+	//   /api/admin/v32/pool              —— 连接池复用率指标
+	//   /api/admin/v32/cache             —— 协议适配 + 响应缓存命中率
+	mux.HandleFunc("/api/admin/v32/providers", moduleRoute("cloudModels", handleV32Providers))
+	mux.HandleFunc("/api/admin/v32/providers/probe", moduleRoute("cloudModels", handleV32ProvidersProbe))
+	mux.HandleFunc("/api/admin/v32/pool", moduleRoute("stats", handleV32Pool))
+	mux.HandleFunc("/api/admin/v32/cache", moduleRoute("stats", handleV32Cache))
+
+	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
+	// 纯观测不改 gatewayMiddleware 判定逻辑。
 	server := &http.Server{
 		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
-		Handler:        gatewayMiddleware(mux),
+		Handler:        obsMiddleware(gatewayMiddleware(mux)),
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   600 * time.Second,
 		IdleTimeout:    120 * time.Second,
@@ -213,6 +260,12 @@ func main() {
 	}
 	// v3.0.0 A/B 线：资源守护器 worker（5 秒采样；同时驱动 IP 信誉 tick 与持久化）
 	moduleWorkerFns["resourceGuardian"] = resourceGuardianWorker
+	// v3.0.1：sidecarHub 宿主 worker（modules.d 扫描 + 模块监管 + 优雅停机）
+	moduleWorkerFns["sidecarHub"] = sidecarHubWorker
+	// v3.2.0：provider 健康探测 worker（熔断打开时加密探测，半开恢复判定）
+	moduleWorkerFns["cloudModels"] = func(ctx context.Context) {
+		providerHealthWorker(ctx.Done())
+	}
 	reconcileModuleWorkers()
 
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
@@ -279,8 +332,9 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
 			return
 		}
-		name, role, ok := userFromRequest(r)
+		id, ok := identityFromRequest(r)
 		if !ok {
+			obsStage(r.Context(), "auth", "401 未授权")
 			mu.Lock()
 			failReq++
 			mu.Unlock()
@@ -288,20 +342,27 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
 			return
 		}
-		// RBAC：admin 端点仅 admin 可访问；其余端点 admin/user 均可；readonly 仅只读
-		if isAdminRoute(r.URL.Path) && role != "admin" {
-			auditLog("ACCESS_DENIED", name, r.URL.Path+" 需要 admin 角色")
-			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: 需要 admin 角色"})
+		// v3.0.4 RBAC 矩阵（[RBAC_MATRIX]：角色×端点类逐格判定，替换 v3.0.0 的
+		// isAdminRoute+readonly 两段式判定；写方法二次判定在 rbacCheck 内）
+		if ok, reason := rbacCheck(id, r.Method, r.URL.Path); !ok {
+			obsStage(r.Context(), "rbac", reason)
+			auditLogT("ACCESS_DENIED", id.Tenant, "", id.Name, r.URL.Path+" "+reason+obsTraceSuffix(r))
+			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: " + reason})
 			return
 		}
-		if r.Method != http.MethodGet && role == "readonly" {
-			auditLog("ACCESS_DENIED", name, r.URL.Path+" readonly 用户禁止写操作")
-			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: readonly 用户禁止写操作"})
-			return
+		// v3.0.4 [MT_QUOTA] chat 类请求前置配额检查（租户/用户/组三层日配额）
+		if routeClass(r.URL.Path) == "chat" {
+			if ok, why := quotaCheck(id.Tenant, id.Name, id.Groups); !ok {
+				obsStage(r.Context(), "quota", why)
+				auditLogT("QUOTA_EXCEEDED", id.Tenant, strings.Join(id.Groups, ","), id.Name, why+obsTraceSuffix(r))
+				writeJSONStatus(w, http.StatusTooManyRequests, map[string]string{"error": "配额超限: " + why})
+				return
+			}
 		}
+		name := id.Name
 		// v3.0.0 B 线：分层速率限制（IP×端点类 / Key×端点类 / IP 总量三维令牌桶，
 		// 超限 429 + 审计 + IP 信誉扣分）
-		if !rateLimitMiddleware(w, r, name) {
+		if !rateLimitMiddleware(w, r, name, id.Tenant) {
 			return
 		}
 		mu.Lock()
@@ -482,6 +543,9 @@ func isConfigPathAllowed(path string) bool {
 		"security.mode", "security.auditLogEnabled",
 		"security.firewall.policy", "security.firewall.banDuration",
 		"direct.transport", "direct.grpcSidecar.address",
+		// v3.0.1：Tier 1 开关与缓存 TTL（[TIER1_TOGGLE]；关闭仅降级硬件评估精度，
+		// security-core 无开关、不在此列）
+		"tier1.enabled", "tier1.cacheTtlSeconds",
 	}
 	for _, a := range allowed {
 		if path == a {
@@ -554,6 +618,7 @@ func isAdminRoute(path string) bool {
 		"/api/admin/security/status", "/api/admin/security/waf-logs",
 		"/api/admin/logs", "/api/admin/v32/auto-discovery/scan",
 		"/api/admin/modules", "/api/admin/hardware/assessment", // v2.0.0 模块管理 / 硬件评估
+		"/api/admin/sidecar/reload", // v3.0.1 sidecar 全量重载（状态查询 /api/admin/sidecar/status 保留普通登录态可读）
 	}
 	for _, p := range adminPaths {
 		if path == p {

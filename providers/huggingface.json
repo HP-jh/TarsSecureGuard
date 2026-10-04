@@ -1,0 +1,15 @@
+{
+  "id": "huggingface",
+  "name": "Hugging Face Inference",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://router.huggingface.co/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_HF_KEY",
+  "docs": "https://huggingface.co/docs/inference-providers/index",
+  "models": [
+    "meta-llama/Llama-3.3-70B-Instruct",
+    "Qwen/Qwen2.5-72B-Instruct"
+  ],
+  "notes": "Router OpenAI 兼容"
+}

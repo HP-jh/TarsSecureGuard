@@ -1,0 +1,15 @@
+{
+  "id": "siliconflow",
+  "name": "SiliconFlow 硅基流动",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.siliconflow.cn/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_SILICONFLOW_KEY",
+  "docs": "https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions",
+  "models": [
+    "Qwen/Qwen2.5-72B-Instruct",
+    "deepseek-ai/DeepSeek-V3"
+  ],
+  "notes": "OpenAI 兼容，国内直连快"
+}

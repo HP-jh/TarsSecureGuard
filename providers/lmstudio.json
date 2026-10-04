@@ -1,0 +1,12 @@
+{
+  "id": "lmstudio",
+  "name": "LM Studio",
+  "kind": "local",
+  "protocol": "openai-compat",
+  "baseURL": "http://127.0.0.1:1234/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "",
+  "docs": "https://lmstudio.ai/docs/local-server",
+  "models": [],
+  "notes": "本地运行时，OpenAI 兼容；模型列表经 /v1/models 自动发现"
+}

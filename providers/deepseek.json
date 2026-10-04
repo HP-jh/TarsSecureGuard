@@ -1,0 +1,15 @@
+{
+  "id": "deepseek",
+  "name": "DeepSeek",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.deepseek.com/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_DEEPSEEK_KEY",
+  "docs": "https://api-docs.deepseek.com/",
+  "models": [
+    "deepseek-chat",
+    "deepseek-reasoner"
+  ],
+  "notes": "OpenAI 兼容"
+}

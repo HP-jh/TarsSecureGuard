@@ -1,0 +1,17 @@
+{
+  "id": "openai",
+  "name": "OpenAI",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.openai.com/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_OPENAI_KEY",
+  "docs": "https://platform.openai.com/docs/api-reference/chat",
+  "models": [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4.1",
+    "o3"
+  ],
+  "notes": "官方 API；模型名以官网为准"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "mistral",
+  "name": "Mistral AI",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.mistral.ai/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_MISTRAL_KEY",
+  "docs": "https://docs.mistral.ai/api/",
+  "models": [
+    "mistral-large-latest",
+    "mistral-small-latest"
+  ],
+  "notes": "OpenAI 兼容"
+}

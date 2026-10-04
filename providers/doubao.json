@@ -1,0 +1,15 @@
+{
+  "id": "doubao",
+  "name": "字节豆包 (火山方舟)",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://ark.cn-beijing.volces.com/api/v3",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_DOUBAO_KEY",
+  "docs": "https://www.volcengine.com/docs/82379/1263482",
+  "models": [
+    "doubao-seed-1-6-250615",
+    "doubao-pro-32k"
+  ],
+  "notes": "OpenAI 兼容；模型名随方舟版本更新"
+}

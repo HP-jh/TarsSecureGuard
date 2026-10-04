@@ -184,6 +184,9 @@ func mcpExecute(p mcpCallParams) (interface{}, *rpcError) {
 				"category": m.Category, "enabled": enabled, "deps": m.Deps,
 			})
 		}
+		// v3.0.1：并入 sidecar 外置模块 schema（running 模块 GET /config-schema，
+		// sensitive 字段经 sidecarSanitizeNode 脱敏）
+		out = append(out, sidecarSchemaSnapshot()...)
 		return map[string]interface{}{"modules": out}, nil
 
 	case "tars_ip_reputation_unban":

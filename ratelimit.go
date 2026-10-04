@@ -117,11 +117,44 @@ func takeToken(k bucketKey, quota float64) bool {
 	return true
 }
 
+// tenantClassQuota v3.0.4 [MT_RATELIMIT]：租户级限流阈值（只许收紧，校验层已保证 ≤ 全局）。
+// 返回 0 表示该租户未设阈值（沿用全局额度）。
+func tenantClassQuota(tenant, cls string) int {
+	if tenant == "" || tenant == "*" {
+		return 0
+	}
+	tc := tenantsConfig()
+	var t *TenantCfg
+	for i := range tc.Tenants {
+		if tc.Tenants[i].ID == tenant {
+			t = &tc.Tenants[i]
+			break
+		}
+	}
+	if t == nil {
+		return 0
+	}
+	switch cls {
+	case "chat":
+		return t.RateLimit.ChatPerMin
+	case "admin":
+		return t.RateLimit.AdminPerMin
+	case "model":
+		return t.RateLimit.ModelPerMin
+	}
+	return 0
+}
+
 // allowRateLimited 三维判定入口（gatewayMiddleware 调用）。
 // 返回 (ok, reason)；ok=false 时调用方返回 429。
-func allowRateLimited(ip, user, path string) (bool, string) {
+// v3.0.4 增第 4 维：租户 × 端点类（[MT_RATELIMIT]，阈值只许比全局严）。
+func allowRateLimited(ip, user, tenant, path string) (bool, string) {
 	cls := endpointClass(path)
 	quota := classQuota(cls)
+	// 维度 0（v3.0.4）：租户 × 端点类——租户阈值生效时收紧全局额度
+	if tq := tenantClassQuota(tenant, cls); tq > 0 && tq < quota {
+		quota = tq
+	}
 	// 维度 1：IP × 端点类
 	if quota > 0 && !takeToken(bucketKey{dim: "ip", id: ip, cls: cls}, float64(quota)) {
 		return false, fmt.Sprintf("rate limit: IP %s on %s 超过 %d 次/分钟", ip, cls, quota)
@@ -150,9 +183,9 @@ func handleRateLimited(w http.ResponseWriter, r *http.Request, reason string) {
 	})
 }
 
-// rateLimitMiddleware 供 gatewayMiddleware 集成（auth 之后调用，拿到 user 维度）
-func rateLimitMiddleware(w http.ResponseWriter, r *http.Request, user string) bool {
-	if ok, reason := allowRateLimited(clientIP(r), user, r.URL.Path); !ok {
+// rateLimitMiddleware 供 gatewayMiddleware 集成（auth 之后调用，拿到 user / tenant 维度）
+func rateLimitMiddleware(w http.ResponseWriter, r *http.Request, user, tenant string) bool {
+	if ok, reason := allowRateLimited(clientIP(r), user, tenant, r.URL.Path); !ok {
 		handleRateLimited(w, r, reason)
 		return false
 	}

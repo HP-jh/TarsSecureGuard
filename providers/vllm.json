@@ -1,0 +1,12 @@
+{
+  "id": "vllm",
+  "name": "vLLM",
+  "kind": "local",
+  "protocol": "openai-compat",
+  "baseURL": "http://127.0.0.1:8000/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "",
+  "docs": "https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html",
+  "models": [],
+  "notes": "本地高吞吐推理服务器，OpenAI 兼容；默认端口 8000"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "cerebras",
+  "name": "Cerebras",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.cerebras.ai/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_CEREBRAS_KEY",
+  "docs": "https://inference-docs.cerebras.ai/",
+  "models": [
+    "llama-3.3-70b",
+    "llama3.1-8b"
+  ],
+  "notes": "OpenAI 兼容，极速推理"
+}

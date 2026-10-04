@@ -1,0 +1,15 @@
+{
+  "id": "together",
+  "name": "Together AI",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.together.xyz/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_TOGETHER_KEY",
+  "docs": "https://docs.together.ai/docs/chat-completions",
+  "models": [
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "Qwen/Qwen2.5-72B-Instruct-Turbo"
+  ],
+  "notes": "OpenAI 兼容"
+}

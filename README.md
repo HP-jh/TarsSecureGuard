@@ -2,22 +2,23 @@
 
 # 🛡️ TarsSecureGuard
 
-### Your AI's Safety Belt —— 给你的 AI 系上安全带
+### The Router of the AI Era —— AI 时代的路由器，自带安全带
 
 <p>
-<b>解压即用</b> · <b>安全性强</b> · <b>无需配置</b> · <b>全平台兼容</b>
+<b>解压即用</b> · <b>安全性强</b> · <b>无需配置</b> · <b>全平台兼容</b> · <b>连接一切</b>
 </p>
 
 <p>
-一个零依赖、单文件、纯静态的<b>本地 AI 安全网关</b>：统一纳管本地 GGUF / LM Studio / Ollama 与云端模型，<br/>
-在最外层强制开启 WAF、语义防护、分层限流、IP 信誉、RBAC、审计与 PII 脱敏，<br/>
-并以资源守护器、智能路由与模型评分，让本地 AI <b>跑得稳、选得优、守得住</b>。
+一个零依赖、单文件、纯静态的<b>本地 AI 网关</b>：左边把 13 种 AI 软件客户端接进来（Claude Desktop / Cursor / Cline / Continue / Windsurf / Codex CLI / Warp / Cody / JetBrains / Tabnine / Zed / Roo Code / VS Code Copilot），<br/>
+右边把 <b>24 家云端模型商 + 8 种本地推理运行时</b>连出去（OpenAI / Anthropic / Gemini / DeepSeek / 通义 / 文心 / GLM / 豆包 / Kimi / MiniMax / 混元 / 星火 / Groq / Ollama / LM Studio / vLLM …），<br/>
+中间强制开启 WAF、语义防护、分层限流、IP 信誉、RBAC、审计与 PII 脱敏——<b>连得多，更要守得住</b>。
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.0.0-success">
-<img alt="Go" src="https://img.shields.io/badge/Go-1.22.5-00ADD8?logo=go&logoColor=white">
+<img alt="Version" src="https://img.shields.io/badge/version-3.2.0-success">
+<img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
+<img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
 <img alt="Platforms" src="https://img.shields.io/badge/platform-6%20targets-blueviolet">
 <img alt="Tests" src="https://img.shields.io/badge/tests-race%20green">
 <img alt="License" src="https://img.shields.io/badge/license-MIT-orange">
@@ -41,15 +42,18 @@
 
 ## 🌟 介绍语
 
-TarsSecureGuard 是一款**本地优先（local-first）的 AI 安全网关**。它站在你和本地推理引擎（llama.cpp / LM Studio / Ollama）以及云端模型（OpenAI / DeepSeek / 自定义）之间，对外只暴露一个 OpenAI 兼容端点（HTTP 或 **stdio**），对内统一调度、统一治理、统一审计。
+TarsSecureGuard 是一款**本地优先（local-first）的 AI 网关——AI 时代的路由器**。它站在你和所有 AI 能力之间：左边是你的 AI 软件（Claude Desktop、Cursor、Cline、Windsurf、Codex CLI……任选），右边是 24 家云端模型商 + 8 种本地推理运行时（任连）；对外暴露一个 OpenAI 兼容端点（HTTP 或 **stdio**）+ MCP，对内统一调度、统一治理、统一审计。
 
-### 四大核心特点
+> 家里的路由器不生产网线，也不生产网站——它让每一台设备都能安全上网。TarsSecureGuard 不生产模型，也不绑架你用某个客户端——**它让每一个 AI 客户端都能安全地用上每一个模型。** 这件事，我们打算做到极致：能连的连上，暂时连不上的，给你一份可执行的对接清单（见 `docs/v3.2.0-unconnectable.md`）。
+
+### 五大核心特点
 
 | 特点 | 说明 |
 |------|------|
+| 🔌 **连接一切** | v3.2.0 provider-registry：24 云端 + 8 本地运行时内置注册（每家一份机器可读档案），13 种 AI 客户端接入指南；新增 provider **只写配置不改代码**。 |
 | 📦 **解压即用** | 无需安装、无需容器、无需数据库。压缩包解压，双击 `start.bat` / `start.sh`，服务即起，浏览器自动打开中文面板。 |
-| 🔒 **安全性强** | Security Core 强制加载、**不可关闭**：WAF（路径穿越 / 命令注入 / SQLi / XSS / **Prompt 注入** / **PII 检测**）、**语义检测分级分流（fail-close）**、**三维令牌桶限流**、**本地 IP 信誉评分**、RBAC 三角色、结构化审计、PII 脱敏、SSRF 五红线、防火墙三档联动。 |
-| ⚙️ **无需配置** | 开箱即有合理默认；本地模型**自动发现**（每 60 秒探测 LM Studio / Ollama / llama.cpp）；`config.json` 改动 2 秒热重载，改完不重启。 |
+| 🔒 **安全性强** | Security Core 强制加载、**不可关闭**：WAF（路径穿越 / 命令注入 / SQLi / XSS / **Prompt 注入** / **PII 检测**）、**语义检测分级分流（fail-close）**、**三维令牌桶限流**、**本地 IP 信誉评分**、RBAC 三角色、结构化审计、PII 脱敏、SSRF 五红线、防火墙三档联动。连接再广，安全链一行不削。 |
+| 🚀 **性能在线** | 共享连接池（复用率实测 98.5%）、provider 熔断降级、两级缓存（协议适配 + 租户隔离响应缓存）；出站 P99 较 v3.0.x 基线 **-27% ~ -40%**（可复现基准随源码交付，详见 `docs/v3.2.0-performance.md`）。 |
 | 💻 **环境兼容性好** | 一份代码，六平台产物（macOS Intel/Apple Silicon、Linux x86_64/ARM64、Windows x64/ARM64）；`CGO_ENABLED=0` 纯静态，老内核、老发行版、内网隔离即拷即跑。 |
 
 ### 💎 订阅版（Subscription）
@@ -199,7 +203,10 @@ go test -race ./...      # 单元 + 集成测试
 
 ## 📚 文档
 
-- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.0.0 五线进展）
+- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.2.0 连接性大版本）
+- [docs/v3.2.0-connectivity.md](./docs/v3.2.0-connectivity.md) —— **连接指南**：13 个 AI 客户端接入 + 24 云端 provider + 8 本地运行时
+- [docs/v3.2.0-performance.md](./docs/v3.2.0-performance.md) —— **性能基准**：P99 / 连接复用率 / 缓存命中率（可复现）
+- [docs/v3.2.0-unconnectable.md](./docs/v3.2.0-unconnectable.md) —— **暂不可连接清单**：16 项 + 逐家接入方案草稿
 - [COMPATIBILITY.md](./COMPATIBILITY.md) —— 跨平台兼容矩阵与构建指南
 - [OPTIMIZATION_REPORT.md](./OPTIMIZATION_REPORT.md) —— 优化报告与技术路线
 - [deploy/](./deploy) —— systemd / Docker / docker-compose / K8s / LaunchDaemon 部署件

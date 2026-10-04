@@ -1,0 +1,16 @@
+{
+  "id": "spark",
+  "name": "讯飞星火",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://spark-api-open.xf-yun.com/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_SPARK_KEY",
+  "docs": "https://www.xfyun.cn/doc/spark/Web.html",
+  "models": [
+    "4.0Ultra",
+    "generalv3.5",
+    "lite"
+  ],
+  "notes": "OpenAI 兼容接口（APIPassword 作为 key）"
+}

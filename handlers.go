@@ -103,11 +103,20 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAuditLogs(w http.ResponseWriter, r *http.Request) {
-	// 只允许 admin 查看审计日志（已在中间件 RBAC 中校验，此处额外确认）
-	name, role, _ := userFromRequest(r)
-	if role != "admin" {
-		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "仅 admin 可查看审计日志"})
+	// v3.0.4 [MT_AUDIT_ISOLATION]：审计按租户硬隔离——
+	//   global_admin/global_auditor 可查全部（?tenant=x 定向跨租户查询，记 AUDIT_CROSS_TENANT_ACCESS）
+	//   admin/auditor 仅本租户；team_lead 仅本租户本组；user/readonly 矩阵层已拒
+	id, ok := identityFromRequest(r)
+	if !ok {
+		writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
+	}
+	qTenant := r.URL.Query().Get("tenant")
+	qGroup := r.URL.Query().Get("group")
+	tenant, groups, cross := auditTenantScope(id, qTenant, qGroup)
+	if cross {
+		auditLogT("AUDIT_CROSS_TENANT_ACCESS", tenant, qGroup, id.Name,
+			fmt.Sprintf("global 角色跨租户查询审计日志 tenant=%s group=%s", tenant, qGroup))
 	}
 	// 读取当日审计日志文件
 	lines := []string{}
@@ -125,8 +134,11 @@ func handleAuditLogs(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	auditLog("AUDIT_LOG_VIEW", name, fmt.Sprintf("查看审计日志 %d 条", len(lines)))
-	writeJSON(w, map[string]interface{}{"logs": lines, "count": len(lines)})
+	// [MT_AUDIT_ISOLATION] 行级强制过滤：非本租户行绝不出网（旧行 TENANT 缺失按 system 处理）
+	lines = filterAuditLines(lines, tenant, groups, id.Global)
+	auditLogT("AUDIT_LOG_VIEW", id.Tenant, strings.Join(id.Groups, ","), id.Name,
+		fmt.Sprintf("查看审计日志 %d 条（租户=%s）", len(lines), tenant))
+	writeJSON(w, map[string]interface{}{"logs": lines, "count": len(lines), "tenant": tenant})
 }
 
 // validateConfigValue v2.0.0 值域校验：安全与档位类配置拒绝非法值。
@@ -147,6 +159,13 @@ func validateConfigValue(path string, val interface{}) bool {
 		return s == "native" || s == "grpc-sidecar"
 	case "search.engine":
 		return s == "builtin" || s == "serper"
+	// v3.0.1 Tier 1：开关必须是布尔；TTL 数值域 0-86400（读取时 60-3600 clamp，0=默认 300）
+	case "tier1.enabled":
+		_, ok := val.(bool)
+		return ok
+	case "tier1.cacheTtlSeconds":
+		f, ok := val.(float64)
+		return ok && f >= 0 && f <= 86400
 	}
 	return true
 }
@@ -169,6 +188,9 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		var rejected []string
 		for path, val := range body {
 			if !isConfigPathAllowed(path) {
+				// v3.0.4 [ZT_CHANGE_AUDIT]：白名单外路径（含 tenants/users/security.apiKey/
+				// 白名单类安全项）不允许经 API 修改——拒绝并审计，绝不静默跳过
+				rejected = append(rejected, fmt.Sprintf("%s=… 不在 API 可修改白名单（零信任：租户/用户/密钥/白名单项仅 config.json 管理）", path))
 				continue
 			}
 			// v2.0.0 值域校验（共享函数，与 set_config 工具同一条防线）

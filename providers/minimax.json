@@ -1,0 +1,15 @@
+{
+  "id": "minimax",
+  "name": "MiniMax",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.minimax.io/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_MINIMAX_KEY",
+  "docs": "https://platform.minimax.io/docs/api-reference/text-openai-api",
+  "models": [
+    "MiniMax-M3",
+    "MiniMax-M2.7"
+  ],
+  "notes": "OpenAI 兼容；国内节点可覆写 baseUrl 为 https://api.minimaxi.com/v1"
+}

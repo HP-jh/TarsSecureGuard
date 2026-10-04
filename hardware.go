@@ -1,12 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"runtime"
-	"strings"
 	"time"
 )
 
@@ -33,6 +30,7 @@ type HardwareAssessment struct {
 	CPU       struct {
 		Cores int    `json:"cores"`
 		Arch  string `json:"arch"`
+		Model string `json:"model"` // v3.0.1 Tier 1 静态属性（探测失败留空）
 	} `json:"cpu"`
 	Memory struct {
 		PhysicalGB float64 `json:"physicalGB"` // 物理内存总量
@@ -47,6 +45,16 @@ type HardwareAssessment struct {
 		Name     string `json:"name"`
 		Source   string `json:"source"`
 	} `json:"gpu"`
+	Board struct {
+		Model string `json:"model"` // v3.0.1 Tier 1 静态属性（机型/主板，权限不足留空）
+	} `json:"board"`
+	Tier1 struct {
+		Active        bool   `json:"active"`        // 本次快照是否为 Tier 1 数据
+		Cached        bool   `json:"cached"`        // 是否命中缓存（命中则未 spawn 子进程）
+		Degraded      bool   `json:"degraded"`      // 是否降级 Tier 0
+		DegradeReason string `json:"degradeReason"` // 降级原因（关闭/熔断/权限不足/篡改/平台不支持）
+		Source        string `json:"source"`        // 探测来源说明
+	} `json:"tier1"`
 	Scores struct {
 		CPU    int `json:"cpu"`
 		Memory int `json:"memory"`
@@ -74,7 +82,26 @@ func assessHardware() HardwareAssessment {
 		a.Disk.TotalGB = float64(du.Total) / 1024 / 1024 / 1024
 		a.Disk.FreeGB = float64(du.Free) / 1024 / 1024 / 1024
 	}
-	a.GPU.Name, a.GPU.Source = detectGPU()
+	// v3.0.1：静态属性（CPU 型号 / GPU 型号 / 机型）唯一来源为 Tier 1 快照
+	// （tier1.go，锦衣卫红线 TSG-TIER1-2026-0929）。旧 v2.1.0 的 wmic /
+	// powershell -Command / 裸 lspci / nvidia-smi / system_profiler 直调已全部移除——
+	// 一切系统原生命令调用必须过 tier1Run 白名单通道。
+	// 动态指标（磁盘 / 可用内存 / 核数）永远走 Tier 0，不进缓存。
+	snap := tier1HardwareSnapshot()
+	a.CPU.Model = snap.CPUModel
+	a.Board.Model = snap.BoardModel
+	a.Tier1.Active = snap.Active
+	a.Tier1.Cached = snap.Cached
+	a.Tier1.Degraded = snap.Degraded
+	a.Tier1.DegradeReason = snap.DegradeReason
+	a.Tier1.Source = snap.Source
+	a.GPU.Name = snap.GPUModel
+	a.GPU.Source = snap.Source
+	if snap.Degraded {
+		a.GPU.Source = "tier0 降级（" + snap.DegradeReason + "）"
+	} else if !snap.Active {
+		a.GPU.Source = "tier0（Tier 1 关闭）"
+	}
 	a.GPU.Detected = a.GPU.Name != ""
 
 	// 四维评分
@@ -244,82 +271,14 @@ func modelDisplayName() string {
 	return cur
 }
 
-// detectGPU 尽力探测独立 GPU（失败不影响评分，返回探测来源说明）
-// v2.1.0 跨平台补全：每个平台提供主探测 + 回退探测，且全部带 5 秒超时
-// （system_profiler / powershell 在部分机器上可能长时间无响应，防阻塞评估接口）
-func detectGPU() (name, source string) {
-	switch runtime.GOOS {
-	case "windows":
-		// 主探测：wmic（Windows 10 / 早期 Windows 11 可用）
-		if out, err := runCmdTimeout(5, "wmic", "path", "win32_VideoController", "get", "name"); err == nil {
-			for _, line := range strings.Split(out, "\n") {
-				l := strings.TrimSpace(line)
-				if l != "" && !strings.EqualFold(l, "name") {
-					return l, "wmic win32_VideoController"
-				}
-			}
-		}
-		// 回退：PowerShell Get-CimInstance（Windows 11 24H2+ 移除了 wmic）
-		if out, err := runCmdTimeout(8, "powershell", "-NoProfile", "-Command",
-			"Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"); err == nil {
-			for _, line := range strings.Split(out, "\n") {
-				l := strings.TrimSpace(line)
-				if l != "" {
-					return l, "powershell Get-CimInstance Win32_VideoController"
-				}
-			}
-		}
-		return "", "wmic / powershell 均不可用或无显卡记录"
-	case "linux":
-		// 主探测：lspci（桌面发行版通常自带）
-		if out, err := runCmdTimeout(5, "lspci"); err == nil {
-			for _, line := range strings.Split(out, "\n") {
-				if strings.Contains(strings.ToLower(line), "vga") || strings.Contains(strings.ToLower(line), "3d controller") {
-					seg := strings.SplitN(line, ":", 3)
-					if len(seg) == 3 {
-						return strings.TrimSpace(seg[2]), "lspci"
-					}
-				}
-			}
-		}
-		// 回退：nvidia-smi（无 lspci 的最小化服务器 / 容器环境）
-		if out, err := runCmdTimeout(5, "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"); err == nil {
-			for _, line := range strings.Split(out, "\n") {
-				l := strings.TrimSpace(line)
-				if l != "" {
-					return l, "nvidia-smi"
-				}
-			}
-		}
-		return "", "lspci / nvidia-smi 均不可用或无独立显卡"
-	case "darwin":
-		// macOS：system_profiler（Intel 核显与 Apple Silicon 均能识别）
-		if out, err := runCmdTimeout(8, "system_profiler", "SPDisplaysDataType"); err == nil {
-			for _, line := range strings.Split(out, "\n") {
-				if strings.Contains(line, "Chipset Model") {
-					seg := strings.SplitN(line, ":", 2)
-					if len(seg) == 2 {
-						n := strings.TrimSpace(seg[1])
-						if n != "" {
-							return n, "system_profiler SPDisplaysDataType"
-						}
-					}
-				}
-			}
-		}
-		return "", "system_profiler 不可用或未返回 Chipset Model"
-	}
-	return "", "平台不支持 GPU 探测"
-}
-
-// runCmdTimeout 带超时的命令探测（GPU 检测专用：外部工具可能挂起，绝不阻塞评估接口）
-func runCmdTimeout(sec int, name string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(sec)*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
-
+// v3.0.1 起本文件不再直接执行任何系统原生命令：
+//   - 旧 detectGPU（wmic / powershell -Command / 裸 lspci / nvidia-smi /
+//     system_profiler 直调）违反锦衣卫红线 [TIER1_EXEC_MANDATORY]/[TIER1_ALLOWLIST]，
+//     已整体移除；GPU/CPU 型号/机型静态属性统一由 tier1HardwareSnapshot 提供
+//     （白名单 + 超时 + 进程树清理 + 审计 + 缓存，详见 tier1.go）。
+//   - runCmdTimeout（GPU 检测专用的裸超时执行器）随之删除，避免留下绕开
+//     白名单的第二条执行通道。
+//
 // handleHardwareAssessment GET /api/admin/hardware/assessment（hardwareAdvisor 模块）
 func handleHardwareAssessment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, assessHardware())

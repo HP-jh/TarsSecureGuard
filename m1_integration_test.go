@@ -14,6 +14,12 @@ import (
 
 // resetIPRep 清空信誉表与限流桶，保证测试间状态隔离
 func resetIPRep() {
+	// v3.0.4：默认密钥通道零信任后不再隐式鉴权——测试改用显式随机密钥
+	cfgMu.Lock()
+	cfg.Security.APIKey = m1TestKey
+	cfg.Security.DefaultKeyAllowed = nil
+	cfg.Users = nil
+	cfgMu.Unlock()
 	ipRepMu.Lock()
 	ipRepTable = map[string]*ipRepEntry{}
 	ipRepMu.Unlock()
@@ -21,6 +27,9 @@ func resetIPRep() {
 	rlBuckets = map[bucketKey]*tokenBucket{}
 	rlBucketMu.Unlock()
 }
+
+// m1TestKey 集成测试专用网关密钥（非默认通道，显式配置于 cfg.Security.APIKey）
+const m1TestKey = "tsg-m1-test-key-v304"
 
 // newTestGateway 构造带测试后端的中间件链
 func newTestGateway(next http.Handler) http.Handler {
@@ -48,7 +57,7 @@ func TestMiddlewarePanicRecovery(t *testing.T) {
 	})
 	h := newTestGateway(boom)
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, authedReq("GET", "/api/chat/x", apiKeyDefault))
+	h.ServeHTTP(w, authedReq("GET", "/api/chat/x", m1TestKey))
 	if w.Code != 500 {
 		t.Fatalf("后端 panic 应被恢复并返回 500，实际 %d", w.Code)
 	}
@@ -85,13 +94,13 @@ func TestMiddlewareRateLimit429(t *testing.T) {
 	// /api/admin/modules 端点类=admin，默认额度 10/分钟
 	for i := 1; i <= 10; i++ {
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, authedReq("GET", "/api/admin/modules", apiKeyDefault))
+		h.ServeHTTP(w, authedReq("GET", "/api/admin/modules", m1TestKey))
 		if w.Code != 200 {
 			t.Fatalf("第 %d 个请求（额度内）应为 200，实际 %d", i, w.Code)
 		}
 	}
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, authedReq("GET", "/api/admin/modules", apiKeyDefault))
+	h.ServeHTTP(w, authedReq("GET", "/api/admin/modules", m1TestKey))
 	if w.Code != 429 {
 		t.Fatalf("第 11 个请求应触发限流 429，实际 %d", w.Code)
 	}
@@ -111,7 +120,7 @@ func TestMiddlewareScan404Penalty(t *testing.T) {
 	h := newTestGateway(notFound)
 	for i := 0; i < 3; i++ {
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, authedReq("GET", "/api/nonexistent"+string(rune('a'+i)), apiKeyDefault))
+		h.ServeHTTP(w, authedReq("GET", "/api/nonexistent"+string(rune('a'+i)), m1TestKey))
 		if w.Code != 404 {
 			t.Fatalf("未注册路径应为 404，实际 %d", w.Code)
 		}

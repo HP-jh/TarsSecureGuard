@@ -39,9 +39,9 @@ type rtState struct {
 }
 
 var (
-	rtMu    sync.Mutex
-	rtSt    = rtState{Arms: map[string]*rtArm{}, Epsilon: 0.1}
-	rtRng   = rand.New(rand.NewSource(time.Now().UnixNano()))
+	rtMu  sync.Mutex
+	rtSt  = rtState{Arms: map[string]*rtArm{}, Epsilon: 0.1}
+	rtRng = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 const rtStateFile = "state/router.json"
@@ -193,30 +193,49 @@ func rtRecordOutcome(backend string, ok bool, latency time.Duration, role string
 // routeChatSmart 两阶段路由包装：handleChat 的调用入口。
 // 仅当静态路由命中"自动选择"分支且多后端可达时，叠加 bandit 决策；
 // 显式指定 backend 前缀（lmstudio/ xxx）的请求完全走静态，不做探索。
-func routeChatSmart(model string, msgs []Message, role string) (string, string, bool, error) {
+// v3.0.5：可选 trace 参数（变长，省略时行为与 v3.0.4 完全一致）——用于
+// 观测层透传 trace_id 至后端出站请求，纯观测不改路由逻辑。
+func routeChatSmart(model string, msgs []Message, role string, trace ...string) (string, string, bool, error) {
+	return routeChatSmartT(model, msgs, role, nil, trace...)
+}
+
+// routeChatSmartT v3.0.4 [MT_ROUTER]：在 routeChatSmart 基础上叠加租户/组路由偏好。
+// pref 为空（Rule A：无配置值）时取全集，行为与 routeChatSmart 完全一致。
+// v3.0.5：命名返回值 + defer 观测埋点（路由分布/后端耗时/trace span），
+// 覆盖全部 return 路径；判定逻辑与 v3.0.4 逐行一致。
+func routeChatSmartT(model string, msgs []Message, role string, pref []string, trace ...string) (content string, backend string, explored bool, err error) {
+	obsTr := ""
+	if len(trace) > 0 {
+		obsTr = trace[0]
+	}
+	obsStart := time.Now()
+	defer func() {
+		obsRecordRoute(obsTr, backend, err == nil, time.Since(obsStart))
+	}()
 	isAuto := model == "" || model == "auto" || model == "local" || model == "cloud-default"
 	if !rtEnabled() || !isAuto {
-		content, backend, err := routeChat(model, msgs)
+		content, backend, err := routeChat(model, msgs, trace...)
 		return content, backend, false, err
 	}
-	cands := rtCandidates()
+	cands := filterCandidatesByPref(rtCandidates(), pref)
 	if len(cands) <= 1 {
 		// 单候选：直接静态路由（含其错误信息），记录结果
 		start := time.Now()
-		content, backend, err := routeChat(model, msgs)
+		content, backend, err := routeChat(model, msgs, trace...)
 		rtRecordOutcome(backend, err == nil, time.Since(start), role)
 		return content, backend, false, err
 	}
 	pick, explored := rtPick(cands)
 	if pick == "" {
-		content, backend, err := routeChat(model, msgs)
+		content, backend, err := routeChat(model, msgs, trace...)
 		return content, backend, false, err
 	}
 	start := time.Now()
-	content, backend, err := routeChat(pick, msgs)
+	content, backend, err = routeChat(pick, msgs, trace...)
 	// 防御：routeChat 内部仍可能因可达性变化改判 backend，记录实际 backend
 	rtRecordOutcome(backend, err == nil, time.Since(start), role)
 	if explored {
+		obsRecordExplore()
 		auditLog("ROUTER_EXPLORE", "system", fmt.Sprintf("ε-greedy 探索：%s（ε=%.3f）", backend, rtCurrentEpsilon()))
 	}
 	return content, backend, explored, err
@@ -244,11 +263,11 @@ func handleRouterStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	rtMu.Unlock()
 	writeJSON(w, map[string]interface{}{
-		"enabled":     rtEnabled(),
-		"epsilon":     st.Epsilon,
-		"decisions":   st.Decisions,
-		"candidates":  rtCandidates(),
-		"arms":        st.Arms,
-		"policy":      "两阶段：静态规则优先，bandit 仅优化自动分支；非 admin 反馈权重 ×0.1（防伪造）",
+		"enabled":    rtEnabled(),
+		"epsilon":    st.Epsilon,
+		"decisions":  st.Decisions,
+		"candidates": rtCandidates(),
+		"arms":       st.Arms,
+		"policy":     "两阶段：静态规则优先，bandit 仅优化自动分支；非 admin 反馈权重 ×0.1（防伪造）",
 	})
 }

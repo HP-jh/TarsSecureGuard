@@ -78,6 +78,7 @@
     "modelDownload": true,
     "openapiTools": true,
     "resourceGuardian": true,
+    "sidecarHub": true,
     "stats": true,
     "urgentChat": false,
     "webFetch": true,
@@ -90,5 +91,34 @@
     "grpcSidecar": {
       "address": ""
     }
+  },
+  "tier1": {
+    "enabled": true,
+    "cacheTtlSeconds": 300
+  },
+  "sidecar": {
+    "modules": {}
+  },
+  "providers": {
+    "openai": {
+      "apiKey": "",
+      "baseUrl": "",
+      "enabled": true,
+      "models": []
+    },
+    "_说明": "每家云端 provider 一条：apiKey 填密钥（或用环境变量如 OPENAI_API_KEY）；baseUrl 覆盖默认端点；enabled=false 关闭；models 覆盖默认模型清单。本地运行时（ollama/lmstudio 等）无需密钥，可只覆盖 baseUrl。完整清单见 docs/v3.2.0-connectivity.md"
+  },
+  "circuit": {
+    "failureThreshold": 5,
+    "openSeconds": 30,
+    "probeIntervalSec": 60
+  },
+  "responseCache": {
+    "enabled": true,
+    "ttlSec": 300,
+    "maxEntries": 1024
+  },
+  "pool": {
+    "maxIdleConnsPerHost": 32
   }
 }

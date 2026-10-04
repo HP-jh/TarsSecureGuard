@@ -1,3 +1,208 @@
+# TarsSecureGuard Go v3.2.0 · 连接做到极致 —— AI 软件生态全连接 · 变更说明
+
+> 完整连接指南见 `docs/v3.2.0-connectivity.md`；性能基准见 `docs/v3.2.0-performance.md`；不可连接清单见 `docs/v3.2.0-unconnectable.md`。
+> 定位升级：**AI 时代的路由器**——连接一切可连接的 AI 软件与服务，安全链一行不削。
+
+## 一、provider-registry（核心新增，~1150 行）
+
+- **24 云端 + 8 本地运行时**内置注册：每家一个 `providers/<id>.json`（go:embed 进二进制），
+  覆盖 OpenAI / Anthropic / Gemini / DeepSeek / Mistral / xAI / 通义 / 文心 / GLM / 豆包 / Kimi / MiniMax /
+  OpenRouter / 302.AI / SiliconFlow / Perplexity / HF / 混元 / 星火 / Groq / Together / Cohere / Fireworks / Cerebras
+  + Ollama / LM Studio / llama.cpp / vLLM / TGI / LocalAI / Xinference / mlc-llm。
+- 新增 provider **只写配置不改核心代码**：模型三级路由（`providerId/model` 前缀 → 裸模型名反查 → legacy 兜底）。
+- 密钥参数化红线：只经 config.json `providers.<id>` 或环境变量注入；注册表文件静态扫描禁敏感字样（测试兜底）；
+  管理端点只输出 keySet 布尔。
+
+## 二、连接架构升级
+
+- **共享连接池**（pool.go）：单 Transport + httptrace 实测复用计数，复用率 98.5%（800 并发出站）。
+- **熔断器**（circuit.go）：closed/open/half-open 三态，连续 5 次失败熔断 30s，恢复探测，状态迁移全审计；
+  后台健康 worker 仅探测已配密钥且非 closed 的云端 provider。
+- **两级缓存**（adapters.go）：协议适配缓存（LRU 128）+ 租户隔离响应缓存（TTL 300s / LRU 1024，key 含租户）；
+  热重载全量失效；缓存命中内容必已过安全链。
+- **协议适配器**：openai-compat / anthropic（system 提升）/ gemini（role=model + systemInstruction）/ ollama 原生。
+
+## 三、性能（对照 v3.0.5 基线，可复现基准随源码交付）
+
+出站顺序 P99 中位数 **177µs→107µs（-40%）**，并发 16×50 P99 **2536µs→1855µs（-27%）**；
+连接复用率 **98.5%**（目标 ≥60%）；模板型负载缓存命中率 **49%** / 双场景累计 **42.5%**（目标 ≥40%）。
+**v3.0.2 从未公开基准数据，基线如实替换为 v3.0.5 同机对照，局限已在报告声明。**
+
+## 四、提示词与文案
+
+- 全部 agent system prompt 重写：补准确性约束（区分事实/推测、不编造引用）、安全一致性措辞
+  （security-analyst 不输出攻击利用细节）、扁平结构预留 i18n 空间；安全护栏措辞未削弱。
+- README / 介绍语 / tagline 重定位为「The Router of the AI Era」；13 客户端接入指南；不可连接清单 16 项。
+
+## 五、管理端点与配置
+
+- 新增 `/api/admin/v32/providers`（GET）、`/api/admin/v32/providers/probe`（POST，admin.write）、
+  `/api/admin/v32/pool`、`/api/admin/v32/cache`；`/api/admin/models` 并入注册表模型。
+- config.json 新段：`providers`（apiKey/baseUrl/enabled/models 覆盖）、`circuit`、`responseCache`、`pool`，热重载生效。
+
+## 六、质量门
+
+`go vet` 干净；93 个测试（新增 10 项：注册表形状/无密钥扫描/前缀解析/熔断状态机/三种协议 body/
+缓存租户隔离+TTL/httptest 集成/routeChat 端到端/连接池复用/密钥不泄漏）`-race` 全绿。
+安全架构 Tier 0-3 零改动：WAF / 认证 / RBAC / 语义分级 / 脱敏 / 硬黑名单全部在缓存与熔断之前执行。
+
+---
+
+# TarsSecureGuard Go v3.0.5 可观测性 · 自诊断 · 变更说明
+
+> 完整升级说明见 `docs/v3.0.5-observability.md`；Grafana 模板见 `grafana/tsg-observability-dashboard.json`。
+> 对应任务：自主迭代六轮之第 2 轮。四项交付：Prometheus /metrics、分布式 trace_id 全链路、`tsg doctor`、Grafana dashboard 模板。
+> 铁律遵守：**纯观测不改主流程**（观测中间件包裹在既有 gatewayMiddleware 之外，判定链零改动）；token / api key 全链路脱敏；trace_id 关联现有审计行但**不新增持久化存储**；交付云盘不推 GitHub。
+
+## 一、可观测层（observability.go，新增 ~680 行）
+
+- **/metrics**（Prometheus 文本格式 v0.0.4，手写渲染，仍零第三方依赖）：15 个指标族覆盖任务全部要求——QPS（tsg_http_requests_total）、延迟（histogram p50/p95/p99）、WAF hit（tsg_waf_hits_total{rule}）、模型路由分布（tsg_router_decisions_total{backend,result} + explore + 各后端耗时）、资源 tier（tsg_guard_tier L0-L3 + RSS）、模块状态（tsg_module_up / tsg_backend_up 15s 缓存探测）+ 配额/uptime/build_info/trace 计数。端点归 app 类全角色可读（Prometheus 只需一把低权限 readonly key），无 key 401。
+- **脱敏双保险**：标签只用低基数枚举（class/method/code/rule/backend/module/tenant），绝无 user/token/key；span 详情经 obsRedact 二次兜底（bearer / sk- / key= / token= / secret= / password= 前缀与 ≥32 位十六进制串 → `***`）。
+
+## 二、分布式 trace_id 全链路
+
+- 最外层中间件生成 crypto/rand 16-hex trace_id → context 传播 + 响应头 `X-Trace-Id` 回显；网关各阶段 obsStage 记 span（request/waf/auth/rbac/quota/route）；出站后端请求（LLaMA/LM Studio/Ollama/云）统一携带 X-Trace-Id 转发（traceHeaderForward，httptest 桩验证有/无 trace 两分支）。
+- **关联不重复存储**：trace 明细仅存内存环形缓冲（256 条，同既有 wafLogs 模式，重启即失）；持久关联走**现有**审计/WAF 日志行尾 ` TRACE=<id>` 字段，零新增存储文件。管理查询 `GET /api/admin/traces?limit=N`（admin.read 类）。
+
+## 三、tsg doctor 自诊断 CLI（doctor.go，新增 ~570 行）
+
+- `tsg doctor` / `--json` / `--config <path>`；退出码 0=全过（允许 WARN）/ 2=仅 WARN / 1=有 FAIL，可直接接巡检脚本。
+- 7 大类 18 项检查（配置/权限/端口/网络/依赖/资源/运行态），每条非 PASS 项带「→ 下一步」具体建议；配置读取用独立 JSON 解析，doctor 零副作用；运行态探针 key 自动从 gateway-key.txt 或用户表取。
+- 主程序新增 `tsg doctor` / `tsg version` 子命令入口（在 MCP stdio 判定之前，不影响既有 stdio 模式）。
+
+## 四、Grafana 模板
+
+- `grafana/tsg-observability-dashboard.json`：Grafana 10+、23 面板、四行布局（核心指标 / WAF 详情 / 模型路由分布 / 资源与模块），`${DS_TSG}` 数据源变量；prometheus.yml 抓取示例（含 X-API-Key 鉴权写法）见升级说明第四节。
+
+## 五、主流程接线（全部为非侵入式）
+
+- `server.Handler = obsMiddleware(gatewayMiddleware(mux))`——观测在最外层，判定链原样。
+- chat/router 的路由与后端调用函数改为可变参数 `trace ...string` 透传，既有全部调用点零改动编译通过；WAF/审计在既有日志行追加 TRACE= 后缀，行格式其余不变。
+
+## 六、测试与验收
+
+- `go vet` 0 告警；触碰文件 gofmt 全过；`go test ./...` 全绿：新增 v305_test.go 10 用例 + 既有 v3.0.1~v3.0.4 全量回归。
+- 沙箱真进程冒烟（linux-amd64, 18889）：/metrics 401/200 + 15 指标族 + 密钥泄露扫描零命中 ✓；traces 端点 admin 读 / readonly 403 ✓；WAF 拦截行 `TRACE=3422bf78809eaa6b` 与响应头一致 ✓；doctor 人读（11 pass/3 warn/4 info, exit 0）+ --json + 坏配置 exit 1 ✓；计数器分类实测正确（admin.read 200/403、tools 403、waf_hits{rule="路径穿越"}=1）✓。
+- **8h 真实环境实测未在本环境执行**——实测清单（六项）见升级说明第五节；完成后本版收口，自动解锁 v3.0.6。
+
+---
+
+# TarsSecureGuard Go v3.0.4 零信任深化 · 多租户 RBAC · 变更说明
+
+> 完整升级说明见 `docs/v3.0.4-zero-trust-multitenant.md`；team 场景示例见 `examples/team-config.example.{yaml,json}`。
+> 依据锦衣卫裁定 TSG-ZT-MT-2026-0929 四节红线 + 五个剩余问题（备案方案见升级说明第六节）。
+> 铁律遵守：security-core 未动、WAF 规则零改动、未引入新模块（新代码均在 package main：whitelist.go / tenant.go + 既有文件接线）。
+
+## 一、零信任白名单基线（whitelist.go，新增 ~430 行）
+
+审计发现的三类隐式放行全部封堵：默认密钥 "tars-gateway-key" 硬编码兜底（前端 localStorage 兜底一并移除，401 引导输入）、allowedRoots 自动填充（显式绝对路径落盘）、ipReputation.whitelist 无值域校验（禁 CIDR/通配）。
+
+| 红线 | 实现位置 | 要点 |
+|---|---|---|
+| [ZT_DEFAULT_DENY] | `enforceDefaultKeyChannel`（whitelist.go L366） | 全新安装显式写 defaultKeyAllowed=true；存量默认密钥未显式 allow → 启动自动轮换（gateway-key.txt 0600，审计 WHITELIST_REMOVE + SECURITY_KEY_ROTATED） |
+| [ZT_EXPLICIT] | `wlValidateIPList`/`wlValidateFileRoots` + `wlValidateOnLoad` | IP 白名单禁 CIDR/通配；文件根须绝对路径；MCP/sidecar 仅显式 enabled 计入放行集 |
+| [ZT_CHANGE_AUDIT] | `wlReconcile` 热重载 diff | WHITELIST_ADD/REMOVE/MODIFY + 前后 SHA-256 |
+| [ZT_INTEGRITY] | `whitelist-integrity.json` 基线（0600） | 失配回退基线条目（WHITELIST_INTEGRITY_FAIL/ROLLBACK），拒绝加载不降级 |
+| 面板 | `GET /api/admin/whitelist/status` | 动态 4 kinds 完整性状态 + 静态 6 项清单 |
+
+## 二、多租户 RBAC（tenant.go，新增 ~890 行）
+
+- **user/group/role 三层**：users 表带 tenant + groups；tenants 顶层段（GlobalTokenCapPerDay + 租户/组定义）。
+- **7 角色**：admin/user/readonly（既有按租户复用，裁定五-5）+ team_lead/auditor（新）+ global_admin/global_auditor（全局独立）。单管理员回退 = global_admin（备案）。
+- **rbacMatrix 7×9 端点类逐格硬编码**（[RBAC_NO_INHERIT]），gatewayMiddleware 旧 isAdminRoute/readonly 两段式判定替换为 `rbacCheck`（含写方法二次判定：管理面 auditor/team_lead/readonly 铁拒；业务面 POST 为协议常规用法不误杀）。
+- [RBAC_TEAM_LEAD] team_lead 零管理面写权限（防自授权）；[RBAC_AUDITOR_RO] auditor 一切写请求入口层硬拒；单测 100% 覆盖矩阵（7×9×GET/POST=126 格）。
+- 端点分类 routeClass：/api/feishu 归 chat 类（原 app 类漏判）。
+
+## 三、配额与策略（[MT_QUOTA]/[MT_ROUTER]/[MT_RATELIMIT]）
+
+- 三层日配额（租户/用户/组）前置 quotaCheck（429 + QUOTA_EXCEEDED）+ 成功 quotaRecord（tokens≈字符/4），持久化 data/quota-usage.json（0600，隔日作废）。
+- [MT_QUOTA_HARD] Σ租户配额 ≤ globalTokenCapPerDay；级联收紧 cascadeClampTenants（TEAM_CONFIG_CASCADE_CLAMP，剩余问题 3 备案）。
+- 路由偏好：tenantPreferredBackends（组优先于租户，Rule A 无值取全集）接入 routeChatSmartT。
+- 限流第 4 维：租户×端点类（tenantClassQuota，只许收紧，校验按全局生效值含默认 60/10/6）。
+- [CFG_TEAM_SCHEMA]/[CFG_ATOMIC_SWAP]：租户段校验失败保持上一版本（TEAM_CONFIG_SCHEMA_FAIL）；用户表校验失败回退上一版本（RBAC_USERS_ROLLBACK + RBAC_TENANT_MISMATCH）。
+
+## 四、审计与按组视图（[MT_AUDIT_ISOLATION]）
+
+- auditLogT：审计行带 TENANT=/GROUP= 字段（旧行解析归 "system"）。
+- handleAuditLogs 行级强制过滤：admin/auditor 本租户、team_lead 本组、global 全量；?tenant=x 跨租户查询记 AUDIT_CROSS_TENANT_ACCESS。
+- 新端点：`GET /api/admin/tenants/status`（租户面板+配额用量）、`GET /api/admin/audit/group-summary`（按组聚合视图）。
+- 越权封堵：POST /api/admin/config 白名单不含 tenants/users/security.apiKey/defaultKeyAllowed，试图修改记 CONFIG_REJECTED（不再静默跳过）。
+
+## 五、测试与验收
+
+- `go vet` 0 告警；`go test` 全绿：新增 v304_test.go（矩阵 126 格全测、租户校验 7 例、三层配额、审计过滤/越权 scope、白名单值域、gatewayMiddleware 端到端多租户链路）+ 既有全量回归（m1 集成测试改用显式测试密钥——默认密钥通道零信任后不再隐式鉴权，属预期行为变更）。
+- 沙箱真进程冒烟（linux-amd64，18891）：全新安装显式化 ✓、存量升级自动轮换（旧 key 401/新 key 200）✓、角色矩阵 6 组实测 ✓、越权配置路径拒绝+审计 ✓、租户面板/组审计视图 ✓、白名单基线 4 kinds ✓。
+- **8h 真实环境实测未在本环境执行**（沙箱无常驻能力）——实测清单：① 存量升级密钥轮换与前端引导；② team 配置热重载（TEAM_CONFIG_APPLY/SCHEMA_FAIL 两分支）；③ 三层配额耗尽 429 与隔日重置；④ 租户限流收紧生效；⑤ 跨租户查询审计；⑥ 六平台启动冒烟。
+
+---
+
+# TarsSecureGuard Go v3.0.1 Tier 1 实装 · sidecarHub 宿主 · 前端汉化收尾 · 变更说明
+
+核心目标（对应任务三项范围）：① Tier 1 系统原生命令探测从规划落地为实装，严格遵循锦衣卫裁定 TSG-TIER1-2026-0929 七条红线；② sidecarHub 外置模块宿主按 v3.0.0 定稿架构（manifest + SHA-256 钉扎 + 低权限代理）实装；③ 前端深层英文提示串全量汉化。**Tier 0 形态不破坏**：Go 单 exe、零第三方依赖、六平台、OS 自带程序不算依赖——以上全部保持。
+
+## 一、Tier 1 系统原生命令探测（实装）
+
+新增 `tier1.go`（655 行）+ `tier1_hwprobe.ps1`（45 行，//go:embed 预置脚本）+ `tier1_unix.go` / `tier1_windows.go`（平台执行器）。`hardware.go` 的 `detectGPU` / `runCmdTimeout` 违规直调（wmic、`powershell -Command`、裸 lspci、nvidia-smi、system_profiler）全部删除，静态硬件属性统一经 `tier1HardwareSnapshot()` 唯一出口。
+
+### 七条红线落实对照（锦衣卫裁定 TSG-TIER1-2026-0929）
+
+| 红线 | 实现位置（tier1.go 为主） | 要点 |
+|------|--------------------------|------|
+| [TIER1_EXEC_MANDATORY] | `tier1Run`（L217）：exec.Command 数组式 argv，无任何 shell 中介；Windows 唯一形态 `powershell.exe -NoProfile -NonInteractive -OutputFormat XML -ExecutionPolicy RemoteSigned -File <预置脚本>`（L108-127 白名单精确匹配） | `-Command` / 管道 / 重定向一律拒绝 |
+| [TIER1_AUDIT_MANDATORY] | `tier1Audit`（L81）+ `tier1Run`（L241-258）：每次调用写 TIER1_COMMAND_EXEC / _FAIL / _TIMEOUT，字段 ts/cmd/argv/caller/exit/dur | 冒烟实测审计样例见第四节 |
+| [TIER1_CACHE_DEGRADE] | `tier1CacheTTL`（L62，60-3600 clamp 默认 300）/ `tier1CacheMAC`（L294，HMAC-SHA256 内存密钥）/ `tier1CacheLoad`（L317，篡改→AUDIT_TIER1_CACHE_TAMPER+删除+降级）/ `tier1CacheStore`（L345，0600+先删旧文件防权限继承）/ `tier1CacheInvalidate`（L363，热重载/安全级别变更/开关切换/POLICY_VIOLATION 四种失效） | 仅缓存静态属性（CPU/GPU/主板型号），动态指标每请求现取 |
+| [TIER1_TOGGLE] | `tier1Enabled`（L50，nil=默认开启）+ `config.tier1.enabled` 进 `isConfigPathAllowed`（main.go L495）与 `validateConfigValue` 值域校验（handlers.go）；watchConfig 热重载即生效（config.go L417） | 冒烟实测：false→降级 Tier 0、true→立即恢复，无需重启 |
+| [TIER1_ALLOWLIST] | `tier1AllowListed`（L108）：Linux `lspci -mm -v` / `dmidecode -t {0,1,2,3,4,17}` / `cat /proc/{cpuinfo,meminfo}`；Windows 仅预置脚本形态；macOS `system_profiler -xml {SPHardware,SPMemory,SPDisplays,SPNVMe}DataType`；禁 sudo/管道/重定向/提权；未命中→POLICY_VIOLATION 审计+拒绝+全量缓存失效（L140-142） | 预置脚本启动与每次执行前均校验 SHA-256（L439-443） |
+| [TIER1_PROC_TIMEOUT] | `tier1Run`（L217）：3 秒上限；`tier1BreakerRecord`（L181）连续 3 次失败→熔断+降级审计，60 秒恢复探测（`tier1BreakerAllow` L166）；进程树清理：Unix Setpgid+kill -pgid（tier1_unix.go L16-33），Windows Job Object KILL_ON_JOB_CLOSE（tier1_windows.go，绑定失败降级单进程 Kill） | 熔断期间返回降级错误而非阻塞 |
+| [TIER1_PRIVILEGE] | L251-252：权限不足（EPERM 等）按降级处理，绝不自动提权、绝不尝试 sudo | 降级审计带 degrade_reason + fallback_data_source（L206） |
+
+### 附带修复（实施中发现）
+
+- **saveConfig 丢 v3 顶层段**：v3.0.0 的 Config 主结构不承载 v3 段，`saveConfig`（解析成功即回写 + POST 保存）会把 tier1/resource/rateLimit 等段整段丢掉——用户关掉 tier1.enabled 后一次热重载即被静默重置，违反 [TIER1_TOGGLE]。修复：Config 匿名内嵌 V3Config（config.go）+ loadConfig 对 nil **bool 补 &true（防落盘 null 且与读取侧语义一致）。
+- PS 5.1 ConvertTo-Json 单元素数组塌缩：GPU 字段用单字符串；-OutputFormat XML 的 CLIXML 包裹：遍历全部 `<S>` 节点取第一个可解析 JSON（防 stderr 噪声）。
+
+## 二、sidecarHub 外置模块宿主（实装）
+
+新增 `sidecarhub.go`（932 行）+ `sidecarhub_unix.go`（59 行）+ `sidecarhub_windows.go`（70 行），按 v3.0.0 定稿协议实装：
+
+- **manifest 发现与校验**：`modules.d/*.json`；artifact 必须落在 `modules.d/<id>/` 内（filepath.Rel 防逃逸）；command 至少一项引用 artifact（argv 数组式、禁 shell）；**SHA-256 钉扎**写入主 config `sidecar.modules.<id>.sha256`——未钉扎拒绝并在审计中给出实测摘要供管理员确认（零信任：宿主不替用户信任任何二进制）；摘要不符拒绝。
+- **生命周期监管**：supervisor 循环（bring-up：等 /health 就绪 10 秒 → POST /init → POST /start）；30 秒健康检查；崩溃退避重启 1s→2s→4s…上限 60s；**连续 5 次失败停用** + 审计 + 状态面板告警；优雅停机 POST /stop（3 秒宽限）；changeKey（manifest+钉扎指纹）变更检测，未变化不动（含 disabled 状态保留）。
+- **传输与权限**：Unix domain socket（Linux/macOS）/ 127.0.0.1+随机端口+token（Windows，named pipe 需 winio 第三方包违反零依赖铁律故弃用）；每模块独立随机 token（crypto/rand 32 字节，仅经环境变量下发、绝不落盘）；最小环境变量白名单（PATH/HOME/TMPDIR 等，**TARS_*_KEY 绝不透传**）；Unix 按 manifest.user 降权（setuid/setgid，root 网关下生效；非 root 保持当前权限并审计，绝不提权）；Windows Job Object 进程树管理。
+- **代理与路由**：`/api/ext/{id}/*` 反向代理（流式 FlushInterval=-1；注入 X-TSG-Token、剥离 Authorization/X-API-Key；全流量过网关 WAF/RBAC/审计；模块非 running 返回 503）；`/api/admin/sidecar/status` 状态面板（含拒绝原因与修复提示）、`/api/admin/sidecar/reload` 全量重载（admin）；配置热重载自动触发增量重扫（sidecarHotRescan）；MCP `tars_module_schema` 并入外置模块 schema（sensitive 字段脱敏）。
+- **模块注册**：注册表新增 sidecarHub（tools，默认开，HasWorker）。
+
+## 三、前端深层汉化收尾
+
+`frontend/index.html` 约 160 处剩余英文提示串全量汉化：命令面板 Ctrl+K 全部 20 项（页面 17 + 动作 3）、Agent 卡片 7 张名称与描述、Dashboard 系统信息标签、模型页（Start/Stop/LOCAL/CLOUD/运行时/下载进度）、设备扫描与推荐模型、MCP/搜索/飞书测试面板、设置页表单与 CORS 白名单、日志页操作反馈、新手向导、通用错误与 toast（'Stats refreshed'→'统计已刷新' 等 40+ 条）。JS 语法经 node --check 验证通过。
+
+## 四、验证记录（2026-09-29，Linux 沙箱实测）
+
+- **测试**：新增 `v301_test.go`（232 行）：TTL clamp 边界（0/10/300/99999）、白名单拒绝（nvidia-smi/wmic/powershell -Command/sh -c/sudo/管道/参数不全/白名单外文件/多参数）、缓存 HMAC 篡改检测（改值/加键 MAC 必变）、sidecar 五类拒绝（未钉扎含摘要提示/摘要不符/artifact 逃逸/command 未引用 artifact/非法 manifest）——全部通过；既有测试套件（m1/m2/m3m4/m1_integration）无回归；go vet 干净。
+- **六平台构建**：CGO_ENABLED=0 静态编译，`file` 头逐一校验（ELF statically linked stripped ×2 / Mach-O ×2 / PE64 ×2），单产物 6.4-6.7MB。
+- **Linux 冒烟实跑**（v3.0.1 二进制 + Python 示例 sidecar 模块）：
+  - health 200；
+  - Tier 1 硬件评估：CPU 型号实测探测（AMD EPYC 9Y24 96-Core Processor）、缓存命中（二次评估零子进程 spawn）、缓存落盘 0600、config 热重载后缓存失效→重探测→回填；
+  - 缓存篡改：改写 GPU 字段后 HMAC 校验失败 → AUDIT_TIER1_CACHE_TAMPER 审计 + 文件删除 + 当轮降级 Tier 0（degradeReason 明示）；
+  - tier1 开关：enabled=false 热重载即降级（reason=已关闭）、true 即恢复探测；
+  - sidecar：manifest+钉扎校验通过 → /health→/init→/start 生命周期 → running；`/api/ext/hello/api/hello` 反向代理返回模块数据；故意配错摘要 → SIDECAR_LOAD_REJECTED（期望/实测摘要并列）；崩溃模块（坏脚本）连续 5 次 bring-up 失败 → 自动停用 + 状态面板告警 + 修复后 reload 重新纳管；
+  - 审计事件实测样例：`TIER1_COMMAND_EXEC ts=... cmd=/usr/bin/cat argv=["/proc/cpuinfo"] caller=hardware-assessment exit=0 dur=0ms`、`SIDECAR_MANIFEST_LOADED ... artifact_sha256=...`、`SIDECAR_MODULE_STARTED ... addr=unix:...`。
+- **Windows/macOS 为静态验证**（交叉编译 + vet + 逐平台代码走查：Job Object/CLIXML/Setpgid 分支），实机行为级验证按约定由用户在云电脑完成。Windows PowerShell 探测依赖 PS 5.1+（Win10/11 自带）。
+
+## 五、已知事项与建议
+
+- **tier1 熔断与降级不触发安全模块**：Tier 1 全降级时硬件评估回退 Tier 0 精度（GPU/主板型号缺失），security-core 不受影响——符合"Tier 1 是增强而非依赖"的架构定位。
+- **Windows sidecar 传输为 127.0.0.1+token**：本机回环仅本机可达，token 鉴权兜底；若未来要求内核态隔离，需评估 winio（将引入第三方依赖，违反当前铁律，故 v3.0.1 不做）。
+- **sidecar 示例模块**：冒烟用 Python 示例未随包分发；建议 v3.0.2 起附一个官方 hello 模块样例（modules.d/ 目录 + 钉扎说明）降低接入门槛。
+- **Tier 3（eBPF/ESF）**：按约定本版不实装，v4.0 记账不变。
+
+## 六、升级与兼容
+
+- 配置：旧 config.json 无需迁移——tier1 段缺失按默认（开启、TTL 300）处理；saveConfig 现在会正确持久化 v3 顶层段（含 sidecar 钉扎）。
+- 部署：单 exe 替换即升级；新增运行期文件仅 `state/tier1-cache.json`（0600）与 `state/sidecar/*.sock`；`tier1/hwprobe.ps1` 由 Windows 端启动时自动落盘（含 SHA-256 校验），无需手工安装。
+- 源码包内含本文件；六平台二进制与源码包一并交付云盘。
+
+---
+
 # TarsSecureGuard Go v2.1.0 跨平台兼容与程序精简 · 变更说明
 
 核心目标：**全平台兼容（macOS 全系 / Linux / Windows 10/11）+ 程序精简**。最低支持矩阵、构建产物矩阵、命名规范与构建命令见 [COMPATIBILITY.md](./COMPATIBILITY.md)。

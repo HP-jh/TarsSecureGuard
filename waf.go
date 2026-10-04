@@ -238,7 +238,9 @@ func maskPIIInMessages(msgs []Message) []Message {
 
 func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {
 	now := time.Now().Format("15:04:05")
-	line := fmt.Sprintf("[%s] %s %s %s → BLOCKED (%s)", now, clientIP(r), r.Method, r.URL.Path, reason)
+	// v3.0.5 观测埋点（纯观测）：WAF 命中计数 + trace span；日志行追加 TRACE=<id> 便于审计关联
+	obsRecordWAF(r, reason)
+	line := fmt.Sprintf("[%s] %s %s %s → BLOCKED (%s)%s", now, clientIP(r), r.Method, r.URL.Path, reason, obsTraceSuffix(r))
 	mu.Lock()
 	wafBlocks++
 	if len(wafLogs) >= wafLogLimit {

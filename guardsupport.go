@@ -62,6 +62,24 @@ type V3Config struct {
 		EpsilonMin   float64 `json:"epsilonMin"`   // 衰减下限，默认 0.02
 		Enabled      *bool   `json:"enabled"`      // 默认 true（静态路由不受影响，仅叠加探索）
 	} `json:"router"`
+	// Tier1 v3.0.1 系统原生命令探测（锦衣卫裁定 TSG-TIER1-2026-0929）。
+	// 关闭仅影响硬件评估精度（回退 Tier 0），security-core 不受影响。
+	Tier1 struct {
+		Enabled         *bool `json:"enabled"`         // 默认 true，用户可关（[TIER1_TOGGLE]）
+		CacheTTLSeconds int   `json:"cacheTtlSeconds"` // 静态属性缓存 TTL，60-3600 clamp，默认 300
+	} `json:"tier1"`
+	// Sidecar v3.0.1 外置模块宿主（v3.0.0 定稿协议）：modules.d/{id}.json manifest
+	// 声明模块入口，artifact 的 SHA-256 摘要由管理员钉扎于此（锦衣卫裁定 3）——
+	// 校验不过拒绝加载并审计；config 为经 /init 下发给模块的配置（模块自声明 schema）。
+	Sidecar struct {
+		Modules map[string]SidecarPin `json:"modules"`
+	} `json:"sidecar"`
+}
+
+// SidecarPin 单个 sidecar 模块的管理员确认项
+type SidecarPin struct {
+	SHA256 string          `json:"sha256"` // modules.d/{id}/<artifact> 的 SHA-256（hex，小写）
+	Config json.RawMessage `json:"config"` // 可选：POST /init 下发给模块的配置原文
 }
 
 var (
