@@ -34,6 +34,7 @@
   （security-analyst 不输出攻击利用细节）、扁平结构预留 i18n 空间；安全护栏措辞未削弱。
 - README / 介绍语 / tagline 重定位为「The Router of the AI Era」；13 客户端接入指南；不可连接清单 16 项。
 - **2026-10-04 二次打磨**：推荐语聚焦"一把密钥连一切"叙事——路由器角色 + Universal Connector + Coding Plan + 50 集成路线 + 三种纳入模式（embed / federate / wrap-cli-as-mcp）写进第一屏；介绍语新增「Universal Connector 路线」章节、含三种纳入模式表；保留"安全带"已有认知资产，强化对比 LiteLLM / New API 的差异化卖点；端口 `18889` 显式化（v3.2.0 起统一）。
+- **2026-10-04 三次打磨**：基于「vs LiteLLM 不是同一赛道」反馈，介绍语在「家里的路由器」段之后插入对比段：LiteLLM = "我能调几个 provider"（Python + Docker + Redis + Postgres 的重型网关）vs TSG = "我所有 AI 客户端 + 所有模型 + 所有协议怎么连、怎么管、怎么安全"（Go 单二进制 6.8 MB、零依赖、拷到 U 盘里都能跑）；定位凝练为**路由器 + 网关 + 安全带**三件事由一个文件搞定；不诋毁对手，只说 TSG 的差异点。
 
 ## 五、管理端点与配置
 
