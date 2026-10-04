@@ -33,6 +33,7 @@
 - 全部 agent system prompt 重写：补准确性约束（区分事实/推测、不编造引用）、安全一致性措辞
   （security-analyst 不输出攻击利用细节）、扁平结构预留 i18n 空间；安全护栏措辞未削弱。
 - README / 介绍语 / tagline 重定位为「The Router of the AI Era」；13 客户端接入指南；不可连接清单 16 项。
+- **2026-10-04 二次打磨**：推荐语聚焦"一把密钥连一切"叙事——路由器角色 + Universal Connector + Coding Plan + 50 集成路线 + 三种纳入模式（embed / federate / wrap-cli-as-mcp）写进第一屏；介绍语新增「Universal Connector 路线」章节、含三种纳入模式表；保留"安全带"已有认知资产，强化对比 LiteLLM / New API 的差异化卖点；端口 `18889` 显式化（v3.2.0 起统一）。
 
 ## 五、管理端点与配置
 
