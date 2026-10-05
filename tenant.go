@@ -100,9 +100,17 @@ type Identity struct {
 const tenantDefault = "default"
 
 // identityFromRequest 从请求解析身份（多用户优先，回退单管理员=global_admin，租户 "*"）
+// v3.2.2：Bearer tsg_s_* 优先走 OAuth 会话（oauth.go）；API Key 通道原样保留。
 func identityFromRequest(r *http.Request) (Identity, bool) {
 	key := extractAPIKey(r)
 	if key == "" {
+		return Identity{}, false
+	}
+	// v3.2.2 OAuth 会话令牌：与 API Key 同权进入 RBAC 矩阵
+	if strings.HasPrefix(key, oauthSessionTokenPrefix) {
+		if id, ok := oauthSessionIdentity(key); ok {
+			return id, true
+		}
 		return Identity{}, false
 	}
 	cfgMu.RLock()
@@ -759,6 +767,8 @@ func auditLogT(action, tenant, group, user, detail string) {
 		time.Now().Format("2006-01-02 15:04:05"), action, user, tenant, group, "-", detail)
 	fileLog("audit", line)
 	logMsg("[AUDIT] " + line)
+	// v3.2.2 审计升级：同步落结构化 JSONL 哈希链条目（哈希链防篡改，见 auditv2.go）
+	auditV2Write(action, tenant, group, user, "", detail, "")
 }
 
 

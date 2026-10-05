@@ -31,6 +31,17 @@ var toolModuleMap = map[string]string{
 	"tars_memory_get":        "memory",
 	"tars_memory_set":        "memory",
 	"tars_hardware_advisor":  "hardwareAdvisor",
+	// v3.2.2 治理层工具（contextGov 模块）
+	"tars_shared_memory_set":    "contextGov",
+	"tars_shared_memory_get":    "contextGov",
+	"tars_shared_memory_list":   "contextGov",
+	"tars_shared_memory_delete": "contextGov",
+	"tars_shared_info_add":      "contextGov",
+	"tars_shared_info_search":   "contextGov",
+	"tars_shared_info_delete":   "contextGov",
+	"tars_context_build":        "contextGov",
+	"tars_context_pack_save":    "contextGov",
+	"tars_context_pack_load":    "contextGov",
 }
 
 // toolModuleOf 查询工具归属模块（未登记的内置工具默认归 builtinTools）
@@ -491,8 +502,18 @@ func handleToolCall(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 		return
 	}
-	result, err := executeTool(name, args)
+	// v3.2.2 守门人：身份感知的工具执行（策略门 + 二次确认），见 gatekeeper.go
+	id, ok := identityFromRequest(r)
+	if !ok {
+		writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	result, err := executeToolAs(id, name, args)
 	if err != nil {
+		if req, isConfirm := err.(*gkConfirmationRequired); isConfirm {
+			gkWriteConfirmation(w, req, nil)
+			return
+		}
 		writeJSON(w, map[string]interface{}{"success": false, "error": err.Error()})
 		return
 	}
@@ -513,4 +534,250 @@ func toolNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+
+
+// ===================== v3.2.2 治理层工具注册 =====================
+
+// registerV322Tools v3.2.2 共享记忆 / 共享信息 / 上下文拓展 MCP 工具
+// （initTools 之后调用；身份经 executeToolAs 以保留参数键 _tsgIdentity 注入）
+func registerV322Tools() {
+	if tools == nil {
+		tools = map[string]Tool{}
+	}
+	strProp := func(desc string) map[string]interface{} {
+		return map[string]interface{}{"type": "string", "description": desc}
+	}
+	numProp := func(desc string) map[string]interface{} {
+		return map[string]interface{}{"type": "number", "description": desc}
+	}
+
+	tools["tars_shared_memory_set"] = Tool{
+		Name:        "tars_shared_memory_set",
+		Description: "写入共享记忆（命名空间化 KV：user/tenant/global，读走就近覆盖解析链）。跨客户端/跨会话共享",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"key": strProp("记忆键（≤256 字符）"), "value": strProp("记忆值（≤64KB）"),
+			"namespace": strProp("user（默认）/ tenant / global"),
+			"ttlSeconds": numProp("可选 TTL（秒），过期自动失效"),
+		}, "required": []string{"key", "value"}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, ok := identityFromArgs(a)
+			if !ok {
+				return nil, fmt.Errorf("共享记忆写入需要身份（经 /api/tools/ 或 /mcp 调用）")
+			}
+			key, _ := a["key"].(string)
+			value, _ := a["value"].(string)
+			ns, _ := a["namespace"].(string)
+			ttl := 0.0
+			if t, ok := a["ttlSeconds"].(float64); ok {
+				ttl = t
+			}
+			e, err := smSet(id, ns, key, value, time.Duration(ttl*float64(time.Second)))
+			if err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{"success": true, "key": key, "revision": e.Revision}, nil
+		},
+	}
+
+	tools["tars_shared_memory_get"] = Tool{
+		Name:        "tars_shared_memory_get",
+		Description: "按解析链（user → tenant → global）读取共享记忆键",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"key": strProp("记忆键"),
+		}, "required": []string{"key"}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, _ := identityFromArgs(a)
+			key, _ := a["key"].(string)
+			e, ns, ok := smGet(id, key)
+			if !ok {
+				return map[string]interface{}{"found": false, "key": key}, nil
+			}
+			return map[string]interface{}{"found": true, "key": key, "value": e.Value, "namespace": ns,
+				"updatedBy": e.UpdatedBy, "updatedAt": e.UpdatedAt, "revision": e.Revision}, nil
+		},
+	}
+
+	tools["tars_shared_memory_list"] = Tool{
+		Name:        "tars_shared_memory_list",
+		Description: "列出可见共享记忆（解析链合并视图，同键就近层覆盖）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"prefix": strProp("可选键前缀过滤"),
+		}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, _ := identityFromArgs(a)
+			prefix, _ := a["prefix"].(string)
+			return map[string]interface{}{"items": smList(id, prefix)}, nil
+		},
+	}
+
+	tools["tars_shared_memory_delete"] = Tool{
+		Name:        "tars_shared_memory_delete",
+		Description: "删除共享记忆键（仅限自己可写的命名空间）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"key": strProp("记忆键"), "namespace": strProp("user（默认）/ tenant / global"),
+		}, "required": []string{"key"}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, ok := identityFromArgs(a)
+			if !ok {
+				return nil, fmt.Errorf("共享记忆删除需要身份")
+			}
+			key, _ := a["key"].(string)
+			ns, _ := a["namespace"].(string)
+			deleted, err := smDelete(id, ns, key)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{"success": true, "deleted": deleted}, nil
+		},
+	}
+
+	tools["tars_shared_info_add"] = Tool{
+		Name:        "tars_shared_info_add",
+		Description: "新增共享信息条目（fact/preference/note/link，带标签与置信度，供上下文组装检索）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"title": strProp("标题（≤200 字符）"), "content": strProp("内容（≤32KB）"),
+			"type": strProp("fact / preference / note / link（默认 note）"),
+			"tags": map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+			"scope": strProp("tenant（默认）/ global（仅全局角色）"),
+			"confidence": map[string]interface{}{"type": "number", "description": "0~1，默认 0.5"},
+		}, "required": []string{"title", "content"}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, ok := identityFromArgs(a)
+			if !ok {
+				return nil, fmt.Errorf("共享信息写入需要身份")
+			}
+			title, _ := a["title"].(string)
+			content, _ := a["content"].(string)
+			typ, _ := a["type"].(string)
+			scope, _ := a["scope"].(string)
+			conf := 0.5
+			if c, ok := a["confidence"].(float64); ok {
+				conf = c
+			}
+			var tags []string
+			if raw, ok := a["tags"].([]interface{}); ok {
+				for _, t := range raw {
+					if s, ok := t.(string); ok {
+						tags = append(tags, s)
+					}
+				}
+			}
+			rec, err := siAdd(id, typ, title, content, tags, scope, conf)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{"success": true, "id": rec.ID, "revision": rec.Revision}, nil
+		},
+	}
+
+	tools["tars_shared_info_search"] = Tool{
+		Name:        "tars_shared_info_search",
+		Description: "检索共享信息（标题/标签/内容命中排序，租户隔离）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"q": strProp("关键词（空=按时间全览）"), "type": strProp("可选类型过滤"),
+			"limit": numProp("返回上限（默认 20，最大 200）"),
+		}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, _ := identityFromArgs(a)
+			q, _ := a["q"].(string)
+			typ, _ := a["type"].(string)
+			limit := 20
+			if l, ok := a["limit"].(float64); ok && l > 0 {
+				limit = int(l)
+			}
+			recs := siSearch(id, q, typ, limit)
+			return map[string]interface{}{"items": recs, "count": len(recs)}, nil
+		},
+	}
+
+	tools["tars_shared_info_delete"] = Tool{
+		Name:        "tars_shared_info_delete",
+		Description: "删除共享信息条目（本租户条目本租户可删，global 条目仅全局角色）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"id": strProp("条目 ID（si_ 前缀）"),
+		}, "required": []string{"id"}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, ok := identityFromArgs(a)
+			if !ok {
+				return nil, fmt.Errorf("共享信息删除需要身份")
+			}
+			recID, _ := a["id"].(string)
+			deleted, err := siDelete(id, recID)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{"success": true, "deleted": deleted}, nil
+		},
+	}
+
+	tools["tars_context_build"] = Tool{
+		Name:        "tars_context_build",
+		Description: "组装上下文包：共享信息 + 共享记忆按租户隔离与预算合成为可注入 system 文本",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"topic": strProp("可选主题（提升相关共享信息排序）"),
+			"includeSharedInfo": map[string]interface{}{"type": "boolean", "description": "默认 true"},
+			"includeSharedMemory": map[string]interface{}{"type": "boolean", "description": "默认 true"},
+			"maxChars": numProp("字符预算（默认 4096）"),
+		}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, _ := identityFromArgs(a)
+			opts := ContextBuildOpts{IncludeSharedInfo: true, IncludeSharedMemory: true}
+			if v, ok := a["topic"].(string); ok {
+				opts.Topic = v
+			}
+			if v, ok := a["includeSharedInfo"].(bool); ok {
+				opts.IncludeSharedInfo = v
+			}
+			if v, ok := a["includeSharedMemory"].(bool); ok {
+				opts.IncludeSharedMemory = v
+			}
+			if v, ok := a["maxChars"].(float64); ok && v > 0 {
+				opts.MaxChars = int(v)
+			}
+			pack := buildContextPack(id, opts)
+			return pack, nil
+		},
+	}
+
+	tools["tars_context_pack_save"] = Tool{
+		Name:        "tars_context_pack_save",
+		Description: "保存命名上下文包（可复用/分享，本租户可见）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"name": strProp("包名（≤100 字符）"), "text": strProp("包内容（≤64KB，可先用 tars_context_build 生成）"),
+		}, "required": []string{"name", "text"}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, ok := identityFromArgs(a)
+			if !ok {
+				return nil, fmt.Errorf("保存上下文包需要身份")
+			}
+			name, _ := a["name"].(string)
+			text, _ := a["text"].(string)
+			if err := ctxPackSave(id, name, text); err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{"success": true, "name": name}, nil
+		},
+	}
+
+	tools["tars_context_pack_load"] = Tool{
+		Name:        "tars_context_pack_load",
+		Description: "读取命名上下文包（本租户或全局角色）",
+		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+			"name": strProp("包名"),
+		}, "required": []string{"name"}},
+		Handler: func(a map[string]interface{}) (interface{}, error) {
+			id, ok := identityFromArgs(a)
+			if !ok {
+				return nil, fmt.Errorf("读取上下文包需要身份")
+			}
+			name, _ := a["name"].(string)
+			text, err := ctxPackLoad(id, name)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{"name": name, "text": text}, nil
+		},
+	}
 }

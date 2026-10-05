@@ -1,3 +1,70 @@
+# TarsSecureGuard v3.2.2 · 治理层 + 性能升级 v1 —— 共享记忆 · 共享信息 · 上下文拓展 MCP · OAuth/IdP · 守门人 · 审计升级 · 日志管线/连接池/热路径优化
+
+> 设计决策、模块拆分与用法详见 `docs/v3.2.2-governance.md`；性能瓶颈定位与基准数据详见 `docs/v3.2.2-performance.md`。
+> **零依赖不变**：六个模块全部只用 Go 标准库；CLI / systemd / Docker / 桌面客户端四种交付形态零变化。
+> 测试基线从 97 条增至 **133 条**（+29 治理层 / +7 性能），全量 `-race` 绿。
+
+## 一、共享记忆（shared-memory）
+
+- 三层命名空间 `user:<tenant>/<user>` → `tenant:<tenant>` → `global`，读取走**就近覆盖解析链**（user 层覆盖 tenant 层覆盖 global 层）。
+- 租户隔离由**命名空间规范化**保证：调用方传 "tenant" 自动落到自己租户的 ns，跨租户读不到、写不进、删不掉。
+- 每命名空间上限 1000 条、单值 64KB、全局 10000 条；超限按 LRU 驱逐最旧条目；TTL 过期自动失效；落盘 `shared-memory.json`。
+- 普通用户写 `global` 需 `global_admin`（写全局即跨租户影响）。
+
+## 二、共享信息（shared-info）
+
+- 结构化知识条目：`fact / preference / note / link` 四类，带标题、内容、标签、置信度、来源、可见范围（tenant / global）。
+- 检索按命中权重排序：标题 100 > 标签 80 > 内容 40，同级按更新时间倒序；上限 5000 条、单条 32KB。
+
+## 三、上下文拓展 MCP（context pack）
+
+- `tars_context_build` 把「身份与策略 + 共享信息 + 共享记忆」组装成**确定性上下文包**（默认预算 4096 字符，整行截断并标注）。
+- 身份与策略段**永不截断**；支持命名上下文包存取（`tars_context_pack_save/load`，租户可见性隔离，上限 100 个）。
+- 聊天通道注入：`/api/chat` 请求体 `context` 字段按需注入，**注入发生在 PII 脱敏与语义防护之前**——注入内容与用户输入过同一条安全链，无旁路。
+
+## 四、OAuth / OIDC 接入（企业 IdP）
+
+- Authorization Code + **PKCE（S256）**，`/oauth/login` · `/oauth/callback` · `/oauth/logout`。
+- **fail-close**：配置不全（issuer/client_id/secret/redirect_url 缺一，或 issuer 非 https 且非 localhost）一律 503，不降级。
+- id_token 验签**手写标准库实现**（`oauth-jwt.go`，密码学代码集中一处便于审计）：算法白名单 RS256 / ES256（拒绝 `none`、HS256 等），JWKS 签名验证、iss / aud / exp 全检；ES256 验签前先做**曲线点校验**防无效点攻击。
+- 角色映射：IdP role claim → TSG 角色，映射结果校验进 rbacMatrix，未知角色拒发会话；会话 token `tsg_s_*`（32 字节随机、内存态、默认 480 分钟），经 Bearer 或 Cookie 走**与本地用户完全相同的 RBAC 矩阵**。
+
+## 五、守门人（gatekeeper）—— 动作级防线
+
+- 与既有防线分工：WAF 管输入、语义防护管内容、**守门人管动作**（工具执行前的最后一道闸）。
+- 内置规则（不可放宽）：`security.* / oauth.* / tenants.* / gatekeeper.* / audit.*` 配置项禁止经工具通道修改；敏感路径（`id_rsa`、`.env`、credentials 等）禁止读写；模型启停、非安全配置写、大于 1MB 写入需**二次确认**。
+- **收紧-only 配置**：config 里的自定义规则只能比内置更严；尝试放宽（如对内置 deny 配 allow）会被拒并落 `GATEKEEPER_POLICY_OVERRIDE` 审计。
+- 两阶段确认：首次调用返回确认要求（60 秒一次性 token，绑定 用户+工具+参数哈希），携带 `confirm_token` 重放才执行；参数不匹配即失效。
+- **身份注入防伪造**：所有工具调用经 `executeToolAs` 统一入口，先剥离调用方传入的保留键 `_tsgIdentity` 再注入服务端身份，工具处理器无法被伪造身份欺骗。
+- 同时挂 `/api/tools/` 与 `/mcp` 两条通道；mcp-stdio 维持原有自带守卫不变。
+
+## 六、审计升级（hash-chain audit v2）
+
+- JSONL 审计条目带 `prevHash / hash` 前后链（SHA256(前条 hash + 规范化 JSON)），按日切文件，重启续链。
+- `/api/admin/audit/verify` 全链重算校验，任一行被篡改即定位报断（仅 global_admin / global_auditor）。
+- `/api/admin/audit/export` 导出按租户行级过滤，跨租户访问尝试落 `AUDIT_CROSS_TENANT_ACCESS` 审计。
+
+## 七、性能升级 v1（日志管线 / 连接池覆盖补全 / 热路径优化）
+
+> 事实基线：连接池、熔断器、响应缓存在 **v3.2.0 已交付**（P99 -40%/-27%、复用率 98.5%）；本轮补全 v3.2.0 之后的真实剩余瓶颈。完整瓶颈定位与基准见 `docs/v3.2.2-performance.md`。
+
+- **日志常开句柄管线**（`logging.go` 重写）：每个日志前缀常开一个句柄，写入只剩 1 次 write syscall；跨天首写自动轮转（语义与旧实现一致）；写入保持同步、不做异步化（不引入丢行风险）；A/B 基准单行落盘 **4004ns → 832ns（-79%）**，带审计请求每次省约 6.3µs。
+- **连接池覆盖补全**：新增 `pooledHTTPClient(timeout)` 助手，doctor 两处探测接入共享 Transport；customToolClient（web fetch）**保留 SSRF 拨号校验隔离**（安全不变量）同时对齐主池连接参数（PerHost 2→8、HTTP2 开启）。
+- **tier1 正则包级预编译**：三处逐调用 `regexp.MustCompile` 提升为包级变量，行为不变。
+- 安全不妥协：审计仍同步落盘、hash 链逻辑一行未动；缓存命中内容必经全安全链。新增 7 测试 + 2 A/B 基准。
+
+## 八、版本与兼容
+
+- 版本号 → `3.2.2`；`contextGov` 新功能模块（默认开启，可关——关则六个治理工具与三条 REST 路由 503）。
+- 新增 REST：`/api/context/memory|info|build`、`/api/admin/audit/verify|export`、`/api/admin/oauth/status`、`/api/admin/v322/status`。
+- 新增工具 10 个：`tars_shared_memory_set/get/list/delete`、`tars_shared_info_add/search/delete`、`tars_context_build`、`tars_context_pack_save/load`。
+
+## 明确不在本版范围（留 v3.2.3 / v3.2.4）
+
+v3.2.3 性能升级 v2（深度性能优化：marshal 缓冲池 / WAF 单遍合并 / 缓存分片锁 / 审计批量 group commit / SSE buffer 复用）、v3.2.4 UI 升级。
+
+---
+
 # TarsSecureGuard v3.2.1 · 桌面客户端 —— 本地 Tauri 客户端，不依赖浏览器
 
 > 设计决策、模块拆分、构建与验收说明见 `docs/v3.2.1-desktop-client.md`。

@@ -321,7 +321,7 @@ func (d *doctorChecks) checkPorts() {
 // ===================== 4. 网络（后端可达性 / 网关运行态探测）====================
 
 func doctorHTTPGet(url string, timeout time.Duration) (int, error) {
-	client := &http.Client{Timeout: timeout}
+	client := pooledHTTPClient(timeout) // v3.2.2：走共享连接池
 	resp, err := client.Get(url)
 	if err != nil {
 		return 0, err
@@ -476,7 +476,7 @@ func (d *doctorChecks) checkRuntime(c *doctorCfg) {
 	}
 	req, _ := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d/metrics", port), nil)
 	req.Header.Set("X-API-Key", key)
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := pooledHTTPClient(3 * time.Second) // v3.2.2：走共享连接池
 	resp, err := client.Do(req)
 	if err != nil {
 		d.add(doctorCheck{cat, "GET /metrics", doctorWarn, "请求失败: " + err.Error(),

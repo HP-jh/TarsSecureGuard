@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.2.1"
+var version = "3.2.2"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -145,7 +145,10 @@ func main() {
 	}()
 	initTools()
 	registerV2Tools() // v2.0.0 新增内置工具（硬件评估等）
+	registerV322Tools() // v3.2.2 治理层工具（共享记忆/共享信息/上下文拓展）
 	loadMemory()
+	loadSharedMemory() // v3.2.2 共享记忆恢复
+	loadSharedInfo()   // v3.2.2 共享信息恢复
 	firewallReconcile() // 防火墙策略档位（passive/dynamic-ban/os-link，默认 passive）
 	quotaLoad()         // v3.0.4 [MT_QUOTA]：恢复上一次运行的日配额用量（data/quota-usage.json）
 
@@ -218,6 +221,22 @@ func main() {
 	mux.HandleFunc("/api/admin/v32/providers/probe", moduleRoute("cloudModels", handleV32ProvidersProbe))
 	mux.HandleFunc("/api/admin/v32/pool", moduleRoute("stats", handleV32Pool))
 	mux.HandleFunc("/api/admin/v32/cache", moduleRoute("stats", handleV32Cache))
+
+	// v3.2.2 治理层：共享记忆 / 共享信息 / 上下文组装（contextGov 模块，
+	// 业务面端点——租户用户经 API Key / OAuth 会话均可访问，隔离在 handler 内）
+	mux.HandleFunc("/api/context/memory", moduleRoute("contextGov", handleSharedMemoryREST))
+	mux.HandleFunc("/api/context/info", moduleRoute("contextGov", handleSharedInfoREST))
+	mux.HandleFunc("/api/context/build", moduleRoute("contextGov", handleContextBuildREST))
+	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
+	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
+	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)
+	mux.HandleFunc("/api/admin/audit/export", handleAuditExport)
+	// v3.2.2 治理层：OAuth / IdP（login/callback 为公共路由，见 isPublicRoute；
+	// logout 经 gatewayMiddleware 用会话令牌鉴权）
+	mux.HandleFunc("/oauth/login", handleOAuthLogin)
+	mux.HandleFunc("/oauth/callback", handleOAuthCallback)
+	mux.HandleFunc("/oauth/logout", handleOAuthLogout)
+	mux.HandleFunc("/api/admin/oauth/status", handleOAuthStatus)
 
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
@@ -405,6 +424,11 @@ func recordResponseTime(start time.Time, serve func()) {
 
 func isPublicRoute(p string) bool {
 	// /health 为健康检查端点（新增），与前端页面一样免鉴权
+	// v3.2.2：OAuth 登录回调为浏览器跳转入口，登录前必然没有凭据——
+	// 免鉴权但不过 WAF 之外的任何豁免（state 一次性 + PKCE 防 CSRF/劫持）
+	if p == "/oauth/login" || p == "/oauth/callback" {
+		return true
+	}
 	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health"
 }
 
@@ -653,6 +677,8 @@ func auditLog(action, user, detail string) {
 		time.Now().Format("2006-01-02 15:04:05"), action, user, "-", detail)
 	fileLog("audit", line)
 	logMsg("[AUDIT] " + line)
+	// v3.2.2 审计升级：同步落结构化 JSONL 哈希链条目（tenant 感知变体见 auditLogT）
+	auditV2Write(action, "*", "", user, "", detail, "")
 }
 
 func isHTTPURL(s string) bool {

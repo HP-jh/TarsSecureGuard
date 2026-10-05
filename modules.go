@@ -58,6 +58,8 @@ var moduleRegistry = []Module{
 	{ID: "scoreBoard", Name: "Score Board", Description: "模型评分榜：运行时分融合 lm-eval-harness 离线评测（相对参考，诚实标注）", Category: "ops", Default: true, HasWorker: false},
 	// v3.0.1：sidecar 外置模块宿主（modules.d + SHA-256 钉扎 + 低权限代理）
 	{ID: "sidecarHub", Name: "Sidecar Hub", Description: "外置模块宿主：modules.d manifest + SHA-256 钉扎 + 生命周期监管 + /api/ext/ 低权限反向代理", Category: "tools", Default: true, HasWorker: true},
+	// v3.2.2 治理层：共享记忆 / 共享信息 / 上下文拓展 MCP
+	{ID: "contextGov", Name: "Context Governance", Description: "共享记忆（命名空间 KV + 解析链）/ 共享信息（结构化知识条目）/ 上下文组装（预算化注入）", Category: "core", Default: true, Deps: []string{"builtinTools"}},
 }
 
 // securityModuleDesc 安全模块在模块列表中的展示形态（locked，无开关）

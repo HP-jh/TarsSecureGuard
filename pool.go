@@ -60,6 +60,16 @@ func initPooledClients(maxIdlePerHost int) {
 	})
 }
 
+// pooledHTTPClient 返回走共享连接池的按需超时客户端（v3.2.2 性能升级 v1：
+// 补全池覆盖——doctor / 探测等「按超时新建 client」的路径不再旁路共享池，
+// 每次调用复用同一 Transport 的空闲连接而不是重新握手）。
+func pooledHTTPClient(timeout time.Duration) *http.Client {
+	if sharedTransport == nil {
+		initPooledClients(0)
+	}
+	return &http.Client{Transport: trackedTransport{sharedTransport}, Timeout: timeout}
+}
+
 // trackedTransport 包装共享 Transport：经 httptrace 计量每个请求的
 // 连接复用情况（GotConnInfo.Reused），纯观测零改写。
 type trackedTransport struct{ base *http.Transport }

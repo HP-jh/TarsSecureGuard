@@ -37,14 +37,23 @@ type CustomTool struct {
 	SecretHeaders map[string]string `json:"secretHeaders,omitempty"` // 值支持 env:VAR 引用
 }
 
-// customToolClient SSRF 加固的专用 HTTP 客户端（与全局 httpClient 隔离）
+// customToolClient SSRF 加固的专用 HTTP 客户端（与全局 httpClient 隔离）。
+// v3.2.2 性能升级 v1：Transport 保留独立（SSRF 拨号校验必须与主池隔离），
+// 但连接复用参数对齐全局池——此前默认 MaxIdleConnsPerHost=2 导致 web fetch
+// 工具对同一站点连续抓取时频繁关连接重建。
 var customToolClient = &http.Client{
 	Timeout: 30 * time.Second,
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse // 禁用重定向跟随（防 3xx 跳内网绕过）
 	},
 	Transport: &http.Transport{
-		DialContext: ssrfSafeDialContext(), // 连接时校验实际 IP（防 DNS 重绑定）
+		DialContext:           ssrfSafeDialContext(), // 连接时校验实际 IP（防 DNS 重绑定）
+		MaxIdleConns:          64,
+		MaxIdleConnsPerHost:   8,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
 	},
 }
 

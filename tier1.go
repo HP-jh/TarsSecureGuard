@@ -476,13 +476,19 @@ func tier1ProbeWindows() tier1HW {
 	return hw
 }
 
+// tier1 包级预编译正则（v3.2.2 性能升级 v1：此前逐调用 MustCompile）
+var (
+	tier1ClixmlSRe   = regexp.MustCompile(`(?s)<S>(.*?)</S>`)
+	tier1QuotedField = regexp.MustCompile(`"([^"]*)"`)
+	tier1PlistKVRe   = regexp.MustCompile(`(?s)<key>([^<]+)</key>\s*<string>([^<]*)</string>`)
+)
+
 // tier1ParseClixmlJSON 从 PowerShell -OutputFormat XML（CLIXML）包裹中取出脚本输出的
 // JSON 字符串并解析。脚本只输出单个 JSON 字符串 → <S>…</S> 节点；
 // stderr 合流可能混入 CLIXML 记录，故遍历全部 <S> 节点，取第一个可解析为 JSON 的。
 func tier1ParseClixmlJSON(out string, v interface{}) error {
-	re := regexp.MustCompile(`(?s)<S>(.*?)</S>`)
 	found := false
-	for _, m := range re.FindAllStringSubmatch(out, -1) {
+	for _, m := range tier1ClixmlSRe.FindAllStringSubmatch(out, -1) {
 		if json.Unmarshal([]byte(html.UnescapeString(m[1])), v) == nil {
 			found = true
 			break
@@ -521,7 +527,7 @@ func tier1ParseLspciGPU(out string) string {
 		if l == "" {
 			continue
 		}
-		fields := regexp.MustCompile(`"([^"]*)"`).FindAllStringSubmatch(l, -1)
+		fields := tier1QuotedField.FindAllStringSubmatch(l, -1)
 		if len(fields) < 3 {
 			continue
 		}
@@ -578,8 +584,7 @@ func tier1ProbeDarwin() tier1HW {
 // tier1ParseSPXML 收集 plist XML 里相邻的 <key>K</key><string>V</string> 对。
 func tier1ParseSPXML(out string) map[string]string {
 	kv := map[string]string{}
-	re := regexp.MustCompile(`(?s)<key>([^<]+)</key>\s*<string>([^<]*)</string>`)
-	for _, m := range re.FindAllStringSubmatch(out, -1) {
+	for _, m := range tier1PlistKVRe.FindAllStringSubmatch(out, -1) {
 		k := strings.TrimSpace(m[1])
 		if _, exists := kv[k]; !exists {
 			kv[k] = strings.TrimSpace(html.UnescapeString(m[2]))

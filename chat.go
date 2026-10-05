@@ -18,7 +18,20 @@ type ChatRequest struct {
 	Model    string    `json:"model"`
 	Search   bool      `json:"search"`
 	Agent    bool      `json:"agent"`
+	// v3.2.2 上下文拓展：请求体可选 context 段——服务端按租户隔离策略把共享信息 /
+	// 共享记忆组装为 system 前缀注入（注入内容来自已过隔离的存储，随后照常过
+	// PII 脱敏与语义分级分流，不引入新旁路）。缺省不注入，行为与旧版一致。
+	Context *ChatContextOpts `json:"context,omitempty"`
 }
+
+// ChatContextOpts chat 请求的上下文注入选项
+type ChatContextOpts struct {
+	SharedMemory bool   `json:"sharedMemory"`
+	SharedInfo   bool   `json:"sharedInfo"`
+	MaxChars     int    `json:"maxChars"`
+	Topic        string `json:"topic"`
+}
+
 
 type Message struct {
 	Role    string `json:"role"`
@@ -47,6 +60,19 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	if len(req.Messages) == 0 {
 		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "No messages"})
 		return
+	}
+	// v3.2.2 上下文拓展：context 段存在且开启任一来源时，组装上下文包注入为
+	// 首条 system 消息（在 PII 脱敏/语义分流之前注入——注入文本同样过安全链）
+	if req.Context != nil && (req.Context.SharedMemory || req.Context.SharedInfo) {
+		if id, ok := identityFromRequest(r); ok {
+			pack := buildContextPack(id, ContextBuildOpts{
+				IncludeSharedInfo:   req.Context.SharedInfo,
+				IncludeSharedMemory: req.Context.SharedMemory,
+				MaxChars:            req.Context.MaxChars,
+				Topic:               req.Context.Topic,
+			})
+			req.Messages = append([]Message{{Role: "system", Content: pack.Text}}, req.Messages...)
+		}
 	}
 	// PII 脱敏：在路由到后端前对消息内容脱敏
 	req.Messages = maskPIIInMessages(req.Messages)

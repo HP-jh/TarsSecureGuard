@@ -37,13 +37,23 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 简单调用格式: {tool:'xxx', args:{...}}
+	// v3.2.2 守门人：身份感知执行（策略门 + 二次确认），见 gatekeeper.go
 	if tool, _ := body["tool"].(string); tool != "" {
 		args, _ := body["args"].(map[string]interface{})
 		if args == nil {
 			args = map[string]interface{}{}
 		}
-		result, err := executeTool(tool, args)
+		id, ok := identityFromRequest(r)
+		if !ok {
+			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		result, err := executeToolAs(id, tool, args)
 		if err != nil {
+			if req, isConfirm := err.(*gkConfirmationRequired); isConfirm {
+				gkWriteConfirmation(w, req, nil)
+				return
+			}
 			writeJSON(w, map[string]interface{}{"error": err.Error(), "tool": tool})
 			return
 		}
@@ -86,8 +96,31 @@ func handleMCP(w http.ResponseWriter, r *http.Request) {
 		if args == nil {
 			args = map[string]interface{}{}
 		}
-		result, err := executeTool(name, args)
+		// v3.2.2 守门人：身份感知执行（策略门 + 二次确认），见 gatekeeper.go
+		id, ok := identityFromRequest(r)
+		if !ok {
+			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		result, err := executeToolAs(id, name, args)
 		if err != nil {
+			if req, isConfirm := err.(*gkConfirmationRequired); isConfirm {
+				gkWriteConfirmation(w, req, func(m map[string]interface{}) {
+					writeJSON(w, map[string]interface{}{
+						"jsonrpc": "2.0", "id": body["id"],
+						"result": map[string]interface{}{
+							"content": []map[string]interface{}{{
+								"type": "text",
+								"text": fmt.Sprintf("CONFIRMATION_REQUIRED: %s\nconfirm_token=%s\nexpires_in_seconds=%d\n携带 confirm_token 重发同一请求以完成确认",
+									req.Reason, req.Token, int(time.Until(req.ExpiresAt).Seconds())),
+							}},
+							"isError":    true,
+							"structured": m,
+						},
+					})
+				})
+				return
+			}
 			writeJSON(w, map[string]interface{}{
 				"jsonrpc": "2.0", "id": body["id"],
 				"result": map[string]interface{}{
