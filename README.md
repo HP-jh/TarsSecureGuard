@@ -15,7 +15,7 @@
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.2.2-success">
+<img alt="Version" src="https://img.shields.io/badge/version-3.2.3-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
@@ -149,6 +149,9 @@ unzip tarssecureguard-v3.0.0-src.zip && cd tarssecureguard-v3.0.0
 ./start.sh
 ```
 
+### 性能升级 v2（v3.2.3）
+**WAF 单遍合并正则 + ASCII 触发字节预筛**（normal/strict 各一条合并正则单遍快筛，命中后回查取规则名，语义零变化；纯中文正文整串免正则，strict 扫描 -99.8%）、**PII 脱敏单遍化**（四模式合并一次替换，-15%）、**响应缓存 16 分片锁**（FNV-1a 定片，独立 mutex+LRU，并发 get/put -10% @2 核）——候选逐项勘察定夺：排除 JSON sync.Pool 与审计批量 commit（写入序即 hash 链序，改异步有断链风险）、证伪 SSE 路径（代码中不存在）。详见 [docs/v3.2.3-performance.md](./docs/v3.2.3-performance.md)。
+
 ### 治理层 + 性能升级 v1（v3.2.2）
 **共享记忆**（user → tenant → global 三层命名空间，就近覆盖解析链，租户隔离由命名空间规范化保证）、**共享信息**（fact/preference/note/link 结构化知识条目 + 权重检索）、**上下文拓展 MCP**（把身份与策略 + 共享信息 + 共享记忆组装成确定性上下文包，注入内容与用户输入过同一条安全链）、**OAuth/OIDC 企业 IdP 接入**（Authorization Code + PKCE，手写标准库 RS256/ES256 验签，fail-close，会话走与本地用户完全相同的 RBAC 矩阵）、**守门人**（工具执行前的动作级防线：安全配置禁改、敏感路径禁碰、高危操作两阶段确认、身份注入防伪造、收紧-only 配置）、**hash-chain 审计 v2**（前后链 SHA256，按日切文件，重启续链，全链重算防篡改）——详见 [docs/v3.2.2-governance.md](./docs/v3.2.2-governance.md)。另有**性能升级 v1**：日志常开句柄管线（单行落盘 -79%）、连接池覆盖补全（doctor 探测池化 / customToolClient 对齐参数且保留 SSRF 隔离）、tier1 正则包级预编译——详见 [docs/v3.2.2-performance.md](./docs/v3.2.2-performance.md)。
 
@@ -223,7 +226,8 @@ go test -race ./...      # 单元 + 集成测试
 
 ## 📚 文档
 
-- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.2.2 治理层+性能升级 v1、v3.2.1 桌面客户端、v3.2.0 连接性大版本）
+- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.2.3 性能升级 v2、v3.2.2 治理层+性能升级 v1、v3.2.1 桌面客户端、v3.2.0 连接性大版本）
+- [docs/v3.2.3-performance.md](./docs/v3.2.3-performance.md) —— **性能升级 v2**：WAF 单遍合并+预筛 / PII 单遍化 / 响应缓存分片锁 / A-B 基准
 - [docs/v3.2.2-governance.md](./docs/v3.2.2-governance.md) —— **治理层**：共享记忆 / 共享信息 / 上下文拓展 MCP / OAuth/IdP / 守门人 / 审计升级
 - [docs/v3.2.2-performance.md](./docs/v3.2.2-performance.md) —— **性能升级 v1**：日志常开句柄管线 / 连接池覆盖补全 / A-B 基准
 - [docs/v3.2.1-desktop-client.md](./docs/v3.2.1-desktop-client.md) —— **桌面客户端**：Tauri 壳设计决策、构建与验收

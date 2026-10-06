@@ -247,7 +247,7 @@ func parseGeminiContent(data []byte) (string, bool) {
 	return sb.String(), true
 }
 
-// ===================== 响应缓存（tenant 隔离）=====================
+// ===================== 响应缓存（tenant 隔离 · v3.2.3 分片锁）=====================
 
 type respEntry struct {
 	value    string
@@ -255,13 +255,44 @@ type respEntry struct {
 	el       *list.Element
 }
 
-var (
-	respMu    sync.Mutex
-	respCache = map[string]*respEntry{}
-	respLRU   list.List
-	respHits  int64
-	respMiss  int64
-)
+// respShard v3.2.3 性能升级 v2：响应缓存按 key 哈希切 16 片，每片独立 mutex + LRU，
+// 高并发下争用面从全局 1 把锁降到 1/16；命中/未命中计数随片存放，cacheStats 聚合。
+// 语义变化（有意为之并在此声明）：容量上限按片均分（(max+15)/16），LRU 淘汰在片内进行——
+// 极端 key 分布不均时总条数可能略低于全局上限，仍满足「不超过 max」的硬约束。
+const respShardCount = 16
+
+type respShard struct {
+	mu     sync.Mutex
+	cache  map[string]*respEntry
+	lru    list.List
+	hits   int64
+	misses int64
+}
+
+var respShards [respShardCount]respShard
+
+func init() {
+	for i := range respShards {
+		respShards[i].cache = map[string]*respEntry{}
+	}
+}
+
+// respShardFor key → 分片（FNV-1a 低成本稳定散列；仅取前 8 字节 + 长度，
+// 生产 key 为 64 位 hex sha256，前 8 字节已充分均匀，避免长 key 逐字节全扫开销）
+func respShardFor(key string) *respShard {
+	var h uint32 = 2166136261
+	n := len(key)
+	if n > 8 {
+		n = 8
+	}
+	for i := 0; i < n; i++ {
+		h ^= uint32(key[i])
+		h *= 16777619
+	}
+	h ^= uint32(len(key))
+	h *= 16777619
+	return &respShards[h%respShardCount]
+}
 
 // v32RespCacheEnabled 响应缓存开关（默认开；config v32.responseCache.enabled=false 关）
 func v32RespCacheEnabled() bool {
@@ -288,6 +319,11 @@ func v32RespCacheMax() int {
 	return 1024
 }
 
+// respShardMax 单分片容量上限：总量约束 ≤ v32RespCacheMax()
+func respShardMax() int {
+	return (v32RespCacheMax() + respShardCount - 1) / respShardCount
+}
+
 // respCacheKey 响应缓存键：tenant + provider + model + messages 内容哈希。
 // tenant 入键 → 跨租户永不命中（即使提示词完全相同）。
 func respCacheKey(tenant, provider, model string, msgs []Message) string {
@@ -308,41 +344,43 @@ func respCacheKey(tenant, provider, model string, msgs []Message) string {
 }
 
 func respCacheGet(key string) (string, bool) {
-	respMu.Lock()
-	defer respMu.Unlock()
-	if e, ok := respCache[key]; ok {
+	sh := respShardFor(key)
+	sh.mu.Lock()
+	defer sh.mu.Unlock()
+	if e, ok := sh.cache[key]; ok {
 		if time.Now().Before(e.expireAt) {
-			respLRU.MoveToFront(e.el)
-			respHits++
+			sh.lru.MoveToFront(e.el)
+			sh.hits++
 			return e.value, true
 		}
 		// 过期淘汰
-		respLRU.Remove(e.el)
-		delete(respCache, key)
+		sh.lru.Remove(e.el)
+		delete(sh.cache, key)
 	}
-	respMiss++
+	sh.misses++
 	return "", false
 }
 
 func respCachePut(key, value string) {
-	respMu.Lock()
-	defer respMu.Unlock()
+	sh := respShardFor(key)
+	sh.mu.Lock()
+	defer sh.mu.Unlock()
 	ttl := v32RespCacheTTL()
-	if e, ok := respCache[key]; ok {
+	if e, ok := sh.cache[key]; ok {
 		e.value = value
 		e.expireAt = time.Now().Add(ttl)
-		respLRU.MoveToFront(e.el)
+		sh.lru.MoveToFront(e.el)
 		return
 	}
-	el := respLRU.PushFront(key)
-	respCache[key] = &respEntry{value: value, expireAt: time.Now().Add(ttl), el: el}
-	if len(respCache) > v32RespCacheMax() {
-		if tail := respLRU.Back(); tail != nil {
+	el := sh.lru.PushFront(key)
+	sh.cache[key] = &respEntry{value: value, expireAt: time.Now().Add(ttl), el: el}
+	if len(sh.cache) > respShardMax() {
+		if tail := sh.lru.Back(); tail != nil {
 			k := tail.Value.(string)
-			if e, ok := respCache[k]; ok {
-				respLRU.Remove(e.el)
+			if e, ok := sh.cache[k]; ok {
+				sh.lru.Remove(e.el)
 			}
-			delete(respCache, k)
+			delete(sh.cache, k)
 		}
 	}
 }
@@ -353,14 +391,17 @@ func v32CacheInvalidate(reason string) {
 	adaptCache = map[string]*list.Element{}
 	adaptLRU.Init()
 	adaptMu.Unlock()
-	respMu.Lock()
-	respCache = map[string]*respEntry{}
-	respLRU.Init()
-	respMu.Unlock()
+	for i := range respShards {
+		sh := &respShards[i]
+		sh.mu.Lock()
+		sh.cache = map[string]*respEntry{}
+		sh.lru.Init()
+		sh.mu.Unlock()
+	}
 	logMsg("[V32] 缓存全量失效: " + reason)
 }
 
-// cacheStats 缓存指标快照
+// cacheStats 缓存指标快照（分片聚合）
 func cacheStats() map[string]interface{} {
 	adaptMu.Lock()
 	adaptTotal := adaptHits + adaptMiss
@@ -370,18 +411,24 @@ func cacheStats() map[string]interface{} {
 	}
 	adaptEntries := len(adaptCache)
 	adaptMu.Unlock()
-	respMu.Lock()
-	respTotal := respHits + respMiss
+	var respHits, respMisses, respEntries int64
+	for i := range respShards {
+		sh := &respShards[i]
+		sh.mu.Lock()
+		respHits += sh.hits
+		respMisses += sh.misses
+		respEntries += int64(len(sh.cache))
+		sh.mu.Unlock()
+	}
+	respTotal := respHits + respMisses
 	respRate := 0.0
 	if respTotal > 0 {
 		respRate = float64(respHits) / float64(respTotal) * 100
 	}
-	respEntries := len(respCache)
-	respMu.Unlock()
 	return map[string]interface{}{
 		"enabled":       v32RespCacheEnabled(),
 		"adaptCache":    map[string]interface{}{"entries": adaptEntries, "hits": adaptHits, "misses": adaptMiss, "hitRatePct": round2(adaptRate)},
-		"responseCache": map[string]interface{}{"entries": respEntries, "hits": respHits, "misses": respMiss, "hitRatePct": round2(respRate), "ttlSec": int(v32RespCacheTTL().Seconds()), "maxEntries": v32RespCacheMax()},
+		"responseCache": map[string]interface{}{"entries": respEntries, "hits": respHits, "misses": respMisses, "hitRatePct": round2(respRate), "ttlSec": int(v32RespCacheTTL().Seconds()), "maxEntries": v32RespCacheMax(), "shards": respShardCount},
 	}
 }
 

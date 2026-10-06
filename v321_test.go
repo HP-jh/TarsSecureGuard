@@ -10,9 +10,10 @@ import (
 
 // 版本号推进：客户端（Tauri 壳）与网关（Go）同版本号发布，防双轨漂移
 // v3.2.2：治理层版本推进（共享记忆/共享信息/上下文拓展/OAuth/守门人/审计升级）
+// v3.2.3：性能升级 v2（WAF 合并+预筛 / PII 单遍化 / 响应缓存分片锁）
 func TestV321VersionBumped(t *testing.T) {
-	if version != "3.2.2" {
-		t.Fatalf("version = %q, want 3.2.2", version)
+	if version != "3.2.3" {
+		t.Fatalf("version = %q, want 3.2.3", version)
 	}
 }
 

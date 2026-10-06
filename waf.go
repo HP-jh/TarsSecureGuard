@@ -29,7 +29,66 @@ var wafRules = []struct {
 	{"PII泄漏", regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b|\b\d{3}-\d{2}-\d{4}\b|\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b|\b1[3-9]\d{9}\b`), true},
 }
 
+// v3.2.3 性能升级 v2：合并正则——normal 与 strict 各预编译为一条 alternation，
+// 请求路径单遍扫描替代逐规则多次全串扫描；命中后按原顺序回查个别规则取回命中名，
+// 返回值与逐条实现完全一致（首个命中规则名）。规则集静态（包级 var），编译一次。
+var (
+	wafNormalMerged = wafMergeRules(false)
+	wafStrictMerged = wafMergeRules(true)
+)
+
+// wafMergeRules 把（按 strict 过滤后的）规则模式串逐条以 (?:...) 包裹后 alternation 合并。
+// 独立预编译，不改动 wafRules 原始定义（个别回查仍用原规则对象）。
+func wafMergeRules(strict bool) *regexp.Regexp {
+	var parts []string
+	for _, r := range wafRules {
+		if r.strict && !strict {
+			continue
+		}
+		parts = append(parts, "(?:"+r.re.String()+")")
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return regexp.MustCompile(strings.Join(parts, "|"))
+}
+
+// wafTriggerBytes 所有 WAF 规则的命中前提：至少含一个 ASCII 触发字节
+// （字母/数字，或 . % ; & ` < = : @ / * ( 等）。逐条核验：
+//
+//	路径穿越需 '.'/'%'；命令注入需 ';'/'&&'/反引号；SQL 注入需字母或 "/*" 或 '('；
+//	XSS 需字母或 '<'/':'/'='；PromptInjection 为英文关键词（字母）；PII 需数字/'@'/字母（邮箱）。
+//
+// 纯中文正文（UTF-8 字节 ≥0x80）不含任何触发字节 → 整串免正则，直接判无命中。
+func wafNeedsScan(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 0x80 {
+			continue // CJK 等多字节字符，单字节跳过
+		}
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '.' || c == '%' || c == ';' || c == '&' || c == '`' || c == '<' ||
+			c == '=' || c == ':' || c == '@' || c == '/' || c == '*' || c == '(' || c == ')' {
+			return true
+		}
+	}
+	return false
+}
+
 func wafMatch(s string, strict bool) string {
+	// 触发字节预筛：纯中文正文等无触发字节内容整串免正则（绝大多数聊天请求走此快路径）
+	if !wafNeedsScan(s) {
+		return ""
+	}
+	// 单遍快筛：一条合并正则扫完（替代逐规则多次全串扫描）
+	merged := wafNormalMerged
+	if strict {
+		merged = wafStrictMerged
+	}
+	if merged != nil && !merged.MatchString(s) {
+		return ""
+	}
+	// 命中：按原顺序回查个别规则，返回首个命中名（与逐条扫描语义一致）
 	for _, rule := range wafRules {
 		if rule.strict && !strict {
 			continue
@@ -219,12 +278,21 @@ var piiMaskPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\b1[3-9]\d{9}\b`),                                    // 中国大陆手机号
 }
 
-// maskPII 对输入文本中的 PII 进行脱敏替换（****）
-func maskPII(s string) string {
+// piiMaskMerged v3.2.3 性能升级 v2：四条 PII 模式合并为一条 alternation，
+// 单遍替换替代四遍逐条替换；所有命中均替换为同一占位符 "****"，输出与逐条实现一致。
+var piiMaskMerged = func() *regexp.Regexp {
+	var parts []string
 	for _, re := range piiMaskPatterns {
-		s = re.ReplaceAllString(s, "****")
+		parts = append(parts, "(?:"+re.String()+")")
 	}
-	return s
+	return regexp.MustCompile(strings.Join(parts, "|"))
+}()
+
+// maskPII 对输入文本中的 PII 进行脱敏替换（****）
+// v3.2.3：单遍合并替换替代四遍逐条替换；模式间文法互斥（信用卡/SSN/邮箱/手机号），
+// 一遍替换与逐条替换输出一致。
+func maskPII(s string) string {
+	return piiMaskMerged.ReplaceAllString(s, "****")
 }
 
 // maskPIIInMessages 对聊天消息数组中的 content 进行 PII 脱敏
