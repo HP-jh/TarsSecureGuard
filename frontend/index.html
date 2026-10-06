@@ -265,13 +265,17 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <symbol id="i-logs" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
 <symbol id="i-set" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
 <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01"/></symbol>
+<symbol id="i-gov" viewBox="0 0 24 24"><path d="M12 2l9 5v2H3V7l9-5z"/><path d="M5 9v7M9.5 9v7M14.5 9v7M19 9v7"/><path d="M3 16v3h18v-3M3 21h18"/></symbol>
+<symbol id="i-mem" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 10h8M8 14h5"/><path d="M1 10h3M1 14h3M20 10h3M20 14h3"/></symbol>
+<symbol id="i-sinfo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+<symbol id="i-chain" viewBox="0 0 24 24"><path d="M9 15l6-6"/><path d="M11 17l-1.5 1.5a4 4 0 0 1-5.5-5.5L6 11"/><path d="M13 7l1.5-1.5a4 4 0 0 1 5.5 5.5L18 13"/></symbol>
 <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M17.94 17.94A10.5 10.5 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A9.9 9.9 0 0 1 12 5c7 0 11 7 11 7a21.8 21.8 0 0 1-3.22 4.19M9.88 9.88A3 3 0 1 0 14.12 14.12"/><path d="M1 1l22 22"/></symbol>
 </svg>
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.2.1 DESKTOP</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.2.4 DESKTOP</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('chat',this)"><span class="ic"><svg><use href="#i-chat"/></svg></span> AI Chat</div></div>
@@ -288,6 +292,11 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-group"><div class="nav-title">安全</div>
 <div class="nav-item" onclick="pg('security',this)"><span class="ic"><svg><use href="#i-sec"/></svg></span> Security</div>
 <div class="nav-item" onclick="pg('waf',this)"><span class="ic"><svg><use href="#i-waf"/></svg></span> WAF Logs</div></div>
+<div class="nav-group"><div class="nav-title">治理</div>
+<div class="nav-item" onclick="pg('gov',this)"><span class="ic"><svg><use href="#i-gov"/></svg></span> Governance</div>
+<div class="nav-item" onclick="pg('memory',this)"><span class="ic"><svg><use href="#i-mem"/></svg></span> Shared Memory</div>
+<div class="nav-item" onclick="pg('sinfo',this)"><span class="ic"><svg><use href="#i-sinfo"/></svg></span> Shared Info</div>
+<div class="nav-item" onclick="pg('audit2',this)"><span class="ic"><svg><use href="#i-chain"/></svg></span> Audit Chain</div></div>
 <div class="nav-group"><div class="nav-title">系统</div>
 <div class="nav-item" onclick="pg('modules',this)"><span class="ic"><svg><use href="#i-mod"/></svg></span> Modules</div>
 <div class="nav-item" onclick="pg('device',this)"><span class="ic"><svg><use href="#i-device"/></svg></span> Device</div>
@@ -421,6 +430,43 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <!-- ===== WAF ===== -->
 <div class="page" id="p-waf">
 <div class="card"><div class="card-title"><span class="d"></span>WAF 拦截日志 <span class="right"><button class="btn btn-s btn-sm" onclick="loadWaf()">刷新</button></span></div><div id="waf-content" class="log-box" style="min-height:400px">正在加载 WAF 日志…</div></div></div>
+
+<!-- ===== 治理总览（v3.2.4） ===== -->
+<div class="page" id="p-gov">
+<div class="stats-grid" id="gov-stats"><div class="skel skel-row" style="width:70%"></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>守门人 Gatekeeper <span class="right"><button class="btn btn-s btn-sm" onclick="loadGov()">刷新</button></span></div><div id="gov-gk"><div class="skel skel-row" style="width:80%"></div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>OAuth / OIDC 企业 IdP</div><div id="gov-oauth"><div class="skel skel-row" style="width:60%"></div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>审计 v2（hash chain）</div><div id="gov-audit"><div class="skel skel-row" style="width:60%"></div></div></div></div>
+
+<!-- ===== 共享记忆（v3.2.4） ===== -->
+<div class="page" id="p-memory">
+<div class="card"><div class="card-title"><span class="d"></span>写入共享记忆 <span class="tag">就近覆盖：user → tenant → global</span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<input class="input" id="sm-key" placeholder="key（必填）" style="flex:2 1 180px;min-width:140px">
+<input class="input" id="sm-val" placeholder="value（必填）" style="flex:3 1 220px;min-width:160px">
+<input class="input" id="sm-ns" placeholder="namespace（默认 user 层）" style="flex:2 1 180px;min-width:140px">
+<input class="input" id="sm-ttl" type="number" placeholder="TTL 秒（0=永久）" style="flex:1 1 130px;min-width:110px">
+<button class="btn btn-s" onclick="smAdd()">写入</button></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>当前可见条目（三层解析链合并视图） <span class="right"><input class="input" id="sm-prefix" placeholder="key 前缀过滤" style="width:150px;min-height:30px;padding:4px 10px" onkeydown="if(event.key==='Enter')loadMem()"> <button class="btn btn-s btn-sm" onclick="loadMem()">刷新</button></span></div><div id="sm-content">正在加载共享记忆…</div></div></div>
+
+<!-- ===== 共享信息（v3.2.4） ===== -->
+<div class="page" id="p-sinfo">
+<div class="card"><div class="card-title"><span class="d"></span>新增共享信息 <span class="tag">fact / preference / note / link</span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+<input class="input" id="si-type" placeholder="type（fact/preference/note/link）" style="flex:1 1 190px;min-width:150px">
+<input class="input" id="si-title" placeholder="标题（必填）" style="flex:2 1 200px;min-width:150px">
+<input class="input" id="si-scope" placeholder="scope（tenant/global）" style="flex:1 1 160px;min-width:130px">
+<input class="input" id="si-conf" type="number" step="0.1" min="0" max="1" placeholder="置信度 0～1" style="flex:1 1 130px;min-width:110px"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<input class="input" id="si-tags" placeholder="标签（逗号分隔）" style="flex:2 1 200px;min-width:150px">
+<input class="input" id="si-body" placeholder="内容（必填）" style="flex:4 1 280px;min-width:180px">
+<button class="btn btn-s" onclick="siAdd()">新增</button></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>知识条目（标题/标签/内容加权检索） <span class="right"><input class="input" id="si-q" placeholder="搜索…" style="width:150px;min-height:30px;padding:4px 10px" onkeydown="if(event.key==='Enter')loadSInfo()"> <select class="input" id="si-typ" onchange="loadSInfo()" style="width:auto;min-height:30px;padding:4px 10px"><option value="">全部类型</option><option value="fact">fact</option><option value="preference">preference</option><option value="note">note</option><option value="link">link</option></select> <button class="btn btn-s btn-sm" onclick="loadSInfo()">刷新</button></span></div><div id="si-content">正在加载共享信息…</div></div></div>
+
+<!-- ===== 审计链 v2（v3.2.4） ===== -->
+<div class="page" id="p-audit2">
+<div class="card"><div class="card-title"><span class="d"></span>链完整性校验 <span class="tag">JSONL + SHA256 前后链</span><span class="right"><select class="input" id="a2-date" style="width:auto;min-height:30px;padding:4px 10px"></select> <button class="btn btn-s btn-sm" onclick="auditVerify()">重算全链</button> <button class="btn btn-sm" onclick="auditExport()">导出 JSONL</button></span></div><div id="a2-result">选择日期后重算全链——任一行被篡改即定位断点（需 global_admin / global_auditor 视野）。</div></div>
+<div class="card"><div class="card-title"><span class="d"></span>说明</div><div style="font-size:12px;color:var(--text2);line-height:2">审计 v2 自 v3.2.2 起按日切文件、重启续链；导出按租户行级过滤（跨租户访问尝试会落审计事件）；保留天数与可用日期见治理总览。</div></div></div>
 
 <!-- ===== Modules（v2.0.0 模块管理） ===== -->
 <div class="page" id="p-modules">
@@ -569,10 +615,10 @@ function toggleSide(){var s=$('sidebar'),m=$('side-mask');var open=!s.classList.
 function closeSide(){$('sidebar').classList.remove('open');$('side-mask').classList.remove('show');}
 
 /* ============ 页面路由 ============ */
-var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息']};
+var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息']};
 var curPage='dashboard';
 function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
-  if(p==='dashboard'){updStats();loadHw();}if(p==='modules')loadModules();if(p==='models'){loadModels();loadModelMonitor();}if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();
+  if(p==='dashboard'){updStats();loadHw();}if(p==='modules')loadModules();if(p==='models'){loadModels();loadModelMonitor();}if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();
   if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
 function jump(p){var it=document.querySelectorAll('.nav-item');for(var i=0;i<it.length;i++){if((it[i].getAttribute('onclick')||'').indexOf("'"+p+"'")>-1){pg(p,it[i]);return;}}pg(p,null);}
 function pgFromHash(){var h=(location.hash||'').replace(/^#/,'');if(!h)return;if(!$('p-'+h))return;jump(h);}
@@ -1058,5 +1104,121 @@ $('c-in').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey
 loadAgents();
 if(location.search.indexOf('shot')<0)setInterval(updStats,5000);
 updStats();pgFromHash();
+
+/* ============ 治理层（v3.2.4）：治理总览 / 共享记忆 / 共享信息 / 审计链 v2 ============ */
+function govDate(s){return s?String(s).replace('T',' ').replace(/\.\d+.*/,'').replace(/Z.*/,''):''}
+function loadGov(){
+  api('/api/admin/v322/status').then(function(d){
+    var sm=d.sharedMemory||{},si=d.sharedInfo||{},gk=d.gatekeeper||{},oa=d.oauth||{},au=d.auditV2||{};
+    $('gov-stats').innerHTML=
+      '<div class="stat"><div class="l">共享记忆命名空间</div><div class="v">'+(sm.namespaces||0)+'</div><div class="sub">'+(sm.keys||0)+' keys · 上限 '+(sm.limits&&sm.limits.maxKeysPerNamespace||'-')+'/ns</div></div>'+
+      '<div class="stat"><div class="l">共享信息条目</div><div class="v">'+(si.records||0)+'</div><div class="sub">上限 '+(si.limit||'-')+'</div></div>'+
+      '<div class="stat"><div class="l">上下文包</div><div class="v">'+(d.contextPacks||0)+'</div><div class="sub">命名 context packs</div></div>'+
+      '<div class="stat"><div class="l">OAuth 会话</div><div class="v">'+(oa.activeSessions||0)+'</div><div class="sub">'+(oa.enabled?'已启用':'未启用')+(oa.ready?' · ready':'')+'</div></div>';
+    var gkH='<table>'+
+      '<tr><td style="color:var(--text2)">模式</td><td>'+(gk.mode==='enforce'?'<span class="tag" style="background:rgba(63,185,80,.15);color:var(--green)">enforce（动作级防线）</span>':'<span class="tag" style="background:rgba(210,153,34,.15);color:var(--yellow)">'+esc(gk.mode||'observe')+'</span>')+'</td><td style="color:var(--text2)">待确认操作</td><td>'+(gk.pendingConfirms||0)+'</td><td style="color:var(--text2)">自定义规则</td><td>'+(gk.configRuleCount||0)+'</td></tr>'+
+      '</table><div style="margin-top:8px;font-size:11px;color:var(--text2);line-height:1.9">内置不可放宽规则：</div><div style="font-size:11px;font-family:Consolas,monospace;color:#9fe8a9;line-height:1.9">'+((gk.builtinRules||[]).map(function(x){return '· '+esc(x)}).join('<br>')||'—')+'</div>';
+    $('gov-gk').innerHTML=gkH;
+    $('gov-oauth').innerHTML='<table>'+
+      '<tr><td style="color:var(--text2)">enabled</td><td>'+(oa.enabled?'<span style="color:var(--green)">true</span>':'false')+'</td><td style="color:var(--text2)">ready</td><td>'+(oa.ready?'<span style="color:var(--green)">true</span>':'false')+'</td></tr>'+
+      '</table>';
+    var dates=(au.availableDates||[]);
+    $('gov-audit').innerHTML='<table>'+
+      '<tr><td style="color:var(--text2)">格式</td><td>'+esc(au.format||'-')+'</td><td style="color:var(--text2)">保留</td><td>'+(au.retentionDays||'-')+' 天</td></tr>'+
+      '<tr><td style="color:var(--text2)">可用日期</td><td colspan="3">'+(dates.length?dates.map(function(x){return '<span class="tag">'+esc(x)+'</span>'}).join(' '):'（暂无）')+'</td></tr>'+
+      '</table>';
+  }).catch(function(e){$('gov-stats').innerHTML='<div class="card">治理状态加载失败：'+esc(e.message)+'（需 admin.read 权限）</div>'});
+  api('/api/admin/oauth/status').then(function(o){
+    $('gov-oauth').innerHTML='<table>'+
+      '<tr><td style="color:var(--text2)">enabled</td><td>'+(o.enabled?'<span style="color:var(--green)">true</span>':'false')+'</td><td style="color:var(--text2)">ready</td><td>'+(o.ready?'<span style="color:var(--green)">true</span>':'false')+'</td></tr>'+
+      '<tr><td style="color:var(--text2)">issuer</td><td colspan="3">'+esc(o.issuer||'—')+'</td></tr>'+
+      '<tr><td style="color:var(--text2)">clientId</td><td>'+esc(o.clientId||'—')+'</td><td style="color:var(--text2)">activeSessions</td><td>'+(o.activeSessions||0)+' / TTL '+(o.sessionTtlMinutes||'-')+'min</td></tr>'+
+      '<tr><td style="color:var(--text2)">roleClaim</td><td>'+esc(o.roleClaim||'—')+'</td><td style="color:var(--text2)">roleMap</td><td>'+(o.roleMapKeys||0)+' 条映射</td></tr>'+
+      '</table>';
+  }).catch(function(){});
+}
+function loadMem(){
+  var pref=($('sm-prefix').value||'').trim();
+  api('/api/context/memory'+(pref?('?prefix='+encodeURIComponent(pref)):'')).then(function(d){
+    var it=d.items||[];
+    if(!it.length){$('sm-content').innerHTML='<div style="color:var(--muted);font-size:12px">（无可见条目' +(pref?'（前缀 '+esc(pref)+'）':'')+'——三层命名空间 user → tenant → global 就近覆盖）</div>';return}
+    var h='<table><tr style="color:var(--text2)"><th style="text-align:left;padding:4px 8px">key</th><th style="text-align:left;padding:4px 8px">namespace</th><th style="text-align:left;padding:4px 8px">value</th><th style="text-align:left;padding:4px 8px">更新</th><th></th></tr>';
+    it.sort(function(a,b){return String(a.key).localeCompare(String(b.key))});
+    it.forEach(function(x){
+      h+='<tr style="border-top:1px solid var(--border)"><td style="padding:5px 8px;font-family:Consolas,monospace">'+esc(x.key)+'</td>'+
+      '<td style="padding:5px 8px"><span class="tag">'+esc(x.namespace)+'</span></td>'+
+      '<td style="padding:5px 8px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">'+esc(String(x.value).slice(0,160))+'</td>'+
+      '<td style="padding:5px 8px;color:var(--muted);font-size:11px">'+govDate(x.updatedAt)+'<br>'+esc(x.updatedBy||'')+'</td>'+
+      '<td style="padding:5px 8px"><button class="btn btn-sm" style="color:var(--red)" onclick="smDel(\''+esc(String(x.key)).replace(/'/g,"\\'")+'\')">删除</button></td></tr>';
+    });
+    $('sm-content').innerHTML=h+'</table>';
+  }).catch(function(e){$('sm-content').innerHTML='<div style="color:var(--muted);font-size:12px">加载失败：'+esc(e.message)+'</div>'});
+}
+function smAdd(){
+  var k=($('sm-key').value||'').trim(),v=$('sm-val').value,ns=($('sm-ns').value||'').trim(),ttl=parseInt($('sm-ttl').value||'0',10)||0;
+  if(!k||!v){toast('key 与 value 必填','err');return}
+  api('/api/context/memory',{method:'POST',body:JSON.stringify({key:k,value:v,namespace:ns,ttlSeconds:ttl})}).then(function(d){toast('已写入（revision '+d.revision+'）','ok');$('sm-key').value='';$('sm-val').value='';$('sm-ns').value='';$('sm-ttl').value='';loadMem()}).catch(function(e){toast('写入失败：'+e.message,'err')});
+}
+function smDel(key){
+  if(!confirm('删除共享记忆 key：'+key+'？'))return;
+  api('/api/context/memory?key='+encodeURIComponent(key),{method:'DELETE'}).then(function(){toast('已删除','ok');loadMem()}).catch(function(e){toast('删除失败：'+e.message,'err')});
+}
+function loadSInfo(){
+  var q=($('si-q').value||'').trim(),typ=$('si-typ').value;
+  api('/api/context/info?q='+encodeURIComponent(q)+(typ?('&type='+encodeURIComponent(typ)):'')).then(function(d){
+    var it=d.items||[];
+    if(!it.length){$('si-content').innerHTML='<div style="color:var(--muted);font-size:12px">（无匹配条目）</div>';return}
+    var h='';
+    it.forEach(function(x){
+      h+='<div style="border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px">'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="tag" style="background:rgba(88,166,255,.15);color:var(--blue)">'+esc(x.type||'-')+'</span>'+
+      '<b style="font-size:13px">'+esc(x.title)+'</b>'+
+      (x.scope?'<span class="tag">'+esc(x.scope)+'</span>':'')+
+      '<span style="color:var(--muted);font-size:10px;flex:1">置信度 '+(x.confidence!==undefined?x.confidence:'—')+' · r'+(x.revision||0)+' · '+govDate(x.updatedAt)+'</span>'+
+      '<button class="btn btn-sm" style="color:var(--red)" onclick="siDel(\''+esc(String(x.id)).replace(/'/g,"\\'")+'\')">删除</button></div>'+
+      '<div style="font-size:12px;color:var(--text2);margin-top:6px;white-space:pre-wrap;word-break:break-word">'+esc(x.content)+'</div>'+
+      (x.tags&&x.tags.length?'<div style="margin-top:6px">'+x.tags.map(function(t){return '<span class="tag" style="background:rgba(188,140,255,.14);color:var(--purple)">#'+esc(t)+'</span>'}).join(' ')+'</div>':'')+
+      '</div>';
+    });
+    $('si-content').innerHTML='<div style="color:var(--text2);font-size:11px;margin-bottom:8px">'+it.length+' 条（来源：'+esc(it[0].source||'—')+' 等）</div>'+h;
+  }).catch(function(e){$('si-content').innerHTML='<div style="color:var(--muted);font-size:12px">加载失败：'+esc(e.message)+'</div>'});
+}
+function siAdd(){
+  var t=($('si-title').value||'').trim(),c=($('si-body').value||'').trim();
+  if(!t||!c){toast('标题与内容必填','err');return}
+  var tags=($('si-tags').value||'').split(/[,，]/).map(function(x){return x.trim()}).filter(Boolean);
+  api('/api/context/info',{method:'POST',body:JSON.stringify({type:($('si-type').value||'').trim()||'note',title:t,content:c,tags:tags,scope:($('si-scope').value||'').trim()||'tenant',confidence:parseFloat($('si-conf').value||'0.8')||0.8})})
+  .then(function(d){toast('已新增（revision '+d.revision+'）','ok');['si-type','si-title','si-body','si-tags','si-scope','si-conf'].forEach(function(i){$(i).value=''});loadSInfo()})
+  .catch(function(e){toast('新增失败：'+e.message,'err')});
+}
+function siDel(id){
+  if(!confirm('删除该共享信息条目？'))return;
+  api('/api/context/info?id='+encodeURIComponent(id),{method:'DELETE'}).then(function(){toast('已删除','ok');loadSInfo()}).catch(function(e){toast('删除失败：'+e.message,'err')});
+}
+function loadAudit2(){
+  api('/api/admin/v322/status').then(function(d){
+    var dates=((d.auditV2||{}).availableDates||[]);
+    var sel=$('a2-date');sel.innerHTML=dates.length?dates.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>'}).join(''):'<option value="">（暂无审计文件）</option>';
+  }).catch(function(){});
+}
+function auditVerify(){
+  var d=$('a2-date').value;if(!d){toast('请先选择日期','err');return}
+  $('a2-result').innerHTML='<div class="skel skel-row" style="width:60%"></div>';
+  api('/api/admin/audit/verify?date='+encodeURIComponent(d)).then(function(r){
+    if(r.intact){$('a2-result').innerHTML='<span class="tag" style="background:rgba(63,185,80,.15);color:var(--green)">链完整</span> <b>'+r.total+'</b> 行全链重算一致（'+esc(r.date)+'）'}
+    else{$('a2-result').innerHTML='<span class="tag" style="background:rgba(248,81,73,.15);color:var(--red)">链断裂</span> 第 <b>'+(r.brokenAtSeq||'?')+'</b> 行处 hash 不匹配：'+esc(r.problem||'')+'（'+esc(r.date)+'，共 '+r.total+' 行）'}
+  }).catch(function(e){$('a2-result').innerHTML='<span style="color:var(--muted);font-size:12px">校验失败：'+esc(e.message)+'</span>'});
+}
+function auditExport(){
+  var d=$('a2-date').value;if(!d){toast('请先选择日期','err');return}
+  fetch(AB+'/api/admin/audit/export?date='+encodeURIComponent(d),{headers:{'X-API-Key':localStorage.getItem('tsg_api_key')||''}}).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.blob();
+  }).then(function(b){
+    var u=URL.createObjectURL(b),a=document.createElement('a');
+    a.href=u;a.download='tsg-audit-'+d+'.jsonl';a.click();setTimeout(function(){URL.revokeObjectURL(u)},2000);
+    toast('已导出 '+d+' 审计 JSONL（按租户行级过滤）','ok');
+  }).catch(function(e){toast('导出失败：'+e.message,'err')});
+}
 </script>
 </body></html>

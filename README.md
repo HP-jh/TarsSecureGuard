@@ -15,7 +15,7 @@
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.2.3-success">
+<img alt="Version" src="https://img.shields.io/badge/version-3.2.4-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
@@ -149,6 +149,9 @@ unzip tarssecureguard-v3.0.0-src.zip && cd tarssecureguard-v3.0.0
 ./start.sh
 ```
 
+### UI 升级（v3.2.4）
+**治理层前端可视化**：侧边栏新增「治理」导航组，治理总览（聚合治理+OAuth 状态）/ 共享记忆 / 共享信息 / 审计链 v2 四页面全部接真实 API——此前治理 8 个 REST 端点前端零覆盖只能 curl 触达。审计导出走带鉴权头的 blob 下载（密钥不落 URL）；另修复侧边栏版本徽章自 v3.2.2 起的漂移。Playwright + Chromium 无头端到端全过，前端零特权、审计视野不放松。详见 [docs/v3.2.4-ui.md](./docs/v3.2.4-ui.md)。
+
 ### 性能升级 v2（v3.2.3）
 **WAF 单遍合并正则 + ASCII 触发字节预筛**（normal/strict 各一条合并正则单遍快筛，命中后回查取规则名，语义零变化；纯中文正文整串免正则，strict 扫描 -99.8%）、**PII 脱敏单遍化**（四模式合并一次替换，-15%）、**响应缓存 16 分片锁**（FNV-1a 定片，独立 mutex+LRU，并发 get/put -10% @2 核）——候选逐项勘察定夺：排除 JSON sync.Pool 与审计批量 commit（写入序即 hash 链序，改异步有断链风险）、证伪 SSE 路径（代码中不存在）。详见 [docs/v3.2.3-performance.md](./docs/v3.2.3-performance.md)。
 
@@ -226,7 +229,8 @@ go test -race ./...      # 单元 + 集成测试
 
 ## 📚 文档
 
-- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.2.3 性能升级 v2、v3.2.2 治理层+性能升级 v1、v3.2.1 桌面客户端、v3.2.0 连接性大版本）
+- [CHANGES.md](./CHANGES.md) —— 各版本完整变更（含 v3.2.4 UI 升级、v3.2.3 性能升级 v2、v3.2.2 治理层+性能升级 v1、v3.2.1 桌面客户端、v3.2.0 连接性大版本）
+- [docs/v3.2.4-ui.md](./docs/v3.2.4-ui.md) —— **UI 升级**：治理层可视化四页面 / 交互修复 / Playwright 端到端验证
 - [docs/v3.2.3-performance.md](./docs/v3.2.3-performance.md) —— **性能升级 v2**：WAF 单遍合并+预筛 / PII 单遍化 / 响应缓存分片锁 / A-B 基准
 - [docs/v3.2.2-governance.md](./docs/v3.2.2-governance.md) —— **治理层**：共享记忆 / 共享信息 / 上下文拓展 MCP / OAuth/IdP / 守门人 / 审计升级
 - [docs/v3.2.2-performance.md](./docs/v3.2.2-performance.md) —— **性能升级 v1**：日志常开句柄管线 / 连接池覆盖补全 / A-B 基准

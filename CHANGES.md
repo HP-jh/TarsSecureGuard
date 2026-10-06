@@ -1,3 +1,30 @@
+# TarsSecureGuard v3.2.4 · UI 升级 —— 治理层前端可视化（治理总览 / 共享记忆 / 共享信息 / 审计链 v2）
+
+> 页面功能明细、交互修复与端到端验证详见 `docs/v3.2.4-ui.md`。
+> **零依赖不变**：前端仍为 `frontend/index.html` 单文件经 embed.FS 打入二进制；后端零改动，治理 REST API 零变化。
+> 测试基线 **136 条**全量 `-race` 绿（本版为纯前端，测试数不变）。
+
+## 一、治理层可视化（此前治理 8 个 REST 端点前端零覆盖，只能 curl 触达）
+
+- 侧边栏新增「治理」导航组（安全组与系统组之间）：**治理总览 / 共享记忆 / 共享信息 / 审计链 v2** 四页面全部接真实 API。
+- **治理总览**：聚合 `/api/admin/v322/status` + `/api/admin/oauth/status`——治理统计卡、守门人 enforce/observe 徽标与内置规则列表、OAuth Provider 表格、审计摘要。
+- **共享记忆**：`/api/context/memory` 三层命名空间 CRUD，含命名空间/键/值/TTL 表单、前缀过滤、revision 回报。
+- **共享信息**：`/api/context/info` 知识条目 CRUD，卡片式渲染（type/scope/置信度/revision/标签），支持加权检索。
+- **审计链 v2**：`/api/admin/audit/verify` 全链重算（intact 绿标 / 断点红标）、`/api/admin/audit/export` JSONL 导出（带 X-API-Key 头取 blob 下载，密钥不落 URL/地址栏）。
+
+## 二、交互与一致性修复
+
+- **版本徽章漂移**：侧边栏静态 "v3.2.1 DESKTOP" 自 v3.2.2 起漏更，修正为 v3.2.4。
+- 修复共享信息页输入框与列表容器 ID 冲突（`si-content` → 输入框改名 `si-body`），并全页 ID 唯一性核查。
+- 新增 4 个内联 SVG symbol 图标，复用既有深色玻璃拟态设计令牌与 hash 路由懒加载钩子。
+
+## 三、验证
+
+- Playwright + Chromium 无头端到端：21 导航项、4 新页面渲染与数据加载、共享记忆/共享信息写入回读、审计链校验与导出下载、零 JS 错误——全过。
+- 前端零特权：所有治理页面走与 curl 相同的 API 鉴权与角色检查，无任何前端旁路；审计视野不放松。
+
+---
+
 # TarsSecureGuard v3.2.3 · 性能升级 v2 —— WAF 单遍合并+预筛 / PII 单遍化 / 响应缓存分片锁
 
 > 瓶颈定位、候选取舍与基准数据详见 `docs/v3.2.3-performance.md`。
