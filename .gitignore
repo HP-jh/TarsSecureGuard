@@ -21,3 +21,4 @@ models/*.gguf
 Thumbs.db
 .idea/
 .vscode/
+.preview/

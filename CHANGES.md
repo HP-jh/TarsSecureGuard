@@ -1,3 +1,24 @@
+# TarsSecureGuard v3.6.0 · 统一安装包 + 官方引流站 —— 11 项纵深路线图收官
+
+> 对应项 8（极致小白化部署）/ 项 9（官方引流站），功能明细见 `docs/v3.6.0-installer-site.md`。
+
+## 一、统一安装器（小白化部署）
+
+- **install.sh**（Linux/macOS）：`uname` 自动识别 OS 与 CPU 架构（amd64/arm64），从 GitHub Releases 拉取对应二进制装到 `~/.tsg/bin`，幂等写 PATH；`TSG_BASE_URL`（镜像/本地目录）、`TSG_VERSION`、`TSG_INSTALL_DIR`、`TSG_NO_PATH_MOD` 可覆盖；Windows Git Bash 环境自动引导 install.ps1
+- **install.ps1**（Windows）：`PROCESSOR_ARCHITECTURE` 自动识别架构，装到 `%LOCALAPPDATA%\TarsSecureGuard` 并写用户 PATH，支持 `-Version/-BaseUrl/-InstallDir`
+- **统一安装包 tsg-setup.zip**：一个文件含全平台安装器，小白下载后运行即自动适配，无需选版本
+
+## 二、官方引流站（site/）
+
+- 单页官网 index.html（单文件、内联 CSS、GitHub Pages 即用）+ robots.txt + sitemap.xml
+- SEO 基线：meta description/keywords、canonical、Open Graph、Twitter Card、JSON-LD SoftwareApplication；特性 8 卡 + 一键安装命令 + 版本里程碑 + FAQ + GitHub 入口
+
+## 三、质量
+
+- 测试：v360_test.go 4 组（版本锁 3.6.0 / install.sh / install.ps1 / site SEO 静态断言）；全量 -race 绿
+
+---
+
 # TarsSecureGuard v3.5.0 · 极致模块化与自适应 —— 裁剪档案 / 使用习惯建议 / 新手-高阶模式
 
 > 对应 11 项纵深路线图项 6+7（极致模块化 / 自适应适配），功能明细见 `docs/v3.5.0-adaptive.md`。

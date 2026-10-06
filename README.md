@@ -140,14 +140,25 @@ TarsSecureGuard 是一款**本地优先（local-first）的 AI 网关——AI �
 
 ## 🚀 快速开始
 
-### Windows
-解压压缩包 → 双击 `start.bat`（未编译会自动 go build）→ 浏览器自动打开 `http://127.0.0.1:18889`。
-
-### macOS / Linux
+### 一键安装（推荐，自动识别系统与架构）
 ```sh
-unzip tarssecureguard-v3.0.0-src.zip && cd tarssecureguard-v3.0.0
-./start.sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh
 ```
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex
+```
+安装后运行 `tsg` 启动网关，面板自动打开 `http://127.0.0.1:18889`；`tsg doctor` 环境自检。也可下载统一安装包 `tsg-setup.zip`（含全平台安装器，运行后自动适配）。
+
+### 从源码运行
+```sh
+git clone https://github.com/HP-jh/TarsSecureGuard && cd TarsSecureGuard
+go run .          # 或 ./start.sh（Windows 双击 start.bat）
+```
+
+### 官方引流站
+轻量官网（特性总览 / 一键安装 / 版本里程碑 / FAQ）：`site/index.html`，GitHub Pages 开启即用（Settings → Pages → main / `site` 目录）。
 
 ### UI 升级（v3.2.4）
 **治理层前端可视化**：侧边栏新增「治理」导航组，治理总览（聚合治理+OAuth 状态）/ 共享记忆 / 共享信息 / 审计链 v2 四页面全部接真实 API——此前治理 8 个 REST 端点前端零覆盖只能 curl 触达。审计导出走带鉴权头的 blob 下载（密钥不落 URL）；另修复侧边栏版本徽章自 v3.2.2 起的漂移。Playwright + Chromium 无头端到端全过，前端零特权、审计视野不放松。详见 [docs/v3.2.4-ui.md](./docs/v3.2.4-ui.md)。

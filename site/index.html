@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TarsSecureGuard — AI 时代的安全网关，自带安全带</title>
+<meta name="description" content="TarsSecureGuard（TSG）是一款开箱即用的 AI 安全网关：统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化按需裁剪、自适应新手/高阶模式，单文件解压即用。">
+<meta name="keywords" content="TarsSecureGuard,AI网关,LLM Gateway,OpenAI兼容,模型路由,AI安全,安全网关,连接器,模块化,本地大模型">
+<meta name="author" content="TarsSecureGuard Team">
+<link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TarsSecureGuard">
+<meta property="og:title" content="TarsSecureGuard — AI 时代的安全网关">
+<meta property="og:description" content="统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化、自适应模式。解压即用，无需容器与数据库。">
+<meta property="og:url" content="https://hp-jh.github.io/TarsSecureGuard/">
+<meta property="og:locale" content="zh_CN">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TarsSecureGuard — AI 时代的安全网关">
+<meta name="twitter:description" content="统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化、自适应模式。">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "TarsSecureGuard",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Windows, macOS, Linux",
+  "softwareVersion": "3.6.0",
+  "description": "开箱即用的 AI 安全网关：统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化按需裁剪、自适应新手/高阶模式。",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Organization", "name": "TarsSecureGuard Team" },
+  "url": "https://hp-jh.github.io/TarsSecureGuard/",
+  "downloadUrl": "https://github.com/HP-jh/TarsSecureGuard/releases",
+  "codeRepository": "https://github.com/HP-jh/TarsSecureGuard",
+  "inLanguage": "zh-CN"
+}
+</script>
+<style>
+:root{--bg:#0d1220;--card:#151c30;--line:#232c48;--txt:#e8ecf6;--sub:#9aa6c0;--acc:#4f8cff;--ok:#3fd08c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
+a{color:var(--acc);text-decoration:none}
+.wrap{max-width:980px;margin:0 auto;padding:0 24px}
+header{padding:72px 0 48px;text-align:center;background:linear-gradient(180deg,#101a33 0%,var(--bg) 100%)}
+h1{font-size:40px;letter-spacing:1px}
+.tagline{color:var(--sub);font-size:18px;margin-top:12px}
+.btns{margin-top:28px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-block;padding:11px 26px;border-radius:8px;font-size:15px;font-weight:600}
+.btn-main{background:var(--acc);color:#fff}
+.btn-main:hover{opacity:.9}
+.btn-ghost{border:1px solid var(--line);color:var(--txt)}
+.btn-ghost:hover{border-color:var(--acc)}
+section{padding:44px 0}
+h2{font-size:24px;margin-bottom:22px}
+h2 .num{color:var(--acc);margin-right:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px}
+.card h3{font-size:16px;margin-bottom:8px}
+.card p{color:var(--sub);font-size:14px}
+.card h3 em{color:var(--ok);font-style:normal;font-size:12px;margin-left:6px}
+pre{background:#0a0f1c;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:10px 0}
+code{font-family:ui-monospace,Consolas,monospace}
+.os{color:var(--sub);font-size:13px;margin-top:14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--sub);font-weight:600}
+.faq dt{font-weight:600;margin-top:16px}
+.faq dd{color:var(--sub);font-size:14px;margin-left:0}
+footer{border-top:1px solid var(--line);padding:28px 0;color:var(--sub);font-size:13px;text-align:center}
+footer a{margin:0 10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>TarsSecureGuard</h1>
+    <p class="tagline">AI 时代的路由器，自带安全带 —— 开箱即用的 AI 安全网关</p>
+    <div class="btns">
+      <a class="btn btn-main" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">GitHub 仓库</a>
+      <a class="btn btn-ghost" href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">下载发布版</a>
+      <a class="btn btn-ghost" href="#quickstart">一键安装</a>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <h2><span class="num">01</span>核心特性</h2>
+    <div class="grid">
+      <div class="card"><h3>安全网关 <em>内置</em></h3><p>WAF 规则、PII 脱敏、审计哈希链、零信任默认密钥通道，提示词与响应全链路防护。</p></div>
+      <div class="card"><h3>统一转换中枢 <em>v3.3.0</em></h3><p>任意后端接口接入，前端统一 OpenAI 兼容格式；自动协议转换、参数映射与多模态适配。</p></div>
+      <div class="card"><h3>模型库与能力匹配 <em>v3.3.0</em></h3><p>添加模型后按标签自动识别能力边界（视觉 / 长上下文 / 函数调用），智能路由按需调度。</p></div>
+      <div class="card"><h3>连接器生态 <em>v3.4.0</em></h3><p>打通搜索、抓取、MCP 与外部服务，AI 无缝接入各类工具、平台与本地环境。</p></div>
+      <div class="card"><h3>极致模块化 <em>v3.5.0</em></h3><p>内置 5 档裁剪档案（极简 / 标准 / 全量 / 纯本地 / 低配）一键切换，支持自定义快照，按需裁剪不背包袱。</p></div>
+      <div class="card"><h3>自适应适配 <em>v3.5.0</em></h3><p>自动检测设备性能与使用习惯，闲置模块建议关闭；新手模式隐藏高级项，高阶模式全量开放。</p></div>
+      <div class="card"><h3>轻量 Token 测量器 <em>v3.4.0</em></h3><p>实时反馈每次调用成本，云端与本地模型一键对比，高成本任务自动提示本地优先。</p></div>
+      <div class="card"><h3>解压即用 <em>始终</em></h3><p>单文件二进制，无需容器、无需数据库；中文管理面板，浏览器自动打开。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="wrap">
+    <h2><span class="num">02</span>快速开始 · 一键安装</h2>
+    <p class="os">macOS / Linux（自动识别系统与 CPU 架构）：</p>
+    <pre><code>curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh</code></pre>
+    <p class="os">Windows PowerShell：</p>
+    <pre><code>irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex</code></pre>
+    <p class="os">安装后启动（首次运行自动生成配置与随机密钥）：</p>
+    <pre><code>tsg          # 启动网关，面板自动打开 http://127.0.0.1:18889
+tsg doctor   # 环境自检</code></pre>
+    <p class="os">也可以从 <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">GitHub Releases</a> 手动下载对应平台二进制，或下载统一安装包 tsg-setup.zip（含全平台安装器，运行后自动识别系统）。</p>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <h2><span class="num">03</span>版本里程碑</h2>
+    <table>
+      <tr><th>版本</th><th>主题</th><th>要点</th></tr>
+      <tr><td>v3.6.0</td><td>小白化部署收官</td><td>统一安装器（自动识别 OS / 架构）+ 官方引流站</td></tr>
+      <tr><td>v3.5.0</td><td>极致模块化与自适应</td><td>裁剪档案 / 使用埋点 / 建议引擎 / 新手与高阶双模式</td></tr>
+      <tr><td>v3.4.0</td><td>连接器生态</td><td>连接器市场 / 工具链路降耗 / Token 测量器</td></tr>
+      <tr><td>v3.3.0</td><td>转换中枢与模型库</td><td>custom 协议适配器 / 能力库与能力感知路由 / API 申请直达</td></tr>
+      <tr><td>v3.2.x</td><td>治理与性能</td><td>共享记忆 / 审计哈希链 / WAF 合并预筛 / 治理可视化</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2><span class="num">04</span>常见问题</h2>
+    <dl class="faq">
+      <dt>支持哪些操作系统？</dt>
+      <dd>Windows、macOS、Linux 的 amd64 / arm64 架构；安装器自动识别，无需手动选版本。</dd>
+      <dt>需要安装运行环境吗？</dt>
+      <dd>不需要。TSG 是单文件原生二进制，无容器、无数据库、无运行时依赖，解压或安装后直接运行。</dd>
+      <dt>支持本地大模型吗？</dt>
+      <dd>支持。自动发现本地推理服务（Ollama 等），配合 Token 测量器可实现云端 / 本地成本对比与本地优先。</dd>
+      <dt>数据会上传吗？</dt>
+      <dd>不会。网关默认零外联可裁剪（「纯本地」档案一键关闭全部对外网络模块），审计与密钥均在本机。</dd>
+      <dt>如何卸载？</dt>
+      <dd>删除安装目录（默认 ~/.tsg/bin 或 %LOCALAPPDATA%\TarsSecureGuard）即可，不残留系统组件。</dd>
+    </dl>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">源码</a>
+    <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">发布版</a>
+    <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener">问题反馈</a>
+    <p style="margin-top:12px">© 2026 TarsSecureGuard · The Router of the AI Era</p>
+  </div>
+</footer>
+</body>
+</html>
