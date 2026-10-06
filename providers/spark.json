@@ -12,5 +12,10 @@
     "generalv3.5",
     "lite"
   ],
-  "notes": "OpenAI 兼容接口（APIPassword 作为 key）"
+  "notes": "OpenAI 兼容接口（APIPassword 作为 key）",
+  "applyUrl": "https://console.xfyun.cn/services/bm4",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ]
 }

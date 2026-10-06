@@ -13,5 +13,37 @@
     "qwen-turbo",
     "qwen3-235b-a22b"
   ],
-  "notes": "DashScope OpenAI 兼容模式"
+  "notes": "DashScope OpenAI 兼容模式",
+  "applyUrl": "https://bailian.console.aliyun.com/",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "modelCaps": {
+    "qwen-vl-max": [
+      "vision",
+      "tools",
+      "json",
+      "longContext"
+    ],
+    "qwen-vl-plus": [
+      "vision",
+      "tools"
+    ],
+    "qwen-max": [
+      "tools",
+      "json",
+      "longContext"
+    ],
+    "qwen-plus": [
+      "tools",
+      "json"
+    ],
+    "qwen3-max": [
+      "reasoning",
+      "tools",
+      "json",
+      "longContext"
+    ]
+  }
 }

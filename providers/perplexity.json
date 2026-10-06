@@ -12,5 +12,15 @@
     "sonar-pro",
     "sonar-reasoning"
   ],
-  "notes": "OpenAI 兼容（注意 baseURL 无 /v1）"
+  "notes": "OpenAI 兼容（注意 baseURL 无 /v1）",
+  "applyUrl": "https://www.perplexity.ai/settings/api",
+  "defaultCaps": [
+    "tools"
+  ],
+  "modelCaps": {
+    "sonar-reasoning": [
+      "reasoning",
+      "tools"
+    ]
+  }
 }

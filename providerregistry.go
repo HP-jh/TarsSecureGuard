@@ -32,13 +32,31 @@ type ProviderSpec struct {
 	ID       string   `json:"id"`
 	Name     string   `json:"name"`
 	Kind     string   `json:"kind"`     // cloud | local
-	Protocol string   `json:"protocol"` // openai-compat | anthropic | gemini | ollama
+	Protocol string   `json:"protocol"` // openai-compat | anthropic | gemini | ollama | custom
 	BaseURL  string   `json:"baseURL"`
 	ChatPath string   `json:"chatPath"`
 	KeyEnv   string   `json:"keyEnv"`
 	Docs     string   `json:"docs"`
 	Models   []string `json:"models"`
 	Notes    string   `json:"notes"`
+	// v3.3.0：
+	ApplyURL    string              `json:"applyUrl,omitempty"`    // API 申请直达链接（UI「获取 Key」入口）
+	DefaultCaps []string            `json:"defaultCaps,omitempty"` // 模型默认能力继承
+	ModelCaps   map[string][]string `json:"modelCaps,omitempty"`   // 模型级能力覆盖
+	Custom      *CustomAdapterSpec  `json:"custom,omitempty"`      // custom 协议模板（任意后端接入）
+}
+
+// CustomAdapterSpec v3.3.0：custom 协议模板——任意 HTTP 后端的声明式接入。
+// 请求：Method（默认 POST）+ Path（拼在 baseURL 后）+ Headers（值支持 {{.Key}} 等
+// 占位符）+ Body（JSON 模板，任意层级值支持占位符）；
+// 响应：ResponsePath 点路径取内容字符串（如 "data.choices.0.message.content"）。
+// 占位符全集见 callCustomProvider 注释。
+type CustomAdapterSpec struct {
+	Method       string                 `json:"method,omitempty"`
+	Path         string                 `json:"path"`
+	Headers      map[string]string      `json:"headers,omitempty"`
+	Body         map[string]interface{} `json:"body,omitempty"`
+	ResponsePath string                 `json:"responsePath"`
 }
 
 // providerRegistry 加载后的注册表（启动加载一次；热重载仅刷新覆盖层）
@@ -254,6 +272,7 @@ func handleV32Providers(w http.ResponseWriter, r *http.Request) {
 			"reason":   reason,
 			"circuit":  cb,
 			"models":   providerEffectiveModels(s),
+			"applyUrl": s.ApplyURL,
 			"docs":     s.Docs,
 			"notes":    s.Notes,
 		})

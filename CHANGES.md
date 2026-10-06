@@ -1,3 +1,29 @@
+# TarsSecureGuard v3.3.0 · 转换中枢与模型库 —— custom 协议 / 能力感知路由 / API 直达
+
+> 对应 11 项纵深路线图项 3+4+5（转换能力深化 / 模型库与能力匹配 / API 获取入口），功能明细见 `docs/v3.3.0-hub.md`。
+
+## 一、custom 协议适配器（任意后端接入）
+
+- `providers/*.json` 新增 `custom` 协议：`method/path/headers/body/responsePath` 模板化声明，占位符 `{{.Key}}/{{.Model}}/{{.System}}/{{.User}}/{{.MessagesJSON}}` 等，responsePath 点路径取值（含数组索引）。
+- 多模态全链路：入站兼容 OpenAI content 数组（text/image_url/file，含 `file_data` 形态），出站按 openai-compat / anthropic / gemini 三协议重建；纯文本路径字节级不变。
+- `/v1/chat/completions` 透传 `tools/tool_choice`、回传 `tool_calls` 与真实 `finish_reason`，usage 计入租户配额，能力改道时带 `rerouted` 标注。
+
+## 二、模型能力库与能力感知路由
+
+- 能力标签 `vision/tools/longContext/json/reasoning`，三层数据（override > registry > 自动推断）；
+- 请求带图/带 tools/超 32k 输入而目标模型缺能力时自动改道到已就绪的具备能力模型（同 provider 优先），审计 `CAP_REROUTE`；开关可配置（`v33.capabilities.autoReroute`）。
+- 新增 `capabilityHub` 模块（默认开，热重载）；`GET/POST /api/admin/v33/capabilities`。
+- 前端新增「能力库」页：能力总览 / 矩阵过滤 / override 编辑 / 自动改道开关 / API Key 申请直达卡片。
+
+## 三、API 申请直达
+
+- 24 个云端 provider 补 `applyUrl`（各平台控制台公开地址，以平台实际为准），providers API 透出。
+
+## 四、修复与验证
+
+- 修复 normalizeCaps 大小写归一缺陷（camelCase 标签 "longContext" 曾被静默丢弃）。
+- `go build`/`go vet` 干净，`go test -race ./...` 全绿（141 用例，新增 v330_test.go 覆盖 custom 协议端到端 / 多模态 / 三层能力 / 改道 / 富解析）。
+
 # TarsSecureGuard v3.2.4 · UI 升级 —— 治理层前端可视化（治理总览 / 共享记忆 / 共享信息 / 审计链 v2）
 
 > 页面功能明细、交互修复与端到端验证详见 `docs/v3.2.4-ui.md`。

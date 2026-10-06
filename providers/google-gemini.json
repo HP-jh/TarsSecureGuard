@@ -11,5 +11,12 @@
     "gemini-2.5-pro",
     "gemini-2.5-flash"
   ],
-  "notes": "原生 generateContent；密钥经 x-goog-api-key 头发送"
+  "notes": "原生 generateContent；密钥经 x-goog-api-key 头发送",
+  "applyUrl": "https://aistudio.google.com/",
+  "defaultCaps": [
+    "vision",
+    "tools",
+    "json",
+    "longContext"
+  ]
 }

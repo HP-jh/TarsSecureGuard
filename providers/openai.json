@@ -13,5 +13,31 @@
     "gpt-4.1",
     "o3"
   ],
-  "notes": "官方 API；模型名以官网为准"
+  "notes": "官方 API；模型名以官网为准",
+  "applyUrl": "https://platform.openai.com/api-keys",
+  "modelCaps": {
+    "gpt-4o": [
+      "vision",
+      "tools",
+      "json",
+      "longContext"
+    ],
+    "gpt-4o-mini": [
+      "vision",
+      "tools",
+      "json"
+    ],
+    "gpt-4.1": [
+      "vision",
+      "tools",
+      "json",
+      "longContext"
+    ],
+    "o3": [
+      "reasoning",
+      "tools",
+      "vision",
+      "longContext"
+    ]
+  }
 }

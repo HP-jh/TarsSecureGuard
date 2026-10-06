@@ -11,5 +11,18 @@
     "deepseek-chat",
     "deepseek-reasoner"
   ],
-  "notes": "OpenAI 兼容"
+  "notes": "OpenAI 兼容",
+  "applyUrl": "https://platform.deepseek.com/api_keys",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "modelCaps": {
+    "deepseek-reasoner": [
+      "reasoning",
+      "tools",
+      "json",
+      "longContext"
+    ]
+  }
 }

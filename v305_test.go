@@ -407,7 +407,7 @@ func TestBackendTraceHeaderForward(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, _, err := callOpenAICompatible(ts.URL, "m", []Message{{Role: "user", Content: "hi"}}, "trace123trace123")
+	_, err := callOpenAICompatibleEx(ts.URL, "", "m", []Message{{Role: "user", Content: "hi"}}, ChatOpts{}, "trace123trace123")
 	if err != nil {
 		t.Fatalf("桩后端调用失败: %v", err)
 	}
@@ -416,7 +416,7 @@ func TestBackendTraceHeaderForward(t *testing.T) {
 	}
 	// 不带 trace 的调用不应设置头
 	gotHeader = ""
-	_, _, err = callOpenAICompatible(ts.URL, "m", []Message{{Role: "user", Content: "hi"}})
+	_, err = callOpenAICompatibleEx(ts.URL, "", "m", []Message{{Role: "user", Content: "hi"}}, ChatOpts{}, "")
 	if err != nil {
 		t.Fatalf("桩后端调用失败: %v", err)
 	}

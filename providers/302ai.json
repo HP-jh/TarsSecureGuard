@@ -12,5 +12,10 @@
     "claude-sonnet-4-5",
     "gemini-2.5-pro"
   ],
-  "notes": "聚合中转，按量计费"
+  "notes": "聚合中转，按量计费",
+  "applyUrl": "https://dash.302.ai/settings/api-key",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ]
 }

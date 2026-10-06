@@ -12,5 +12,29 @@
     "glm-4.5-air",
     "glm-4-flash"
   ],
-  "notes": "OpenAI 兼容"
+  "notes": "OpenAI 兼容",
+  "applyUrl": "https://open.bigmodel.cn/",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "modelCaps": {
+    "glm-4.5": [
+      "tools",
+      "json",
+      "longContext"
+    ],
+    "glm-4.5-air": [
+      "tools",
+      "json"
+    ],
+    "glm-4-flash": [
+      "tools",
+      "json"
+    ],
+    "glm-4v": [
+      "vision",
+      "tools"
+    ]
+  }
 }

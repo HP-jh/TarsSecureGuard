@@ -11,5 +11,10 @@
     "moonshot-v1-8k",
     "kimi-k2-0711-preview"
   ],
-  "notes": "OpenAI 兼容"
+  "notes": "OpenAI 兼容",
+  "applyUrl": "https://platform.moonshot.cn/console/api-keys",
+  "defaultCaps": [
+    "tools",
+    "longContext"
+  ]
 }

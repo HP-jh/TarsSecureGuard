@@ -11,5 +11,17 @@
     "mistral-large-latest",
     "mistral-small-latest"
   ],
-  "notes": "OpenAI 兼容"
+  "notes": "OpenAI 兼容",
+  "applyUrl": "https://console.mistral.ai/api-keys",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "modelCaps": {
+    "mistral-large-latest": [
+      "tools",
+      "json",
+      "longContext"
+    ]
+  }
 }

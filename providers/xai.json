@@ -11,5 +11,12 @@
     "grok-4",
     "grok-3"
   ],
-  "notes": "OpenAI 兼容"
+  "notes": "OpenAI 兼容",
+  "applyUrl": "https://console.x.ai/",
+  "defaultCaps": [
+    "tools",
+    "vision",
+    "json",
+    "longContext"
+  ]
 }

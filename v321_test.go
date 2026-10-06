@@ -12,9 +12,10 @@ import (
 // v3.2.2：治理层版本推进（共享记忆/共享信息/上下文拓展/OAuth/守门人/审计升级）
 // v3.2.3：性能升级 v2（WAF 合并+预筛 / PII 单遍化 / 响应缓存分片锁）
 // v3.2.4：UI 升级（治理层可视化管理台：治理总览/共享记忆/共享信息/审计链 v2）
+// v3.3.0：转换中枢与模型库（custom 协议适配器 / 能力库与能力感知路由 / provider API 申请直达）
 func TestV321VersionBumped(t *testing.T) {
-	if version != "3.2.4" {
-		t.Fatalf("version = %q, want 3.2.4", version)
+	if version != "3.3.0" {
+		t.Fatalf("version = %q, want 3.3.0", version)
 	}
 }
 

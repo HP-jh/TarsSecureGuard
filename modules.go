@@ -60,6 +60,8 @@ var moduleRegistry = []Module{
 	{ID: "sidecarHub", Name: "Sidecar Hub", Description: "外置模块宿主：modules.d manifest + SHA-256 钉扎 + 生命周期监管 + /api/ext/ 低权限反向代理", Category: "tools", Default: true, HasWorker: true},
 	// v3.2.2 治理层：共享记忆 / 共享信息 / 上下文拓展 MCP
 	{ID: "contextGov", Name: "Context Governance", Description: "共享记忆（命名空间 KV + 解析链）/ 共享信息（结构化知识条目）/ 上下文组装（预算化注入）", Category: "core", Default: true, Deps: []string{"builtinTools"}},
+	// v3.3.0：模型能力库与能力感知路由（能力矩阵 / 自动推断 / 智能改道）
+	{ID: "capabilityHub", Name: "Capability Hub", Description: "模型能力库：能力标签自动推断 + 能力矩阵 + 能力感知路由改道（v3.3.0）", Category: "models", Default: true, Deps: []string{"chatApi"}},
 }
 
 // securityModuleDesc 安全模块在模块列表中的展示形态（locked，无开关）

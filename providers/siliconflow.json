@@ -11,5 +11,10 @@
     "Qwen/Qwen2.5-72B-Instruct",
     "deepseek-ai/DeepSeek-V3"
   ],
-  "notes": "OpenAI 兼容，国内直连快"
+  "notes": "OpenAI 兼容，国内直连快",
+  "applyUrl": "https://cloud.siliconflow.cn/account/ak",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ]
 }

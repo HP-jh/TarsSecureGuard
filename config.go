@@ -57,6 +57,8 @@ type Config struct {
 	// 同样匿名内嵌提升到顶层，随 cfg 持久化（见 providerregistry.go / circuit.go /
 	// adapters.go / pool.go）。
 	V32Config
+	// v3.3.0 转换中枢扩展段（顶层键：capabilities / modelCaps）
+	V33Config
 	// v3.2.2 治理层扩展段（顶层键：oauth / gatekeeper / audit）——
 	// 共享记忆 / 共享信息的上限段（sharedMemory）为松散 map 段，走 cfgInt 读取。
 	OAuth      OAuthCfg      `json:"oauth"`
@@ -127,6 +129,14 @@ type V32Config struct {
 	Pool struct {
 		MaxIdleConnsPerHost int `json:"maxIdleConnsPerHost"` // 默认 32
 	} `json:"pool"`
+}
+
+// V33Config v3.3.0 转换中枢扩展段（顶层键：capabilities / modelCaps）
+type V33Config struct {
+	Capabilities struct {
+		AutoReroute *bool `json:"autoReroute"` // 能力改道开关（默认 true）
+	} `json:"capabilities"`
+	ModelCaps map[string][]string `json:"modelCaps"` // 能力覆盖层：模型名或 provider/model → 能力数组
 }
 
 type ExtServer struct {
@@ -288,6 +298,15 @@ func saveConfig() {
 		return
 	}
 	os.WriteFile(configPath, data, 0644)
+}
+
+// saveConfigChecked v3.3.0：带错误返回的保存（能力覆盖层写入用）
+func saveConfigChecked() error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configPath, data, 0644)
 }
 
 // ===================== 路径解析（开源化：默认以 exe 所在目录为基准） =====================

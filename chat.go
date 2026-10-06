@@ -18,11 +18,50 @@ type ChatRequest struct {
 	Model    string    `json:"model"`
 	Search   bool      `json:"search"`
 	Agent    bool      `json:"agent"`
+	// v3.3.0 OpenAI 兼容透传：tools / tool_choice 原样传给支持函数调用的后端
+	// （openai-compat 协议；其余协议忽略并记日志，见 docs/v3.3.0）
+	Tools      json.RawMessage `json:"tools,omitempty"`
+	ToolChoice json.RawMessage `json:"tool_choice,omitempty"`
 	// v3.2.2 上下文拓展：请求体可选 context 段——服务端按租户隔离策略把共享信息 /
 	// 共享记忆组装为 system 前缀注入（注入内容来自已过隔离的存储，随后照常过
 	// PII 脱敏与语义分级分流，不引入新旁路）。缺省不注入，行为与旧版一致。
 	Context *ChatContextOpts `json:"context,omitempty"`
 }
+
+// Usage v3.3.0 真实用量（后端返回 >0 时用真实值，否则网关估算）
+type Usage struct {
+	PromptTokens     int64 `json:"prompt_tokens"`
+	CompletionTokens int64 `json:"completion_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+}
+
+// ToolCall v3.3.0 函数调用透传（openai-compat 后端返回的 tool_calls 原样回给前端）
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function ToolCallFunc `json:"function"`
+	Index    int          `json:"index,omitempty"`
+}
+
+type ToolCallFunc struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+// ChatOpts v3.3.0 路由层透传选项（tools/多模态信息随 Message 自带）
+type ChatOpts struct {
+	Tools      json.RawMessage
+	ToolChoice json.RawMessage
+}
+
+// ChatResult v3.3.0 富返回：内容 + 后端 + 用量 + 函数调用
+type ChatResult struct {
+	Content   string     `json:"content"`
+	Backend   string     `json:"backend"`
+	Usage     Usage      `json:"usage"`
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+}
+
 
 // ChatContextOpts chat 请求的上下文注入选项
 type ChatContextOpts struct {
@@ -34,9 +73,85 @@ type ChatContextOpts struct {
 
 
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string   `json:"role"`
+	Content string   `json:"content"`
+	// v3.3.0 多模态：content 为 OpenAI 数组格式时提取出的图片 URL 列表
+	// （http(s):// 或 data:URL），序列化时不含此字段（出站体由适配层按协议重建）
+	Images []string `json:"-"`
 }
+
+// ContentPart OpenAI 多模态 content 数组元素（v3.3.0）
+type ContentPart struct {
+	Type     string `json:"type"` // text | image_url | file
+	Text     string `json:"text,omitempty"`
+	ImageURL *struct {
+		URL string `json:"url"`
+	} `json:"image_url,omitempty"`
+	File *struct {
+		FileID   string `json:"file_id,omitempty"`
+		FileURL  string `json:"file_url,omitempty"`
+		Data     string `json:"data,omitempty"`      // data:URL 形式内联文件（Anthropic 风格）
+		FileData string `json:"file_data,omitempty"` // OpenAI 兼容 file_data 形态
+		Mime     string `json:"mime_type,omitempty"`
+	} `json:"file,omitempty"`
+}
+
+// UnmarshalJSON 兼容 OpenAI 两种 content 形态：
+//   "content": "文本"            —— 普通文本（历史路径，零开销）
+//   "content": [{"type":"text"...},{"type":"image_url"...}] —— 多模态
+// 多模态时 Content = 全部 text 段拼接；图片 URL 收进 Images（data:URL 与
+// http(s):// 均收）；file 部件仅接受 data:URL / file_url 内联形态（网关不主动
+// 拉取外部文件，避免新增出站面）；不认识的部件类型忽略并保留文本。
+func (m *Message) UnmarshalJSON(b []byte) error {
+	type rawMsg struct {
+		Role    string          `json:"role"`
+		Content json.RawMessage `json:"content"`
+	}
+	var r rawMsg
+	if err := json.Unmarshal(b, &r); err != nil {
+		return err
+	}
+	m.Role = r.Role
+	m.Images = nil
+	if len(r.Content) == 0 || string(r.Content) == "null" {
+		m.Content = ""
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(r.Content, &s); err == nil {
+		m.Content = s
+		return nil
+	}
+	var parts []ContentPart
+	if err := json.Unmarshal(r.Content, &parts); err != nil {
+		return fmt.Errorf("content 必须为字符串或多模态数组: %w", err)
+	}
+	var texts []string
+	for _, p := range parts {
+		switch p.Type {
+		case "text":
+			texts = append(texts, p.Text)
+		case "image_url":
+			if p.ImageURL != nil && p.ImageURL.URL != "" {
+				m.Images = append(m.Images, p.ImageURL.URL)
+			}
+		case "file":
+			if p.File == nil {
+				continue
+			}
+			if p.File.Data != "" {
+				m.Images = append(m.Images, p.File.Data)
+			} else if p.File.FileData != "" {
+				m.Images = append(m.Images, p.File.FileData)
+			} else if p.File.FileURL != "" && (strings.HasPrefix(p.File.FileURL, "http://") || strings.HasPrefix(p.File.FileURL, "https://") || strings.HasPrefix(p.File.FileURL, "data:")) {
+				m.Images = append(m.Images, p.File.FileURL)
+			}
+		}
+	}
+	m.Content = strings.Join(texts, "\n")
+	return nil
+}
+
 
 type ChatResponse struct {
 	Choices []Choice `json:"choices"`
@@ -85,7 +200,14 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	// v3.0.5：透传 trace_id（纯观测；X-Trace-Id 响应头 + 后端出站头 + 路由/后端 span）
 	id, _ := identityFromRequest(r)
 	pref := tenantPreferredBackends(id.Tenant, id.Groups)
-	content, backend, _, err := routeChatSmartT(req.Model, req.Messages, id.Role, pref, traceFromReq(r))
+	// v3.3.0 能力感知改道：带图片的请求若目标模型缺 vision 能力，改道到具备
+	// 能力的已就绪模型（只改模型选择，安全链已在上方完成；关闭见 v33.capabilities）
+	routeModel, rerouted, rerouteNote := capabilityRoute(req.Model, capabilityNeeds(req.Messages, req.Tools))
+	if rerouted {
+		logMsg("[V33] " + rerouteNote)
+	}
+	opts := ChatOpts{Tools: req.Tools, ToolChoice: req.ToolChoice}
+	content, backend, _, err := routeChatSmartEx(routeModel, req.Messages, id.Role, pref, opts, traceFromReq(r))
 	reply := content
 	if err != nil {
 		reply = fmt.Sprintf("[%s 后端不可用] %s\n\n最后消息: %s", backend, err.Error(), req.Messages[len(req.Messages)-1].Content)
@@ -189,9 +311,25 @@ func getAgentPrompt(id string) string {
 // routeChat 静态路由。v3.0.5：可选 trace 变长参数（纯观测）——透传至出站
 // 后端请求（X-Trace-Id 头）与后端 span；省略时行为与 v3.0.4 完全一致。
 func routeChat(model string, msgs []Message, trace ...string) (string, string, error) {
+	res, err := routeChatEx(model, msgs, ChatOpts{}, trace...)
+	if err != nil {
+		return "", res.Backend, err
+	}
+	return res.Content, res.Backend, nil
+}
+
+// routeChatEx v3.3.0 富路由：在 routeChat 基础上透传 tools/tool_choice
+// （openai-compat 后端生效）并回传真实 usage 与 tool_calls。
+// 错误路径也返回 ChatResult（至少带 backend），便于调用方观测。
+func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (ChatResult, error) {
 	obsTr := ""
 	if len(trace) > 0 {
 		obsTr = trace[0]
+	}
+	res := ChatResult{}
+	fail := func(backend string, err error) (ChatResult, error) {
+		res.Backend = backend
+		return res, err
 	}
 	backend := "llama"
 	target := model
@@ -213,17 +351,21 @@ func routeChat(model string, msgs []Message, trace ...string) (string, string, e
 			backend = "ollama"
 			target = ""
 		} else {
-			return "", backend, fmt.Errorf("无可用后端：请先启动本地模型，或启动 LM Studio / Ollama")
+			return fail(backend, fmt.Errorf("无可用后端：请先启动本地模型，或启动 LM Studio / Ollama"))
 		}
 	} else if pid, rest, ok := splitProviderModel(model); ok {
 		// v3.2.0 provider-registry 显式路由："anthropic/claude-sonnet-4-5" 这类
 		// "providerId/model" 形式优先于既有本地/云端判定
 		spec, _ := providerSpec(pid)
 		if !moduleEnabledByID("cloudModels") && spec.Kind == "cloud" {
-			return "", pid, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）")
+			return fail(pid, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）"))
 		}
-		content, err := callProviderChat(spec, rest, msgs, "", obsTr)
-		return content, pid, err
+		content, usage, toolCalls, err := callProviderChatFull(spec, rest, msgs, "", obsTr, opts)
+		res = ChatResult{Content: content, Backend: pid, Usage: usage, ToolCalls: toolCalls}
+		if err != nil {
+			return res, err
+		}
+		return res, nil
 	} else {
 		if findGGUFFile(model) != "" {
 			backend = "llama"
@@ -241,56 +383,57 @@ func routeChat(model string, msgs []Message, trace ...string) (string, string, e
 			backend = "llama"
 			target = cur
 		} else {
-			return "", backend, fmt.Errorf("未知模型 %s", model)
+			return fail(backend, fmt.Errorf("未知模型 %s", model))
 		}
 	}
 
 	switch backend {
 	case "llama":
 		if !moduleEnabledByID("localModels") {
-			return "", backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）")
+			return fail(backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）"))
 		}
 		if running, _ := modelState(); !running {
 			if err := startLocalModel(target); err != nil {
-				return "", backend, err
+				return fail(backend, err)
 			}
 		}
 		// v2.0.0 直连层切换点：direct.transport = native | grpc-sidecar（边车不可用自动回落 native）
 		ep, err := directChatEndpoint()
 		if err != nil {
-			return "", backend, err
+			return fail(backend, err)
 		}
-		return callOpenAICompatible(ep, target, msgs, obsTr)
+		return callOpenAICompatibleEx(ep, "", target, msgs, opts, obsTr)
 	case "lmstudio", "ollama":
 		if !moduleEnabledByID("localModels") {
-			return "", backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）")
+			return fail(backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）"))
 		}
 		if backend == "lmstudio" {
-			return callOpenAICompatible(lmStudioBase+"/v1/chat/completions", target, msgs, obsTr)
+			return callOpenAICompatibleEx(lmStudioBase+"/v1/chat/completions", "", target, msgs, opts, obsTr)
 		}
-		return callOllamaChat(target, msgs, obsTr)
+		return callOllamaChatEx(target, msgs, obsTr)
 	case "cloud":
 		if !moduleEnabledByID("cloudModels") {
-			return "", backend, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）")
+			return fail(backend, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）"))
 		}
 		// v3.2.0：注册表 provider 的裸模型名（无 providerId 前缀）在此接管；
 		// 未命中再回落 v3.0.x 的 legacy cloud 配置（config.json cloud 段）
 		if spec, ok := findCloudProviderByModel(target); ok {
-			content, err := callProviderChat(spec, target, msgs, "", obsTr)
-			return content, spec.ID, err
+			content, usage, toolCalls, err := callProviderChatFull(spec, target, msgs, "", obsTr, opts)
+			return ChatResult{Content: content, Backend: spec.ID, Usage: usage, ToolCalls: toolCalls}, err
 		}
-		return callCloudChat(target, msgs, obsTr)
+		return callCloudChatEx(target, msgs, opts, obsTr)
 	default:
 		for _, cc := range allCloudCfgs() {
 			for _, mdl := range cc.Models {
 				if mdl == target {
-					return callOpenAICompatibleWithKey(strings.TrimSuffix(cc.BaseURL, "/")+"/chat/completions", cc.APIKey, mdl, msgs, obsTr)
+					return callOpenAICompatibleEx(strings.TrimSuffix(cc.BaseURL, "/")+"/chat/completions", cc.APIKey, mdl, msgs, opts, obsTr)
 				}
 			}
 		}
-		return "", backend, fmt.Errorf("无可用云端后端")
+		return fail(backend, fmt.Errorf("无可用云端后端"))
 	}
 }
+
 
 // backendNameFromURL 从出站 URL 提取低基数后端标签（仅用于观测指标/span，
 // 枚举值：llama/lmstudio/ollama/cloud/local/unknown——不含任何路径或密钥）
@@ -330,69 +473,74 @@ func isCloudModel(model string) bool {
 	return false
 }
 
-// callOpenAICompatible v3.0.5：可选 trace 变长参数（纯观测：出站请求带 X-Trace-Id 头）。
-func callOpenAICompatible(endpoint, model string, msgs []Message, trace ...string) (string, string, error) {
-	var tr string
-	if len(trace) > 0 {
-		tr = trace[0]
-	}
-	return callOpenAICompatibleWithKey(endpoint, "", model, msgs, tr)
-}
-
+// callOpenAICompatibleWithKey v3.3.0：包装 callOpenAICompatibleEx（无 tools 路径，行为与历史一致）
 func callOpenAICompatibleWithKey(endpoint, apiKey, model string, msgs []Message, trace ...string) (string, string, error) {
 	var tr string
 	if len(trace) > 0 {
 		tr = trace[0]
 	}
+	res, err := callOpenAICompatibleEx(endpoint, apiKey, model, msgs, ChatOpts{}, tr)
+	return res.Content, res.Backend, err
+}
+
+// callOpenAICompatibleEx v3.3.0：openai-compat 出站富路径——
+// 多模态消息按 OpenAI content 数组重建；tools/tool_choice 原样透传；
+// 解析后端 usage 与 tool_calls 一并返回。失败时 Backend 为空串（与历史口径一致）。
+func callOpenAICompatibleEx(endpoint, apiKey, model string, msgs []Message, opts ChatOpts, trace string) (ChatResult, error) {
+	res := ChatResult{}
 	body := map[string]interface{}{
 		"model":      model,
-		"messages":   msgs,
+		"messages":   openAIMessages(msgs),
 		"max_tokens": 2048,
 		"stream":     false,
 	}
-	jsonBody, _ := json.Marshal(body)
+	if len(opts.Tools) > 0 && string(opts.Tools) != "null" {
+		body["tools"] = json.RawMessage(opts.Tools)
+	}
+	if len(opts.ToolChoice) > 0 && string(opts.ToolChoice) != "null" {
+		body["tool_choice"] = json.RawMessage(opts.ToolChoice)
+	}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return res, err
+	}
 	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return "", "", err
+		return res, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
-	traceHeaderForward(req, tr) // v3.0.5：trace_id 透传至后端（空值 no-op）
+	traceHeaderForward(req, trace) // v3.0.5：trace_id 透传至后端（空值 no-op）
 	obsStart := time.Now()
 	resp, err := httpClientLong.Do(req)
 	if err != nil {
-		obsRecordBackend(tr, backendNameFromURL(endpoint), false, time.Since(obsStart).Milliseconds(), 0)
-		return "", "", err
+		obsRecordBackend(trace, backendNameFromURL(endpoint), false, time.Since(obsStart).Milliseconds(), 0)
+		return res, err
 	}
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
-	obsRecordBackend(tr, backendNameFromURL(endpoint), resp.StatusCode == 200, time.Since(obsStart).Milliseconds(), resp.StatusCode)
+	obsRecordBackend(trace, backendNameFromURL(endpoint), resp.StatusCode == 200, time.Since(obsStart).Milliseconds(), resp.StatusCode)
 	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("上游 %s", strings.TrimSpace(string(data)))
+		return res, fmt.Errorf("上游 %s", strings.TrimSpace(string(data)))
 	}
-	var result map[string]interface{}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return string(data), "", nil
+	content, usage, toolCalls := parseOpenAIFull(data)
+	if content == "" && usage.TotalTokens == 0 && len(toolCalls) == 0 {
+		// 非 openai 结构（如裸文本）：整包返回，与历史行为一致
+		res.Content = string(data)
+		return res, nil
 	}
-	if choices, ok := result["choices"].([]interface{}); ok && len(choices) > 0 {
-		if choice, ok := choices[0].(map[string]interface{}); ok {
-			if msg, ok := choice["message"].(map[string]interface{}); ok {
-				if content, ok := msg["content"].(string); ok {
-					return content, "", nil
-				}
-			}
-		}
-	}
-	return string(data), "", nil
+	res.Content = content
+	res.Usage = usage
+	res.ToolCalls = toolCalls
+	return res, nil
 }
 
-func callOllamaChat(model string, msgs []Message, trace ...string) (string, string, error) {
-	var tr string
-	if len(trace) > 0 {
-		tr = trace[0]
-	}
+
+// callOllamaChatEx v3.3.0：ollama 富路径（usage 取 prompt_eval_count/eval_count）
+func callOllamaChatEx(model string, msgs []Message, trace string) (ChatResult, error) {
+	res := ChatResult{Backend: "ollama"}
 	var om []map[string]string
 	for _, m := range msgs {
 		om = append(om, map[string]string{"role": m.Role, "content": m.Content})
@@ -405,48 +553,58 @@ func callOllamaChat(model string, msgs []Message, trace ...string) (string, stri
 	jsonBody, _ := json.Marshal(body)
 	req, err := http.NewRequest("POST", ollamaBase+"/api/chat", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return "", "", err
+		return res, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	traceHeaderForward(req, tr) // v3.0.5：trace_id 透传至后端（空值 no-op）
+	traceHeaderForward(req, trace) // v3.0.5：trace_id 透传至后端（空值 no-op）
 	obsStart := time.Now()
 	resp, err := httpClientShort.Do(req)
 	if err != nil {
-		obsRecordBackend(tr, "ollama", false, time.Since(obsStart).Milliseconds(), 0)
-		return "", "", err
+		obsRecordBackend(trace, "ollama", false, time.Since(obsStart).Milliseconds(), 0)
+		return res, err
 	}
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
-	obsRecordBackend(tr, "ollama", resp.StatusCode == 200, time.Since(obsStart).Milliseconds(), resp.StatusCode)
+	obsRecordBackend(trace, "ollama", resp.StatusCode == 200, time.Since(obsStart).Milliseconds(), resp.StatusCode)
 	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("ollama %s", strings.TrimSpace(string(data)))
+		return res, fmt.Errorf("ollama %s", strings.TrimSpace(string(data)))
 	}
 	var result map[string]interface{}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return string(data), "", nil
+		res.Content = string(data)
+		return res, nil
 	}
 	if msg, ok := result["message"].(map[string]interface{}); ok {
 		if content, ok := msg["content"].(string); ok {
-			return content, "", nil
+			res.Content = content
 		}
 	}
-	return string(data), "", nil
+	if v, ok := result["prompt_eval_count"].(float64); ok {
+		res.Usage.PromptTokens = int64(v)
+	}
+	if v, ok := result["eval_count"].(float64); ok {
+		res.Usage.CompletionTokens = int64(v)
+	}
+	res.Usage.TotalTokens = res.Usage.PromptTokens + res.Usage.CompletionTokens
+	return res, nil
 }
 
-func callCloudChat(model string, msgs []Message, trace ...string) (string, string, error) {
-	var tr string
-	if len(trace) > 0 {
-		tr = trace[0]
-	}
+// callCloudChatEx v3.3.0：legacy cloud 配置富路径
+func callCloudChatEx(model string, msgs []Message, opts ChatOpts, trace string) (ChatResult, error) {
 	for _, cc := range allCloudCfgs() {
 		for _, mdl := range cc.Models {
 			if mdl == model {
-				return callOpenAICompatibleWithKey(strings.TrimSuffix(cc.BaseURL, "/")+"/chat/completions", cc.APIKey, mdl, msgs, tr)
+				res, err := callOpenAICompatibleEx(strings.TrimSuffix(cc.BaseURL, "/")+"/chat/completions", cc.APIKey, mdl, msgs, opts, trace)
+				if res.Backend == "" {
+					res.Backend = "cloud"
+				}
+				return res, err
 			}
 		}
 	}
-	return "", "cloud", fmt.Errorf("云端模型 %s 未配置", model)
+	return ChatResult{Backend: "cloud"}, fmt.Errorf("云端模型 %s 未配置", model)
 }
+
 
 // ===================== OpenAI 兼容 /v1 =====================
 func handleV1(w http.ResponseWriter, r *http.Request) {
@@ -485,41 +643,74 @@ func handleV1(w http.ResponseWriter, r *http.Request) {
 			writeJSONStatus(w, http.StatusBadRequest, map[string]interface{}{"error": map[string]string{"message": "No messages"}})
 			return
 		}
-		content, backend, err := routeChat(req.Model, req.Messages)
+		// v3.3.0 能力感知改道（多模态/函数调用请求路由到具备能力的模型）
+		routeModel, rerouted, rerouteNote := capabilityRoute(req.Model, capabilityNeeds(req.Messages, req.Tools))
+		if rerouted {
+			logMsg("[V33] " + rerouteNote)
+		}
+		opts := ChatOpts{Tools: req.Tools, ToolChoice: req.ToolChoice}
+		res, err := routeChatEx(routeModel, req.Messages, opts)
 		if err != nil {
-			writeJSONStatus(w, http.StatusServiceUnavailable, map[string]interface{}{"error": map[string]string{"message": err.Error(), "backend": backend}})
+			writeJSONStatus(w, http.StatusServiceUnavailable, map[string]interface{}{"error": map[string]string{"message": err.Error(), "backend": res.Backend}})
 			return
+		}
+		// v3.3.0 真实用量：后端未返回时按估算口径补齐（字符数/4）
+		usage := res.Usage
+		if usage.TotalTokens == 0 {
+			for _, m := range req.Messages {
+				usage.PromptTokens += estimateTokens(m.Content)
+			}
+			usage.CompletionTokens = estimateTokens(res.Content)
+			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 		}
 		// v3.0.4 [MT_QUOTA]：OpenAI 兼容端点成功请求同样记入日配额
 		if vid, ok := identityFromRequest(r); ok {
-			inTok := int64(0)
-			for _, m := range req.Messages {
-				inTok += estimateTokens(m.Content)
-			}
-			quotaRecord(vid.Tenant, vid.Name, vid.Groups, inTok+estimateTokens(content))
+			quotaRecord(vid.Tenant, vid.Name, vid.Groups, usage.TotalTokens)
 		}
 		mu.Lock()
 		successReq++
 		mu.Unlock()
-		writeJSON(w, map[string]interface{}{
+		msgOut := map[string]interface{}{"role": "assistant", "content": res.Content}
+		if len(res.ToolCalls) > 0 {
+			// v3.3.0 函数调用透传：后端要求调用工具时原样回传 tool_calls，
+			// finish_reason=tool_calls（OpenAI 语义）
+			msgOut["tool_calls"] = res.ToolCalls
+		}
+		resp := map[string]interface{}{
 			"id":      "chatcmpl-tars-" + strconv.FormatInt(time.Now().Unix(), 10),
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
-			"model":   req.Model,
-			"backend": backend,
+			"model":   routeModel,
+			"backend": res.Backend,
 			"choices": []map[string]interface{}{
 				{
 					"index":         0,
-					"message":       map[string]interface{}{"role": "assistant", "content": content},
-					"finish_reason": "stop",
+					"message":       msgOut,
+					"finish_reason": finishReason(res.ToolCalls),
 				},
 			},
-			"usage": map[string]interface{}{"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-		})
+			"usage": map[string]interface{}{
+				"prompt_tokens":     usage.PromptTokens,
+				"completion_tokens": usage.CompletionTokens,
+				"total_tokens":      usage.TotalTokens,
+			},
+		}
+		if rerouted {
+			resp["rerouted"] = map[string]interface{}{"from": req.Model, "to": routeModel, "reason": capabilityNeeds(req.Messages, req.Tools)}
+		}
+		writeJSON(w, resp)
 		return
 	}
 
 	writeJSONStatus(w, http.StatusNotFound, map[string]interface{}{"error": map[string]string{"message": "Not found: " + path}})
+}
+
+// finishReason v3.3.0：有函数调用时返回 tool_calls，否则 stop
+func finishReason(toolCalls []ToolCall) string {
+	if len(toolCalls) > 0 {
+		return "tool_calls"
+	}
+	return "stop"
 }
 
 func handleV1Root(w http.ResponseWriter, r *http.Request) {
