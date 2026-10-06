@@ -17,5 +17,9 @@
     "tools",
     "json",
     "longContext"
-  ]
+  ],
+  "pricing": {
+    "input": 0.3,
+    "output": 1.1
+  }
 }

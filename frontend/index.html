@@ -275,13 +275,14 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.3.0 DESKTOP</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.4.0 DESKTOP</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('chat',this)"><span class="ic"><svg><use href="#i-chat"/></svg></span> AI Chat</div></div>
 <div class="nav-group"><div class="nav-title">模型</div>
 <div class="nav-item" onclick="pg('models',this)"><span class="ic"><svg><use href="#i-model"/></svg></span> Models</div>
 <div class="nav-item" onclick="pg('caps',this)"><span class="ic"><svg><use href="#i-mod"/></svg></span> Capability</div>
+<div class="nav-item" onclick="pg('meter',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Token Meter</div>
 <div class="nav-item" onclick="pg('agents',this)"><span class="ic"><svg><use href="#i-agent"/></svg></span> Agents</div>
 <div class="nav-item" onclick="pg('urgent',this)"><span class="ic"><svg><use href="#i-urgent"/></svg></span> Urgent</div>
 <div class="nav-item" onclick="pg('fallback',this)"><span class="ic"><svg><use href="#i-fallback"/></svg></span> Fallback</div></div>
@@ -289,6 +290,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-item" onclick="pg('search',this)"><span class="ic"><svg><use href="#i-search"/></svg></span> Web Search</div>
 <div class="nav-item" onclick="pg('feishu',this)"><span class="ic"><svg><use href="#i-feishu"/></svg></span> Feishu</div>
 <div class="nav-item" onclick="pg('mcp',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> MCP Tools</div>
+<div class="nav-item" onclick="pg('conn',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> Connectors</div>
 <div class="nav-item" onclick="pg('discovery',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Discovery</div></div>
 <div class="nav-group"><div class="nav-title">安全</div>
 <div class="nav-item" onclick="pg('security',this)"><span class="ic"><svg><use href="#i-sec"/></svg></span> Security</div>
@@ -431,6 +433,36 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <!-- ===== WAF ===== -->
 <div class="page" id="p-waf">
 <div class="card"><div class="card-title"><span class="d"></span>WAF 拦截日志 <span class="right"><button class="btn btn-s btn-sm" onclick="loadWaf()">刷新</button></span></div><div id="waf-content" class="log-box" style="min-height:400px">正在加载 WAF 日志…</div></div></div>
+
+<!-- ===== Token 测量器（v3.4.0） ===== -->
+<div class="page" id="p-meter">
+<div class="card"><div class="card-title"><span class="d"></span>成本总览 <span class="right"><button class="btn btn-s btn-sm" onclick="loadMeter()">刷新</button><button class="btn btn-s btn-sm" onclick="meterReset()">清零</button></span></div>
+<div class="stats-grid" id="meter-stats"><div class="skel skel-row" style="width:70%"></div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>轻量估算器 <span class="right"><span style="font-size:11px;color:var(--muted)">字符/4 估算 · 实际以后端 usage 为准</span></span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+<textarea class="input" id="meter-est-text" placeholder="粘贴文本，估算 tokens 与成本…" style="flex:1;min-width:260px;min-height:56px;font-size:12px"></textarea>
+<input class="input" id="meter-est-model" placeholder="模型（可选，如 openai/gpt-4o；留空对比全部）" style="flex:1;min-width:220px;font-size:12px">
+<button class="btn btn-p btn-sm" onclick="meterEstimate()">估算</button></div>
+<div id="meter-est-out" style="color:var(--text2);font-size:12px"></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>按模型汇总 <span class="right"><span id="meter-slim" style="font-size:11px;color:var(--muted)"></span></span></div>
+<div style="overflow-x:auto"><table style="width:100%"><thead><tr><th style="text-align:left">模型</th><th style="text-align:right">调用</th><th style="text-align:right">失败</th><th style="text-align:right">输入 tok</th><th style="text-align:right">输出 tok</th><th style="text-align:right">成本 USD</th></tr></thead><tbody id="meter-models"><tr><td colspan="6"><div class="skel skel-row" style="width:70%"></div></td></tr></tbody></table></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>最近调用</div>
+<div style="overflow-x:auto;max-height:320px"><table style="width:100%"><thead><tr><th style="text-align:left">时间</th><th style="text-align:left">模型</th><th style="text-align:right">tok</th><th style="text-align:right">成本</th><th style="text-align:left">状态</th></tr></thead><tbody id="meter-recent"><tr><td colspan="5"><div class="skel skel-row" style="width:60%"></div></td></tr></tbody></table></div></div>
+</div>
+
+<!-- ===== 连接器（v3.4.0） ===== -->
+<div class="page" id="p-conn">
+<div class="card"><div class="card-title"><span class="d"></span>连接器目录 <span class="right"><button class="btn btn-s btn-sm" onclick="loadConn()">刷新</button></span></div>
+<div id="conn-list"><div class="skel skel-row" style="width:70%"></div></div>
+<div style="color:var(--text2);font-size:11px;margin-top:10px">启用后自动注册为 AI 可调用工具（conn_*），经守门人策略门与 SSRF 防护执行；带密钥的连接器通过环境变量注入（如 GITHUB_TOKEN），密钥不落盘。</div></div>
+<div class="card"><div class="card-title"><span class="d"></span>配置实例</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+<select class="input" id="conn-sel" style="flex:1;min-width:200px;font-size:12px"></select>
+<input class="input" id="conn-params" placeholder='参数 JSON，如 {"owner":"octocat","repo":"hello"}' style="flex:2;min-width:240px;font-size:12px">
+<button class="btn btn-p btn-sm" onclick="connSave(true)">启用</button>
+<button class="btn btn-s btn-sm" onclick="connSave(false)">禁用</button></div>
+<div style="color:var(--text2);font-size:11px">参数为 JSON 对象；必填参数缺失会被拒绝。禁用 = 保留配置但 AI 不可见。</div></div>
+</div>
 
 <!-- ===== 能力库（v3.3.0） ===== -->
 <div class="page" id="p-caps">
@@ -634,10 +666,10 @@ function toggleSide(){var s=$('sidebar'),m=$('side-mask');var open=!s.classList.
 function closeSide(){$('sidebar').classList.remove('open');$('side-mask').classList.remove('show');}
 
 /* ============ 页面路由 ============ */
-var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息']};
+var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],meter:['Token 测量器','系统 / 成本实时反馈'],conn:['连接器','扩展 / 连接器生态'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息']};
 var curPage='dashboard';
 function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
-  if(p==='dashboard'){updStats();loadHw();}if(p==='modules')loadModules();if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();
+  if(p==='dashboard'){updStats();loadHw();}if(p==='modules')loadModules();if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();
   if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
 function jump(p){var it=document.querySelectorAll('.nav-item');for(var i=0;i<it.length;i++){if((it[i].getAttribute('onclick')||'').indexOf("'"+p+"'")>-1){pg(p,it[i]);return;}}pg(p,null);}
 function pgFromHash(){var h=(location.hash||'').replace(/^#/,'');if(!h)return;if(!$('p-'+h))return;jump(h);}
@@ -1122,6 +1154,73 @@ function wzClose(){$('wizard').style.display='none';
 $('c-in').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
 loadAgents();
 if(location.search.indexOf('shot')<0)setInterval(updStats,5000);
+/* ============ Token 测量器 + 连接器（v3.4.0） ============ */
+var meterData={};
+function meterFmt(n){if(n===null||n===undefined)return '-';if(n>=1)return '$'+n.toFixed(4);return '$'+n.toExponential(1);}
+function loadMeter(){
+  api('/api/admin/v34/meter').then(function(d){
+    meterData=d||{};
+    var t=d.today||{},tt=d.total||{};
+    $('meter-stats').innerHTML=
+      '<div class="stat"><div class="l">今日调用</div><div class="v">'+(t.calls||0)+'</div><div class="sub">失败 '+(t.errors||0)+'</div></div>'+
+      '<div class="stat"><div class="l">今日 tokens</div><div class="v">'+(t.total||0)+'</div><div class="sub">入 '+(t.prompt||0)+' · 出 '+(t.complete||0)+'</div></div>'+
+      '<div class="stat"><div class="l">今日成本</div><div class="v">'+meterFmt(t.cost)+'</div><div class="sub">USD</div></div>'+
+      '<div class="stat"><div class="l">累计成本</div><div class="v">'+meterFmt(tt.cost)+'</div><div class="sub">'+(tt.calls||0)+' 次调用</div></div>';
+    $('meter-slim').textContent='tools 瘦身已省 '+(d.slimSaved||0)+' tokens（'+(d.slimCalls||0)+' 次出站）';
+    var rows='';
+    (d.byModel||[]).forEach(function(m){
+      rows+='<tr><td style="font-weight:600">'+esc(m.model)+'</td><td style="text-align:right">'+m.agg.calls+'</td><td style="text-align:right">'+m.agg.errors+'</td><td style="text-align:right">'+m.agg.prompt+'</td><td style="text-align:right">'+m.agg.complete+'</td><td style="text-align:right">'+meterFmt(m.agg.cost)+'</td></tr>';
+    });
+    $('meter-models').innerHTML=rows||'<tr><td colspan="6" style="color:var(--muted)">暂无数据</td></tr>';
+    var rr='';
+    (d.recent||[]).slice().reverse().forEach(function(e){
+      rr+='<tr><td style="color:var(--text2)">'+esc((e.time||'').replace('T',' ').slice(5,19))+'</td><td>'+esc(e.model)+'</td><td style="text-align:right">'+e.total+'</td><td style="text-align:right">'+meterFmt(e.cost)+'</td><td>'+(e.error?'<span class="tag off">失败</span>':'<span class="tag on">成功</span>')+(e.priced?'':' <span class="tag loc">免费</span>')+'</td></tr>';
+    });
+    $('meter-recent').innerHTML=rr||'<tr><td colspan="5" style="color:var(--muted)">暂无数据</td></tr>';
+  }).catch(function(e){$('meter-stats').innerHTML='<div class="empty">加载失败：'+esc(e&&e.message||e)+'</div>';});
+}
+function meterReset(){if(!confirm('清零测量器（环形缓冲 + 聚合）？'))return;api('/api/admin/v34/meter',{method:'POST'}).then(function(){loadMeter();}).catch(function(e){alert('清零失败：'+(e&&e.message||e));});}
+function meterEstimate(){
+  var text=$('meter-est-text').value;
+  if(!text){alert('请输入待估算文本');return;}
+  var body={text:text};
+  var m=$('meter-est-model').value.trim();
+  if(m)body.model=m;
+  api('/api/v34/meter/estimate',{method:'POST',body:JSON.stringify(body)}).then(function(d){
+    var h='<b style="color:var(--cyan)">'+(d.tokens||0)+' tokens</b>（'+(d.chars||0)+' 字符）';
+    if(d.model){h+=' · '+esc(d.model)+' 单次成本 '+(d.priced?meterFmt(d.costPerCallUSD):'免费/未定价');}
+    if(d.comparison&&d.comparison.length){
+      h+='<div style="margin-top:6px">同文本各模型单次成本参考（升序）：</div>';
+      d.comparison.forEach(function(c){h+='<div style="display:flex;justify-content:space-between;max-width:420px"><span>'+esc(c.model)+'</span><span>'+meterFmt(c.costPerCallUSD)+'</span></div>';});
+    }
+    $('meter-est-out').innerHTML=h;
+  }).catch(function(e){$('meter-est-out').textContent='估算失败：'+(e&&e.message||e);});
+}
+var connData={templates:[],instances:[]};
+function loadConn(){
+  api('/api/admin/v34/connectors').then(function(d){
+    connData=d||{};connData.templates=connData.templates||[];connData.instances=connData.instances||[];
+    var inst={};connData.instances.forEach(function(i){inst[i.template]=i;});
+    var cards=[];
+    connData.templates.forEach(function(t){
+      var on=inst[t.id]&&inst[t.id].enabled;
+      var pl=(t.params||[]).map(function(p){return p.name+(p.required?'*':'')+(p.default?'='+p.default:'');}).join(', ');
+      cards.push('<div style="border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin:8px 0;background:var(--bg1)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><span style="font-weight:700;font-size:13px">'+esc(t.name)+'</span> '+(on?'<span class="tag on">已启用</span>':'<span class="tag off">未启用</span>')+(t.noAuth?' <span class="tag loc">免密钥</span>':'')+'</div><span style="font-size:10px;color:var(--muted);letter-spacing:1px">'+esc(t.category)+'</span></div><div style="font-size:11px;color:var(--text2);margin:6px 0">'+esc(t.description)+'</div><div style="font-size:10px;color:var(--muted)">工具名 conn_'+esc(t.id)+' · 参数: '+esc(pl||'无')+'</div></div>');
+    });
+    $('conn-list').innerHTML=cards.join('')||'<div class="empty">无内置模板</div>';
+    var opts='<option value="">— 选择连接器模板 —</option>';
+    connData.templates.forEach(function(t){opts+='<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>';});
+    $('conn-sel').innerHTML=opts;
+  }).catch(function(e){$('conn-list').innerHTML='<div class="empty">加载失败：'+esc(e&&e.message||e)+'</div>';});
+}
+function connSave(enable){
+  var tpl=$('conn-sel').value;
+  if(!tpl){alert('请选择连接器模板');return;}
+  var params={};
+  var raw=$('conn-params').value.trim();
+  if(raw){try{params=JSON.parse(raw);}catch(e){alert('参数不是合法 JSON：'+e.message);return;}}
+  api('/api/admin/v34/connectors',{method:'POST',body:JSON.stringify({template:tpl,params:params,enabled:enable})}).then(function(){loadConn();}).catch(function(e){alert('保存失败：'+(e&&e.message||e));});
+}
 /* ============ 能力库（v3.3.0）：矩阵 / 改道 / override / API 直达 ============ */
 var capsData={models:[],caps:[],descriptions:{},autoReroute:false};
 function capsCapTag(c){var cls={vision:'loc',tools:'on',longContext:'clo',json:'',reasoning:'off'}[c]||'';return '<span class="tag '+cls+'" style="margin:1px 3px 1px 0">'+c+'</span>';}

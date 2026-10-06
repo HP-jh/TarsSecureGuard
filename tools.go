@@ -465,6 +465,14 @@ func executeTool(name string, args map[string]interface{}) (interface{}, error) 
 		logMsg("[TOOL] " + name + " 被调用（custom）")
 		return executeCustomTool(name, args)
 	}
+	// v3.4.0：连接器生态（conn_<template>，SSRF 加固执行 + 审计）
+	if strings.HasPrefix(name, "conn_") {
+		if !moduleEnabledByID("connectors") {
+			return nil, fmt.Errorf("工具所属模块 connectors 已关闭")
+		}
+		logMsg("[TOOL] " + name + " 被调用（connector）")
+		return executeConnector(strings.TrimPrefix(name, "conn_"), args)
+	}
 	t, ok := tools[name]
 	if !ok {
 		return nil, fmt.Errorf("工具不存在: %s", name)
@@ -530,6 +538,12 @@ func toolNames() []string {
 	if moduleEnabledByID("customTools") {
 		for _, ct := range customToolList() {
 			names = append(names, ct.Name)
+		}
+	}
+	// v3.4.0：启用的连接器实例（conn_<template>）
+	if moduleEnabledByID("connectors") {
+		for _, lc := range enabledConnectors() {
+			names = append(names, connectorToolName(lc.Inst.Template))
 		}
 	}
 	sort.Strings(names)

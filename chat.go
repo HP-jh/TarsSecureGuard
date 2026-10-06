@@ -321,15 +321,18 @@ func routeChat(model string, msgs []Message, trace ...string) (string, string, e
 // routeChatEx v3.3.0 富路由：在 routeChat 基础上透传 tools/tool_choice
 // （openai-compat 后端生效）并回传真实 usage 与 tool_calls。
 // 错误路径也返回 ChatResult（至少带 backend），便于调用方观测。
-func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (ChatResult, error) {
+func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (res ChatResult, err error) {
+	// v3.4.0：出口统一埋点——所有后端路径（成功/失败）都进 Token 测量器
+	defer func() {
+		meterHook(model, res, err)
+	}()
 	obsTr := ""
 	if len(trace) > 0 {
 		obsTr = trace[0]
 	}
-	res := ChatResult{}
-	fail := func(backend string, err error) (ChatResult, error) {
+	fail := func(backend string, e error) (ChatResult, error) {
 		res.Backend = backend
-		return res, err
+		return res, e
 	}
 	backend := "llama"
 	target := model

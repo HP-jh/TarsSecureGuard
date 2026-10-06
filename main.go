@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.3.0"
+var version = "3.4.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -229,6 +229,11 @@ func main() {
 	mux.HandleFunc("/api/context/build", moduleRoute("contextGov", handleContextBuildREST))
 	// v3.3.0 模型能力库：能力矩阵查询 / 覆盖层写入 / 自动改道开关（capabilityHub 模块）
 	mux.HandleFunc("/api/admin/v33/capabilities", moduleRoute("capabilityHub", handleV33Capabilities))
+	// v3.4.0 Token 测量器：调用计量 / 成本汇总 / 清零 / 轻量估算（tokenMeter 模块）
+	mux.HandleFunc("/api/admin/v34/meter", moduleRoute("tokenMeter", handleV34Meter))
+	mux.HandleFunc("/api/v34/meter/estimate", moduleRoute("tokenMeter", handleV34MeterEstimate))
+	// v3.4.0 连接器生态：模板目录 + 实例管理（connectors 模块）
+	mux.HandleFunc("/api/admin/v34/connectors", moduleRoute("connectors", handleV34Connectors))
 	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)

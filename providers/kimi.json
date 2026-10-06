@@ -16,5 +16,9 @@
   "defaultCaps": [
     "tools",
     "longContext"
-  ]
+  ],
+  "pricing": {
+    "input": 0.9,
+    "output": 0.9
+  }
 }

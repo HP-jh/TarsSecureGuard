@@ -18,5 +18,9 @@
     "vision",
     "json",
     "longContext"
-  ]
+  ],
+  "pricing": {
+    "input": 3.0,
+    "output": 15.0
+  }
 }

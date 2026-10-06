@@ -18,5 +18,15 @@
     "tools",
     "json",
     "longContext"
-  ]
+  ],
+  "pricing": {
+    "input": 1.25,
+    "output": 5.0
+  },
+  "modelPricing": {
+    "gemini-2.5-flash": {
+      "input": 0.3,
+      "output": 2.5
+    }
+  }
 }

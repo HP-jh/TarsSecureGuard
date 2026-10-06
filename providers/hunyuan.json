@@ -16,5 +16,9 @@
   "defaultCaps": [
     "tools",
     "json"
-  ]
+  ],
+  "pricing": {
+    "input": 0.5,
+    "output": 0.5
+  }
 }

@@ -36,5 +36,15 @@
       "vision",
       "tools"
     ]
+  },
+  "pricing": {
+    "input": 0.6,
+    "output": 0.6
+  },
+  "modelPricing": {
+    "glm-4-flash": {
+      "input": 0.0,
+      "output": 0.0
+    }
   }
 }

@@ -24,5 +24,15 @@
       "json",
       "longContext"
     ]
+  },
+  "pricing": {
+    "input": 0.27,
+    "output": 1.1
+  },
+  "modelPricing": {
+    "deepseek-reasoner": {
+      "input": 0.55,
+      "output": 2.19
+    }
   }
 }

@@ -1,3 +1,28 @@
+# TarsSecureGuard v3.4.0 · 连接器生态与工具链路降耗 —— 连接器目录 / Token 测量器 / schema 瘦身
+
+> 对应 11 项纵深路线图项 1+2（连接器生态 / 工具调用链路降耗 + Token 测量器），功能明细见 `docs/v3.4.0-connectors.md`。
+
+## 一、连接器生态（conn_* 工具）
+
+- 内置 8 个模板（github_repo / github_issues / webhook_notify / wikipedia_search / weather / ip_info / hn_top / hn_item），`POST /api/admin/v34/connectors` 实例化启用，写入 `config.json` `v34.connectors` 热重载。
+- 参数展开优先级：调用参数 > 实例 params > 模板默认；必填缺失报错。headers 值支持 `env:VAR`，密钥不落盘。
+- 与自定义工具共享 `executeForwardedRequest` 公共转发层，SSRF 五红线一处落实；沿用守门人策略门与审计（CONNECTOR_CALL / CONNECTOR_CONFIG）。新增 `connectors` 模块（默认开）。
+
+## 二、Token 测量器
+
+- `routeChatEx` defer 统一出口埋点，全后端路径成功/失败都记账；进程内环形缓冲 2000 条 + 8 天按天聚合 + 按模型聚合，不持久化。
+- 定价三层（overrides > modelPricing > pricing，USD/1M tokens）；本地后端免费，未定价模型只记 tokens 不计金额。23 个云端 provider 内置定价（以平台公开定价页为准，可 override 校正）。
+- API：`GET/POST /api/admin/v34/meter`（查询/清零）、`POST /api/v34/meter/estimate`（文本估算 + 模型成本对比）。新增 `tokenMeter` 模块（默认开）。
+
+## 三、工具链路降耗
+
+- tools schema 出站瘦身：剔除 `strict:false` / `additionalProperties:false` / 空容器，保留有语义字段；变大则原样返回。节省 tokens（slimSaved）与次数（slimCalls）进测量器 API 与前端总览。
+
+## 四、前端与验证
+
+- 新增「Token Meter」「Connectors」两页面；版本徽章 v3.4.0；单文件 embed 惯例不变。
+- `go build`/`go vet` 干净，`go test -race -count=1 ./...` 全绿（v340_test.go 13 用例：计量/定价/瘦身/模板/参数展开/SSRF 拒绝/模块注册）。
+
 # TarsSecureGuard v3.3.0 · 转换中枢与模型库 —— custom 协议 / 能力感知路由 / API 直达
 
 > 对应 11 项纵深路线图项 3+4+5（转换能力深化 / 模型库与能力匹配 / API 获取入口），功能明细见 `docs/v3.3.0-hub.md`。

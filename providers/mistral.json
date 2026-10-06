@@ -23,5 +23,9 @@
       "json",
       "longContext"
     ]
+  },
+  "pricing": {
+    "input": 0.5,
+    "output": 1.5
   }
 }

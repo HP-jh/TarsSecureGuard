@@ -22,5 +22,9 @@
       "reasoning",
       "tools"
     ]
+  },
+  "pricing": {
+    "input": 1.0,
+    "output": 1.0
   }
 }

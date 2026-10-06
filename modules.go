@@ -62,6 +62,10 @@ var moduleRegistry = []Module{
 	{ID: "contextGov", Name: "Context Governance", Description: "共享记忆（命名空间 KV + 解析链）/ 共享信息（结构化知识条目）/ 上下文组装（预算化注入）", Category: "core", Default: true, Deps: []string{"builtinTools"}},
 	// v3.3.0：模型能力库与能力感知路由（能力矩阵 / 自动推断 / 智能改道）
 	{ID: "capabilityHub", Name: "Capability Hub", Description: "模型能力库：能力标签自动推断 + 能力矩阵 + 能力感知路由改道（v3.3.0）", Category: "models", Default: true, Deps: []string{"chatApi"}},
+	// v3.4.0：轻量 Token 测量器（成本实时反馈 / tools 瘦身降耗）
+	{ID: "tokenMeter", Name: "Token Meter", Description: "轻量 Token 测量器：每次调用的 tokens 与成本实时反馈、tools schema 瘦身降耗（v3.4.0）", Category: "ops", Default: true, Deps: []string{"chatApi"}},
+	// v3.4.0：连接器生态（内置模板 + 用户实例，AI 可调用 conn_* 工具）
+	{ID: "connectors", Name: "Connectors", Description: "连接器生态：内置模板目录 + 用户实例，AI 经 conn_* 工具无缝接入外部平台与数据源（v3.4.0）", Category: "tools", Default: true, Deps: []string{"builtinTools"}},
 }
 
 // securityModuleDesc 安全模块在模块列表中的展示形态（locked，无开关）

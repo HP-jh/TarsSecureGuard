@@ -167,7 +167,8 @@ func buildOpenAIBodyEx(model string, msgs []Message, opts ChatOpts) ([]byte, err
 		"stream":     false,
 	}
 	if len(opts.Tools) > 0 && string(opts.Tools) != "null" {
-		body["tools"] = json.RawMessage(opts.Tools)
+		// v3.4.0：出站 tools schema 瘦身（剔除默认值/空容器字段，减少冗余 token）
+		body["tools"] = json.RawMessage(slimToolsSchema(opts.Tools))
 	}
 	if len(opts.ToolChoice) > 0 && string(opts.ToolChoice) != "null" {
 		body["tool_choice"] = json.RawMessage(opts.ToolChoice)

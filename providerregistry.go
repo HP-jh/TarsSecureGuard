@@ -43,6 +43,8 @@ type ProviderSpec struct {
 	ApplyURL    string              `json:"applyUrl,omitempty"`    // API 申请直达链接（UI「获取 Key」入口）
 	DefaultCaps []string            `json:"defaultCaps,omitempty"` // 模型默认能力继承
 	ModelCaps   map[string][]string `json:"modelCaps,omitempty"`   // 模型级能力覆盖
+	Pricing     *Pricing            `json:"pricing,omitempty"`     // provider 级默认定价（USD/1M tokens）
+	ModelPricing map[string]*Pricing `json:"modelPricing,omitempty"` // 模型级定价覆盖
 	Custom      *CustomAdapterSpec  `json:"custom,omitempty"`      // custom 协议模板（任意后端接入）
 }
 
@@ -273,6 +275,8 @@ func handleV32Providers(w http.ResponseWriter, r *http.Request) {
 			"circuit":  cb,
 			"models":   providerEffectiveModels(s),
 			"applyUrl": s.ApplyURL,
+			"pricing":  s.Pricing,
+			"modelPricing": s.ModelPricing,
 			"docs":     s.Docs,
 			"notes":    s.Notes,
 		})

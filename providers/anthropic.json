@@ -18,5 +18,15 @@
     "vision",
     "tools",
     "longContext"
-  ]
+  ],
+  "pricing": {
+    "input": 3.0,
+    "output": 15.0
+  },
+  "modelPricing": {
+    "claude-3-5-haiku": {
+      "input": 0.8,
+      "output": 4.0
+    }
+  }
 }

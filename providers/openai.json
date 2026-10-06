@@ -39,5 +39,19 @@
       "vision",
       "longContext"
     ]
+  },
+  "pricing": {
+    "input": 2.5,
+    "output": 10.0
+  },
+  "modelPricing": {
+    "gpt-4o-mini": {
+      "input": 0.15,
+      "output": 0.6
+    },
+    "gpt-4.1": {
+      "input": 2.0,
+      "output": 8.0
+    }
   }
 }
