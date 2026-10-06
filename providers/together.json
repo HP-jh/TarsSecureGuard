@@ -11,14 +11,5 @@
     "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     "Qwen/Qwen2.5-72B-Instruct-Turbo"
   ],
-  "notes": "OpenAI 兼容",
-  "applyUrl": "https://api.together.ai/settings/api-keys",
-  "defaultCaps": [
-    "tools",
-    "json"
-  ],
-  "pricing": {
-    "input": 0.15,
-    "output": 0.6
-  }
+  "notes": "OpenAI 兼容"
 }

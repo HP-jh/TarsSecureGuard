@@ -2,10 +2,10 @@
 
 # 🛡️ TarsSecureGuard
 
-### The Router &amp; Configurator of the AI Era —— AI 时代的路由器与配置器，自带安全带
+### The Router of the AI Era —— AI 时代的路由器，自带安全带
 
 <p>
-<b>解压即用</b> · <b>安全性强</b> · <b>无需配置</b> · <b>全平台兼容</b> · <b>连接一切</b> · <b>替你配好别的 AI 工具</b>
+<b>解压即用</b> · <b>安全性强</b> · <b>无需配置</b> · <b>全平台兼容</b> · <b>连接一切</b>
 </p>
 
 <p>
@@ -15,12 +15,7 @@
 </p>
 
 <p>
-<b>不只是网关，还是配置器（v3.7.0 Extender）</b>：别的 AI 工具环境配置繁琐？TSG 反过来替你配好它们——内置探测器扫出本机已装的 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>，
-一键生成把该工具指向 TSG 端点的接入配置片段（密钥可选内嵌并全程审计），复制粘贴即完成。所有目标均为 MIT / Apache 生态，<b>零 GPL 污染、零外部依赖</b>。
-</p>
-
-<p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.7.0-success">
+<img alt="Version" src="https://img.shields.io/badge/version-3.2.4-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
@@ -145,25 +140,14 @@ TarsSecureGuard 是一款**本地优先（local-first）的 AI 网关——AI �
 
 ## 🚀 快速开始
 
-### 一键安装（推荐，自动识别系统与架构）
-```sh
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh
-```
-```powershell
-# Windows PowerShell
-irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex
-```
-安装后运行 `tsg` 启动网关，面板自动打开 `http://127.0.0.1:18889`；`tsg doctor` 环境自检。也可下载统一安装包 `tsg-setup.zip`（含全平台安装器，运行后自动适配）。
+### Windows
+解压压缩包 → 双击 `start.bat`（未编译会自动 go build）→ 浏览器自动打开 `http://127.0.0.1:18889`。
 
-### 从源码运行
+### macOS / Linux
 ```sh
-git clone https://github.com/HP-jh/TarsSecureGuard && cd TarsSecureGuard
-go run .          # 或 ./start.sh（Windows 双击 start.bat）
+unzip tarssecureguard-v3.0.0-src.zip && cd tarssecureguard-v3.0.0
+./start.sh
 ```
-
-### 官方引流站
-轻量官网（特性总览 / 一键安装 / 版本里程碑 / FAQ）：`site/index.html`，GitHub Pages 开启即用（Settings → Pages → main / `site` 目录）。
 
 ### UI 升级（v3.2.4）
 **治理层前端可视化**：侧边栏新增「治理」导航组，治理总览（聚合治理+OAuth 状态）/ 共享记忆 / 共享信息 / 审计链 v2 四页面全部接真实 API——此前治理 8 个 REST 端点前端零覆盖只能 curl 触达。审计导出走带鉴权头的 blob 下载（密钥不落 URL）；另修复侧边栏版本徽章自 v3.2.2 起的漂移。Playwright + Chromium 无头端到端全过，前端零特权、审计视野不放松。详见 [docs/v3.2.4-ui.md](./docs/v3.2.4-ui.md)。

@@ -12,14 +12,5 @@
     "generalv3.5",
     "lite"
   ],
-  "notes": "OpenAI 兼容接口（APIPassword 作为 key）",
-  "applyUrl": "https://console.xfyun.cn/services/bm4",
-  "defaultCaps": [
-    "tools",
-    "json"
-  ],
-  "pricing": {
-    "input": 0.3,
-    "output": 0.3
-  }
+  "notes": "OpenAI 兼容接口（APIPassword 作为 key）"
 }

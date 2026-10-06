@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://hp-jh.github.io/TarsSecureGuard/sitemap.xml

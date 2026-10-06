@@ -43,13 +43,20 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.7.0"
+var version = "3.2.5"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
 	llamaDir   string
 	configPath string
+)
+
+// v3.2.5：TLS / 监听地址参数
+var (
+	listenAddr string
+	tlsCert    string
+	tlsKey     string
 )
 
 // 授权读写根（文件工具安全边界，由 resolvePaths 依据配置与默认布局填充）
@@ -103,6 +110,29 @@ func main() {
 	}
 	// v3.2.1：桌面客户端模式标记——由 Tauri 壳以 sidecar 方式拉起时传 --no-browser，抑制自动打开浏览器
 	noBrowser = scanNoBrowserFlag(os.Args)
+	// v3.2.5：命令行参数解析（TLS / 监听地址）
+	for i := 1; i < len(os.Args); i++ {
+		switch os.Args[i] {
+		case "--listen":
+			if i+1 < len(os.Args) {
+				listenAddr = os.Args[i+1]
+				i++
+			}
+		case "--tls-cert":
+			if i+1 < len(os.Args) {
+				tlsCert = os.Args[i+1]
+				i++
+			}
+		case "--tls-key":
+			if i+1 < len(os.Args) {
+				tlsKey = os.Args[i+1]
+				i++
+			}
+		}
+	}
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1"
+	}
 	// v3.0.0 D 线：MCP stdio 模式（--mcp-stdio）—— 任何本地 agent 的安全带
 	if mcpIsStdioFlag(os.Args[1:]) {
 		initFileLogging()
@@ -184,6 +214,7 @@ func main() {
 	mux.HandleFunc("/api/admin/whitelist/status", handleWhitelistStatus)
 	mux.HandleFunc("/api/admin/audit/group-summary", handleAuditGroupSummary)
 	mux.HandleFunc("/api/admin/config", handleConfig)
+	mux.HandleFunc("/api/admin/key-rotate", moduleRoute("security", handleKeyRotate)) // v3.2.5 P2-10
 	mux.HandleFunc("/api/admin/modules", handleModules)                                                        // v2.0.0 模块管理
 	mux.HandleFunc("/api/admin/hardware/assessment", moduleRoute("hardwareAdvisor", handleHardwareAssessment)) // v2.0.0 硬件评估
 	// v3.0.0 B 线：IP 信誉查询与 admin 解封（裁定 6）
@@ -227,19 +258,6 @@ func main() {
 	mux.HandleFunc("/api/context/memory", moduleRoute("contextGov", handleSharedMemoryREST))
 	mux.HandleFunc("/api/context/info", moduleRoute("contextGov", handleSharedInfoREST))
 	mux.HandleFunc("/api/context/build", moduleRoute("contextGov", handleContextBuildREST))
-	// v3.3.0 模型能力库：能力矩阵查询 / 覆盖层写入 / 自动改道开关（capabilityHub 模块）
-	mux.HandleFunc("/api/admin/v33/capabilities", moduleRoute("capabilityHub", handleV33Capabilities))
-	// v3.4.0 Token 测量器：调用计量 / 成本汇总 / 清零 / 轻量估算（tokenMeter 模块）
-	mux.HandleFunc("/api/admin/v34/meter", moduleRoute("tokenMeter", handleV34Meter))
-	mux.HandleFunc("/api/v34/meter/estimate", moduleRoute("tokenMeter", handleV34MeterEstimate))
-	// v3.4.0 连接器生态：模板目录 + 实例管理（connectors 模块）
-	mux.HandleFunc("/api/admin/v34/connectors", moduleRoute("connectors", handleV34Connectors))
-	// v3.5.0 极致模块化与自适应：裁剪档案 / 自适应建议 / UI 模式
-	mux.HandleFunc("/api/admin/v35/profile", moduleRoute("adaptive", handleV35Profile))
-	mux.HandleFunc("/api/admin/v35/adaptive", moduleRoute("adaptive", handleV35Adaptive))
-	mux.HandleFunc("/api/admin/v35/ui-mode", moduleRoute("adaptive", handleV35UIMode))
-	// v3.7.0 扩展器 / 一键配置器：探测本机 AI 工具 + 生成接入片段
-	mux.HandleFunc("/api/admin/v37/extender", moduleRoute("extender", handleV37Extender))
 	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)
@@ -253,8 +271,11 @@ func main() {
 
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
+	// v3.2.5 P0-1：启动时密钥策略强制校验
+	enforceBootstrapKeyPolicy()
+
 	server := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
+		Addr:           fmt.Sprintf("%s:%d", listenAddr, port),
 		Handler:        obsMiddleware(gatewayMiddleware(mux)),
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   600 * time.Second,
@@ -263,7 +284,7 @@ func main() {
 	}
 	registerServer(server) // v3.0.0 A 线：L3 drain 时关闭 listener 用
 
-	logMsg(fmt.Sprintf("Listening on http://127.0.0.1:%d", port))
+	logMsg(fmt.Sprintf("Listening on http://%s:%d", listenAddr, port))
 
 	// v2.0.0 模块后台工作者：随模块开关启停（context 取消即停，热重载切换无泄漏）
 	moduleWorkerFns["autoStartModel"] = func(ctx context.Context) {
@@ -313,9 +334,30 @@ func main() {
 		}()
 	}
 
-	log.Printf("TarsSecureGuard v%s running at http://127.0.0.1:%d", version, port)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	log.Printf("TarsSecureGuard v%s running at http://%s:%d", version, listenAddr, port)
+
+	if tlsCert != "" && tlsKey != "" {
+		logMsg(fmt.Sprintf("[SECURITY] TLS 已启用（cert=%s key=%s）", tlsCert, tlsKey))
+		if err := server.ListenAndServeTLS(tlsCert, tlsKey); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
+	} else {
+		if err := server.ListenAndServe(); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}
+}
+
+// enforceBootstrapKeyPolicy v3.2.5 P0-1：启动时检测默认密钥 + 绑定地址策略
+func enforceBootstrapKeyPolicy() {
+	cfgMu.RLock()
+	key := cfg.Security.APIKey
+	cfgMu.RUnlock()
+	if key == apiKeyDefault {
+		if listenAddr != "127.0.0.1" && listenAddr != "localhost" && listenAddr != "::1" {
+			panic(fmt.Sprintf("[SECURITY] 默认密钥（%s）禁止绑定非 localhost 地址（当前 %s）。请轮换密钥或显式绑定 127.0.0.1", apiKeyDefault, listenAddr))
+		}
+		logMsg("[SECURITY] 警告：当前使用默认网关密钥（" + apiKeyDefault + "）。生产环境请务必轮换。")
 	}
 }
 
@@ -374,6 +416,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			mu.Lock()
 			failReq++
 			mu.Unlock()
+			mAuthFailTotal.Inc()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
 			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
 			return
@@ -455,6 +498,8 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	// v3.2.5 P1-5：Content-Security-Policy 基础策略（防御 XSS 窃取 sessionStorage）
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self';")
 }
 
 func isTrustedOrigin(o string) bool {
@@ -510,7 +555,22 @@ func validKey(r *http.Request) bool {
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	// v3.2.5 P0-2：默认以 socket 对端 IP 为限速键，仅可信代理才采信 X-Forwarded-For
+	c := v3Config()
+	if len(c.TrustedProxies) > 0 {
+		for _, trusted := range c.TrustedProxies {
+			if host == trusted {
+				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+					parts := strings.Split(xff, ",")
+					if len(parts) > 0 {
+						return strings.TrimSpace(parts[0])
+					}
+				}
+				break
+			}
+		}
 	}
 	return host
 }

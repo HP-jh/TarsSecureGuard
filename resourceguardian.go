@@ -66,13 +66,6 @@ func applyMemorySoftLimit(totalPhysMemMB int) {
 	logMsg(fmt.Sprintf("[GUARD] GOMEMLIMIT 软上限已设为 %dMB (eco=%v)", limitMB, guardEco))
 }
 
-// ecoActive 查询 eco 省资源档是否已启用（v3.5.0 自适应建议用）
-func ecoActive() bool {
-	guardMu.Lock()
-	defer guardMu.Unlock()
-	return guardEco
-}
-
 // enableEcoMode 硬件评估 D 档设备套用 eco 档（在硬件评估完成后调用）
 func enableEcoMode(reason string) {
 	guardMu.Lock()

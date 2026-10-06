@@ -60,16 +60,6 @@ var moduleRegistry = []Module{
 	{ID: "sidecarHub", Name: "Sidecar Hub", Description: "外置模块宿主：modules.d manifest + SHA-256 钉扎 + 生命周期监管 + /api/ext/ 低权限反向代理", Category: "tools", Default: true, HasWorker: true},
 	// v3.2.2 治理层：共享记忆 / 共享信息 / 上下文拓展 MCP
 	{ID: "contextGov", Name: "Context Governance", Description: "共享记忆（命名空间 KV + 解析链）/ 共享信息（结构化知识条目）/ 上下文组装（预算化注入）", Category: "core", Default: true, Deps: []string{"builtinTools"}},
-	// v3.3.0：模型能力库与能力感知路由（能力矩阵 / 自动推断 / 智能改道）
-	{ID: "capabilityHub", Name: "Capability Hub", Description: "模型能力库：能力标签自动推断 + 能力矩阵 + 能力感知路由改道（v3.3.0）", Category: "models", Default: true, Deps: []string{"chatApi"}},
-	// v3.4.0：轻量 Token 测量器（成本实时反馈 / tools 瘦身降耗）
-	{ID: "tokenMeter", Name: "Token Meter", Description: "轻量 Token 测量器：每次调用的 tokens 与成本实时反馈、tools schema 瘦身降耗（v3.4.0）", Category: "ops", Default: true, Deps: []string{"chatApi"}},
-	// v3.4.0：连接器生态（内置模板 + 用户实例，AI 可调用 conn_* 工具）
-	{ID: "connectors", Name: "Connectors", Description: "连接器生态：内置模板目录 + 用户实例，AI 经 conn_* 工具无缝接入外部平台与数据源（v3.4.0）", Category: "tools", Default: true, Deps: []string{"builtinTools"}},
-	// v3.5.0：极致模块化（裁剪档案）与自适应（使用习惯建议 / 新手-高阶 UI 模式）
-	{ID: "adaptive", Name: "Adaptive", Description: "极致模块化与自适应：内置/自定义裁剪档案一键切换、模块使用习惯分析建议、新手/高阶界面模式（v3.5.0）", Category: "ops", Default: true},
-	// v3.7.0：扩展器 / 一键配置器（探测本机 AI 工具并生成接入 TSG 的配置片段）
-	{ID: "extender", Name: "Extender", Description: "扩展器 / 一键配置器：探测本机已装的 AI 工具（OpenClaw/Continue/Aider/Cline/ZooCode/Codex），一键生成接入 TSG 端点的配置片段（v3.7.0）", Category: "tools", Default: true},
 }
 
 // securityModuleDesc 安全模块在模块列表中的展示形态（locked，无开关）
@@ -216,7 +206,6 @@ func moduleRoute(id string, h http.HandlerFunc) http.HandlerFunc {
 			})
 			return
 		}
-		noteModuleUse(id) // v3.5.0：模块使用埋点（使用习惯自适应）
 		h(w, r)
 	}
 }

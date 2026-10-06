@@ -12,15 +12,5 @@
     "anthropic/claude-sonnet-4.5",
     "openai/gpt-4o"
   ],
-  "notes": "聚合路由，一个 key 访问多家模型",
-  "applyUrl": "https://openrouter.ai/settings/keys",
-  "defaultCaps": [
-    "tools",
-    "json",
-    "longContext"
-  ],
-  "pricing": {
-    "input": 0.2,
-    "output": 0.8
-  }
+  "notes": "聚合路由，一个 key 访问多家模型"
 }

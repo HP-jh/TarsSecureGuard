@@ -370,12 +370,13 @@ func enforceDefaultKeyChannel(freshInstall bool) {
 	rotate := false
 	if (key == "" || key == apiKeyDefault) && !allowed {
 		if freshInstall {
-			// 全新安装：显式写入 defaultKeyAllowed=true（通道显式化，小白体验保留）
-			t := true
-			cfg.Security.DefaultKeyAllowed = &t
+			// v3.2.5 P0-1：全新安装自动生成高熵随机 key，不再保留默认密钥
+			newKey := rotateGatewayKey()
+			cfg.Security.APIKey = newKey
 			cfgMu.Unlock()
-			auditLog("WHITELIST_ADD", "system(bootstrap)",
-				fmt.Sprintf("kind=%s entry=api-key-default —— 全新安装显式启用默认密钥通道（仅绑定 127.0.0.1；可在 config.json 关闭）（[ZT_DEFAULT_DENY]）", wlKindDefaultKeyCh))
+			auditLog("SECURITY_KEY_ROTATED", "system(bootstrap)",
+				fmt.Sprintf("kind=%s 全新安装自动生成高熵密钥（默认密钥已封死）", wlKindDefaultKeyCh))
+			logMsg("[SECURITY] 全新安装已自动生成网关密钥，请查看 gateway-key.txt")
 			return
 		}
 		rotate = true

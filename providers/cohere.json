@@ -11,14 +11,5 @@
     "command-r-plus-08-2024",
     "command-r-08-2024"
   ],
-  "notes": "OpenAI 兼容层",
-  "applyUrl": "https://dashboard.cohere.com/api-keys",
-  "defaultCaps": [
-    "tools",
-    "json"
-  ],
-  "pricing": {
-    "input": 0.25,
-    "output": 1.0
-  }
+  "notes": "OpenAI 兼容层"
 }

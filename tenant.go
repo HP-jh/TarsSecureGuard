@@ -162,6 +162,14 @@ func userFromRequestCompat(r *http.Request) (string, string, bool) {
 
 // ===================== RBAC 权限矩阵 =====================
 
+// routeClassMethod 路径+方法 → 权限矩阵的端点类（v3.2.5 P1-4：GET /api/admin/config 为 admin.read）
+func routeClassMethod(path, method string) string {
+	if path == "/api/admin/config" && method == http.MethodGet {
+		return "admin.read"
+	}
+	return routeClass(path)
+}
+
 // routeClass 路径 → 权限矩阵的端点类
 func routeClass(path string) string {
 	switch {
@@ -209,12 +217,12 @@ var rbacMatrix = map[string]map[string]string{
 	"team_lead":      {"app": "", "chat": "", "tools": "", "ext": "team_lead 禁止调用 MCP 管理类工具 / sidecar 代理", "mcp": "team_lead 禁止调用 MCP 工具（含管理类）", "admin.read": "", "admin.write": "team_lead 无任何写权限（防自授权）", "audit": "", "tenant.status": ""},
 	"auditor":        {"app": "", "chat": "auditor 仅只读审计", "tools": "auditor 仅只读审计", "ext": "auditor 仅只读审计", "mcp": "auditor 仅只读审计", "admin.read": "", "admin.write": "auditor 铁律：禁止任何写接口", "audit": "", "tenant.status": ""},
 	"user":           {"app": "", "chat": "", "tools": "", "ext": "", "mcp": "", "admin.read": "admin 端点仅 admin/审计角色可读", "admin.write": "admin 端点仅 admin 可写", "audit": "审计日志仅 admin/team_lead/auditor 可读", "tenant.status": "租户状态仅管理角色可读"},
-	"readonly":       {"app": "", "chat": "", "tools": "", "ext": "", "mcp": "", "admin.read": "admin 端点仅 admin/审计角色可读", "admin.write": "admin 端点仅 admin 可写", "audit": "审计日志仅 admin/team_lead/auditor 可读", "tenant.status": "租户状态仅管理角色可读"},
+	"readonly":       {"app": "", "chat": "", "tools": "", "ext": "", "mcp": "", "admin.read": "", "admin.write": "admin 端点仅 admin 可写", "audit": "审计日志仅 admin/team_lead/auditor 可读", "tenant.status": "租户状态仅管理角色可读"},
 }
 
 // rbacCheck 入口层权限判定（gatewayMiddleware 调用；返回 ok=false 时带拒绝原因）
 func rbacCheck(id Identity, method, path string) (bool, string) {
-	cls := routeClass(path)
+	cls := routeClassMethod(path, method)
 	row, ok := rbacMatrix[id.Role]
 	if !ok {
 		return false, "未知角色 " + id.Role

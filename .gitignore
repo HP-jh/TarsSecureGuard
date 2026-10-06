@@ -21,4 +21,8 @@ models/*.gguf
 Thumbs.db
 .idea/
 .vscode/
-.preview/
+
+# v3.2.5 P1-7：生产配置不入库
+config.json
+gateway-key.txt
+.env

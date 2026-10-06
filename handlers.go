@@ -170,6 +170,22 @@ func validateConfigValue(path string, val interface{}) bool {
 	return true
 }
 
+// handleKeyRotate v3.2.5 P2-10：管理员主动轮换网关密钥
+func handleKeyRotate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+	newKey := rotateGatewayKey()
+	cfgMu.Lock()
+	cfg.Security.APIKey = newKey
+	cfgMu.Unlock()
+	saveConfig()
+	auditLog("SECURITY_KEY_ROTATED", "admin", "管理员通过 UI 主动轮换网关密钥")
+	logMsg("[SECURITY] 网关密钥已主动轮换，新密钥见 gateway-key.txt")
+	writeJSON(w, map[string]interface{}{"success": true, "message": "密钥已轮换，请查看 gateway-key.txt"})
+}
+
 func handleConfig(w http.ResponseWriter, r *http.Request) {
 	// POST：批量保存白名单配置（{ "security.mode": "strict", "search.engine": "serper" }）
 	if r.Method == http.MethodPost {
@@ -246,10 +262,18 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			ctools[i].SecretHeaders[k] = "***"
 		}
 	}
-	writeJSON(w, map[string]interface{}{
+	// v3.2.5 P1-4：按角色分级返回配置（viewer/readonly/user 看不到完整 security/users）
+	id, _ := identityFromRequest(r)
+	secOut := map[string]interface{}{
+		"wafEnabled":      wafOn,
+		"mode":            mode,
+		"apiKeySet":       apiKeySet,
+		"auditLogEnabled": auditOn,
+	}
+	resp := map[string]interface{}{
 		"server": map[string]interface{}{
 			"port":       port,
-			"listenAddr": "127.0.0.1",
+			"listenAddr": listenAddr,
 		},
 		"modules":      moduleStatusSummary(),
 		"firewall":     firewallStatusSnapshot(),
@@ -262,12 +286,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			"maxRetries":  3,
 			"autoRecover": true,
 		},
-		"security": map[string]interface{}{
-			"wafEnabled":      wafOn,
-			"mode":            mode,
-			"apiKeySet":       apiKeySet,
-			"auditLogEnabled": auditOn,
-		},
+		"security": secOut,
 		"search": map[string]interface{}{
 			"engine": eng,
 			"apiKey": hasKey,
@@ -279,9 +298,16 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		"mcp": map[string]interface{}{
 			"externalServers": extServers,
 		},
-		"users": users,
 		"tools": toolNames(),
-	})
+	}
+	// admin/auditor/global 角色可见完整 security + users；其他角色只保留基础 security 字段
+	if id.Role == "admin" || id.Role == "auditor" || id.Role == "global_admin" || id.Role == "global_auditor" || id.Role == "team_lead" {
+		resp["users"] = users
+	} else {
+		// 非管理角色：隐藏 apiKeySet 等敏感指示器
+		delete(secOut, "apiKeySet")
+	}
+	writeJSON(w, resp)
 }
 
 // ===================== 搜索 / 占位 / 发现 =====================

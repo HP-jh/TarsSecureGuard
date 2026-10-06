@@ -10,14 +10,5 @@
   "models": [
     "accounts/fireworks/models/llama-v3p3-70b-instruct"
   ],
-  "notes": "OpenAI 兼容",
-  "applyUrl": "https://fireworks.ai/account/api-keys",
-  "defaultCaps": [
-    "tools",
-    "json"
-  ],
-  "pricing": {
-    "input": 0.15,
-    "output": 0.6
-  }
+  "notes": "OpenAI 兼容"
 }

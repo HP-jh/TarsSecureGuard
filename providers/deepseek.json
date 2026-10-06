@@ -11,28 +11,5 @@
     "deepseek-chat",
     "deepseek-reasoner"
   ],
-  "notes": "OpenAI 兼容",
-  "applyUrl": "https://platform.deepseek.com/api_keys",
-  "defaultCaps": [
-    "tools",
-    "json"
-  ],
-  "modelCaps": {
-    "deepseek-reasoner": [
-      "reasoning",
-      "tools",
-      "json",
-      "longContext"
-    ]
-  },
-  "pricing": {
-    "input": 0.27,
-    "output": 1.1
-  },
-  "modelPricing": {
-    "deepseek-reasoner": {
-      "input": 0.55,
-      "output": 2.19
-    }
-  }
+  "notes": "OpenAI 兼容"
 }

@@ -11,16 +11,5 @@
     "grok-4",
     "grok-3"
   ],
-  "notes": "OpenAI 兼容",
-  "applyUrl": "https://console.x.ai/",
-  "defaultCaps": [
-    "tools",
-    "vision",
-    "json",
-    "longContext"
-  ],
-  "pricing": {
-    "input": 3.0,
-    "output": 15.0
-  }
+  "notes": "OpenAI 兼容"
 }

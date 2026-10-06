@@ -11,15 +11,5 @@
     "MiniMax-M3",
     "MiniMax-M2.7"
   ],
-  "notes": "OpenAI 兼容；国内节点可覆写 baseUrl 为 https://api.minimaxi.com/v1",
-  "applyUrl": "https://platform.minimaxi.com/user-center/basic-information/interface-key",
-  "defaultCaps": [
-    "tools",
-    "json",
-    "longContext"
-  ],
-  "pricing": {
-    "input": 0.3,
-    "output": 1.1
-  }
+  "notes": "OpenAI 兼容；国内节点可覆写 baseUrl 为 https://api.minimaxi.com/v1"
 }

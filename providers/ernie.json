@@ -11,15 +11,5 @@
     "ernie-4.5-turbo-128k",
     "ernie-speed-128k"
   ],
-  "notes": "千帆 v2 OpenAI 兼容接口",
-  "applyUrl": "https://console.bce.baidu.com/iam/",
-  "defaultCaps": [
-    "tools",
-    "json",
-    "longContext"
-  ],
-  "pricing": {
-    "input": 0.85,
-    "output": 3.4
-  }
+  "notes": "千帆 v2 OpenAI 兼容接口"
 }

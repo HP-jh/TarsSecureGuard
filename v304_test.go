@@ -31,7 +31,7 @@ var classPath = map[string]string{
 	"ext":           "/api/ext/demo/v1/ping",
 	"mcp":           "/mcp",
 	"admin.read":    "/api/admin/security/status",
-	"admin.write":   "/api/admin/config",
+	"admin.write":   "/api/admin/modules",
 	"audit":         "/api/admin/audit-logs",
 	"tenant.status": "/api/admin/tenants/status",
 }

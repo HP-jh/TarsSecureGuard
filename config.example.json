@@ -1,0 +1,72 @@
+{
+  "cloud": {
+    "openai": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "deepseek": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "custom": null
+  },
+  "search": {
+    "engine": "builtin",
+    "apiKey": ""
+  },
+  "security": {
+    "wafEnabled": true,
+    "mode": "normal",
+    "apiKey": "",
+    "firewallLock": null,
+    "auditLogEnabled": true,
+    "firewall": {
+      "policy": "passive",
+      "banDuration": ""
+    }
+  },
+  "users": null,
+  "mcp": {
+    "externalServers": []
+  },
+  "paths": {
+    "modelDir": "",
+    "llamaDir": "",
+    "allowedRoots": []
+  },
+  "modules": {},
+  "customTools": null,
+  "customAgents": null,
+  "direct": {
+    "transport": "native",
+    "grpcSidecar": {
+      "address": ""
+    }
+  },
+  "tier1": {
+    "enabled": true,
+    "cacheTtlSeconds": 300
+  },
+  "sidecar": {
+    "modules": {}
+  },
+  "providers": {},
+  "circuit": {
+    "failureThreshold": 5,
+    "openSeconds": 30,
+    "probeIntervalSec": 60
+  },
+  "responseCache": {
+    "enabled": true,
+    "ttlSec": 300,
+    "maxEntries": 256
+  },
+  "pool": {
+    "maxIdleConnsPerHost": 32
+  },
+  "trustedProxies": []
+}

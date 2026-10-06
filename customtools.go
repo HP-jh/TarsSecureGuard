@@ -122,94 +122,71 @@ func resolveSecretHeader(v string) string {
 }
 
 // executeCustomTool 执行自定义 HTTP 转发工具（SSRF 五条红线全部在此落地）
-// executeCustomTool 执行自定义 HTTP 转发工具（SSRF 五条红线全部落实）
 func executeCustomTool(name string, args map[string]interface{}) (interface{}, error) {
 	tool, ok := findCustomTool(name)
 	if !ok {
 		return nil, fmt.Errorf("自定义工具不存在: %s", name)
 	}
 	// 红线 3：协议白名单（仅 http/https）
-	if !isHTTPURL(tool.Endpoint) {
-		auditLog("CUSTOM_TOOL_CALL", "system", fmt.Sprintf("tool=%s url=%s status=rejected(协议白名单)", name, tool.Endpoint))
-		return nil, fmt.Errorf("endpoint 仅允许 http/https: %s", tool.Endpoint)
+	u := tool.Endpoint
+	if !isHTTPURL(u) {
+		auditLog("CUSTOM_TOOL_CALL", "system", fmt.Sprintf("tool=%s url=%s status=rejected(协议白名单)", name, u))
+		return nil, fmt.Errorf("endpoint 仅允许 http/https: %s", u)
 	}
 	method := strings.ToUpper(strings.TrimSpace(tool.Method))
-	if method == "" {
-		method = http.MethodGet
-	}
-	result, err := executeForwardedRequest(method, tool.Endpoint, tool.Headers, tool.SecretHeaders, args)
-	if err != nil {
-		auditLog("CUSTOM_TOOL_CALL", "system", fmt.Sprintf("tool=%s url=%s status=error(%v)", name, tool.Endpoint, err))
-		return nil, err
-	}
-	status, _ := result["status"].(int)
-	body, _ := result["body"].(string)
-	auditLog("CUSTOM_TOOL_CALL", "system", fmt.Sprintf("tool=%s url=%s status=%d bytes=%d", name, tool.Endpoint, status, len(body)))
-	return result, nil
-}
-
-// appendQueryParams 将透传参数拼为查询串；URL 已带查询串（如连接器模板端点）时用 & 拼接，避免双 ?
-func appendQueryParams(u string, args map[string]interface{}) string {
-	q := make([]string, 0, len(args))
-	for k, v := range args {
-		bs, _ := json.Marshal(v)
-		q = append(q, fmt.Sprintf("%s=%s", k, strings.Trim(string(bs), `"`)))
-	}
-	sep := "?"
-	if strings.Contains(u, "?") {
-		sep = "&"
-	}
-	return u + sep + strings.Join(q, "&")
-}
-
-// executeForwardedRequest v3.4.0 抽取的公共安全转发层（customTools 与 connectors 共用）：
-// SSRF 五红线——协议白名单 / 方法白名单 / 拨号时实际 IP 校验（customToolClient 内）/
-// 禁重定向 / 30s 超时 / 2MB 响应上限。
-func executeForwardedRequest(method, url string, headers, secretHeaders map[string]string, args map[string]interface{}) (map[string]interface{}, error) {
-	if !isHTTPURL(url) {
-		return nil, fmt.Errorf("endpoint 仅允许 http/https: %s", url)
-	}
-	method = strings.ToUpper(strings.TrimSpace(method))
 	if method == "" {
 		method = http.MethodGet
 	}
 	if method != http.MethodGet && method != http.MethodPost {
 		return nil, fmt.Errorf("method 仅允许 GET/POST")
 	}
+
 	var body io.Reader
-	u := url
 	if method == http.MethodPost {
 		b, _ := json.Marshal(args)
 		body = bytes.NewReader(b)
 	} else if len(args) > 0 {
-		u = appendQueryParams(u, args)
+		// GET：args 序列化为 query
+		q := make([]string, 0, len(args))
+		for k, v := range args {
+			bs, _ := json.Marshal(v)
+			q = append(q, fmt.Sprintf("%s=%s", k, strings.Trim(string(bs), `"`)))
+		}
+		u = u + "?" + strings.Join(q, "&")
 	}
+
 	req, err := http.NewRequest(method, u, body)
 	if err != nil {
 		return nil, err
 	}
-	for k, v := range headers {
-		req.Header.Set(k, resolveSecretHeader(v))
+	for k, v := range tool.Headers {
+		req.Header.Set(k, v)
 	}
-	for k, v := range secretHeaders {
+	for k, v := range tool.SecretHeaders {
 		req.Header.Set(k, resolveSecretHeader(v))
 	}
 	if method == http.MethodPost {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	resp, err := customToolClient.Do(req)
 	status := 0
 	if resp != nil {
 		status = resp.StatusCode
 	}
 	if err != nil {
+		// 红线 5：审计（失败也记）
+		auditLog("CUSTOM_TOOL_CALL", "system", fmt.Sprintf("tool=%s url=%s status=error(%v)", name, tool.Endpoint, err))
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// 红线 4：响应限制 2MB
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxFetchBytes))
 	if err != nil {
+		auditLog("CUSTOM_TOOL_CALL", "system", fmt.Sprintf("tool=%s url=%s status=%d body_err=%v", name, tool.Endpoint, status, err))
 		return nil, err
 	}
+	auditLog("CUSTOM_TOOL_CALL", "system", fmt.Sprintf("tool=%s url=%s status=%d bytes=%d", name, tool.Endpoint, status, len(data)))
 	return map[string]interface{}{
 		"status":    status,
 		"body":      string(data),

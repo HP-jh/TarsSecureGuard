@@ -11,6 +11,5 @@
     "meta-llama/Llama-3.3-70B-Instruct",
     "Qwen/Qwen2.5-72B-Instruct"
   ],
-  "notes": "Router OpenAI 兼容",
-  "applyUrl": "https://huggingface.co/settings/tokens"
+  "notes": "Router OpenAI 兼容"
 }

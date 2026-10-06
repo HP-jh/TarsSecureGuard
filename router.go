@@ -199,22 +199,11 @@ func routeChatSmart(model string, msgs []Message, role string, trace ...string) 
 	return routeChatSmartT(model, msgs, role, nil, trace...)
 }
 
-// routeChatSmartEx v3.3.0：routeChatSmartT 的富参数版（透传 tools/tool_choice）
-func routeChatSmartEx(model string, msgs []Message, role string, pref []string, opts ChatOpts, trace ...string) (string, string, bool, error) {
-	content, backend, explored, err := routeChatSmartTOpts(model, msgs, role, pref, opts, trace...)
-	return content, backend, explored, err
-}
-
 // routeChatSmartT v3.0.4 [MT_ROUTER]：在 routeChatSmart 基础上叠加租户/组路由偏好。
 // pref 为空（Rule A：无配置值）时取全集，行为与 routeChatSmart 完全一致。
 // v3.0.5：命名返回值 + defer 观测埋点（路由分布/后端耗时/trace span），
 // 覆盖全部 return 路径；判定逻辑与 v3.0.4 逐行一致。
 func routeChatSmartT(model string, msgs []Message, role string, pref []string, trace ...string) (content string, backend string, explored bool, err error) {
-	return routeChatSmartTOpts(model, msgs, role, pref, ChatOpts{}, trace...)
-}
-
-// routeChatSmartTOpts v3.3.0：带 ChatOpts 的实现体（tools 透传给 routeChatEx）
-func routeChatSmartTOpts(model string, msgs []Message, role string, pref []string, opts ChatOpts, trace ...string) (content string, backend string, explored bool, err error) {
 	obsTr := ""
 	if len(trace) > 0 {
 		obsTr = trace[0]
@@ -225,26 +214,25 @@ func routeChatSmartTOpts(model string, msgs []Message, role string, pref []strin
 	}()
 	isAuto := model == "" || model == "auto" || model == "local" || model == "cloud-default"
 	if !rtEnabled() || !isAuto {
-		res, rerr := routeChatEx(model, msgs, opts, trace...)
-		return res.Content, res.Backend, false, rerr
+		content, backend, err := routeChat(model, msgs, trace...)
+		return content, backend, false, err
 	}
 	cands := filterCandidatesByPref(rtCandidates(), pref)
 	if len(cands) <= 1 {
 		// 单候选：直接静态路由（含其错误信息），记录结果
 		start := time.Now()
-		res, rerr := routeChatEx(model, msgs, opts, trace...)
-		rtRecordOutcome(res.Backend, rerr == nil, time.Since(start), role)
-		return res.Content, res.Backend, false, rerr
+		content, backend, err := routeChat(model, msgs, trace...)
+		rtRecordOutcome(backend, err == nil, time.Since(start), role)
+		return content, backend, false, err
 	}
 	pick, explored := rtPick(cands)
 	if pick == "" {
-		res, rerr := routeChatEx(model, msgs, opts, trace...)
-		return res.Content, res.Backend, false, rerr
+		content, backend, err := routeChat(model, msgs, trace...)
+		return content, backend, false, err
 	}
 	start := time.Now()
-	res, rerr := routeChatEx(pick, msgs, opts, trace...)
-	content, backend, err = res.Content, res.Backend, rerr
-	// 防御：routeChatEx 内部仍可能因可达性变化改判 backend，记录实际 backend
+	content, backend, err = routeChat(pick, msgs, trace...)
+	// 防御：routeChat 内部仍可能因可达性变化改判 backend，记录实际 backend
 	rtRecordOutcome(backend, err == nil, time.Since(start), role)
 	if explored {
 		obsRecordExplore()

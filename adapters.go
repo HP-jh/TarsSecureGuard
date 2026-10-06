@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -98,15 +97,8 @@ func adaptCachePut(key string, body []byte) {
 }
 
 // buildRequestBody 协议适配主入口：构建目标协议请求体（带适配缓存）。
-// buildRequestBody v3.3.0：协议分发（+opts 透传 tools；custom 协议由调用方构建，
-// 本函数跳过——custom 模板与 provider 绑定，不进协议适配缓存）。
-// 适配缓存键包含 tools 哈希，避免同消息不同 tools 的响应串缓存。
-func buildRequestBody(protocol, model string, msgs []Message, opts ChatOpts) ([]byte, error) {
+func buildRequestBody(protocol, model string, msgs []Message) ([]byte, error) {
 	key := adaptKey(protocol, model, msgs)
-	if len(opts.Tools) > 0 {
-		h := sha256.Sum256(opts.Tools)
-		key += fmt.Sprintf(":t%x", h[:8])
-	}
 	if body, ok := adaptCacheGet(key); ok {
 		return body, nil
 	}
@@ -117,10 +109,8 @@ func buildRequestBody(protocol, model string, msgs []Message, opts ChatOpts) ([]
 		body, err = buildAnthropicBody(model, msgs)
 	case "gemini":
 		body, err = buildGeminiBody(model, msgs)
-	case "custom":
-		return nil, fmt.Errorf("custom 协议需经 buildCustomBody（模板与 provider 绑定）")
 	default: // openai-compat
-		body, err = buildOpenAIBodyEx(model, msgs, opts)
+		body, err = buildOpenAIBody(model, msgs)
 	}
 	if err != nil {
 		return nil, err
@@ -129,62 +119,19 @@ func buildRequestBody(protocol, model string, msgs []Message, opts ChatOpts) ([]
 	return body, nil
 }
 
-// openAIMessages v3.3.0：按 OpenAI 格式重建消息列表——
-// 纯文本消息保持 {"role","content"} 字符串形态（与历史完全一致，字节级不变）；
-// 带图片的消息展开为多模态 content 数组（text + image_url 部件）。
-func openAIMessages(msgs []Message) []interface{} {
-	out := make([]interface{}, 0, len(msgs))
-	for _, m := range msgs {
-		if len(m.Images) == 0 {
-			out = append(out, map[string]interface{}{"role": m.Role, "content": m.Content})
-			continue
-		}
-		parts := []interface{}{}
-		if m.Content != "" {
-			parts = append(parts, map[string]interface{}{"type": "text", "text": m.Content})
-		}
-		for _, u := range m.Images {
-			parts = append(parts, map[string]interface{}{
-				"type":      "image_url",
-				"image_url": map[string]string{"url": u},
-			})
-		}
-		out = append(out, map[string]interface{}{"role": m.Role, "content": parts})
-	}
-	return out
-}
-
 func buildOpenAIBody(model string, msgs []Message) ([]byte, error) {
-	return buildOpenAIBodyEx(model, msgs, ChatOpts{})
-}
-
-// buildOpenAIBodyEx v3.3.0：多模态 content 数组 + tools/tool_choice 透传
-func buildOpenAIBodyEx(model string, msgs []Message, opts ChatOpts) ([]byte, error) {
-	body := map[string]interface{}{
+	return json.Marshal(map[string]interface{}{
 		"model":      model,
-		"messages":   openAIMessages(msgs),
+		"messages":   msgs,
 		"max_tokens": 2048,
 		"stream":     false,
-	}
-	if len(opts.Tools) > 0 && string(opts.Tools) != "null" {
-		// v3.4.0：出站 tools schema 瘦身（剔除默认值/空容器字段，减少冗余 token）
-		body["tools"] = json.RawMessage(slimToolsSchema(opts.Tools))
-	}
-	if len(opts.ToolChoice) > 0 && string(opts.ToolChoice) != "null" {
-		body["tool_choice"] = json.RawMessage(opts.ToolChoice)
-	}
-	return json.Marshal(body)
+	})
 }
-
 
 func buildAnthropicBody(model string, msgs []Message) ([]byte, error) {
 	// system 消息合并进顶层 system 字段；其余保持顺序
 	var sysParts []string
-	type anthroMsg struct {
-		role   string
-		blocks []interface{} // 非 nil = 多模态消息（v3.3.0）
-	}
-	var chat []anthroMsg
+	var chat []Message
 	for _, m := range msgs {
 		if m.Role == "system" {
 			sysParts = append(sysParts, m.Content)
@@ -194,57 +141,20 @@ func buildAnthropicBody(model string, msgs []Message) ([]byte, error) {
 		if role != "user" && role != "assistant" {
 			role = "user"
 		}
-		if len(m.Images) > 0 {
-			// v3.3.0 多模态：anthropic content blocks（text + image）
-			blocks := []interface{}{}
-			if m.Content != "" {
-				blocks = append(blocks, map[string]interface{}{"type": "text", "text": m.Content})
-			}
-			for _, u := range m.Images {
-				if src, ok := anthropicImageSource(u); ok {
-					blocks = append(blocks, map[string]interface{}{"type": "image", "source": src})
-				}
-			}
-			chat = append(chat, anthroMsg{role: role, blocks: blocks})
-			continue
-		}
-		chat = append(chat, anthroMsg{role: role, blocks: []interface{}{map[string]interface{}{"type": "text", "text": m.Content}}})
+		chat = append(chat, Message{Role: role, Content: m.Content})
 	}
 	if len(chat) == 0 {
-		chat = []anthroMsg{{role: "user", blocks: []interface{}{map[string]interface{}{"type": "text", "text": ""}}}}
-	}
-	msgsOut := make([]interface{}, 0, len(chat))
-	for _, m := range chat {
-		msgsOut = append(msgsOut, map[string]interface{}{"role": m.role, "content": m.blocks})
+		chat = []Message{{Role: "user", Content: ""}}
 	}
 	body := map[string]interface{}{
 		"model":      model,
 		"max_tokens": 2048,
-		"messages":   msgsOut,
+		"messages":   chat,
 	}
 	if len(sysParts) > 0 {
 		body["system"] = strings.Join(sysParts, "\n\n")
 	}
 	return json.Marshal(body)
-}
-
-// anthropicImageSource v3.3.0：URL → anthropic image source 对象。
-// data:URL → base64 内联；http(s):// → url 引用（由 anthropic 侧拉取）。
-// 其它格式返回 ok=false（该图跳过，不影响文本与其余图片）。
-func anthropicImageSource(u string) (map[string]interface{}, bool) {
-	if strings.HasPrefix(u, "data:") {
-		mime, data, ok := splitDataURL(u)
-		if !ok {
-			return nil, false
-		}
-		return map[string]interface{}{
-			"type": "base64", "media_type": mime, "data": data,
-		}, true
-	}
-	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
-		return map[string]interface{}{"type": "url", "url": u}, true
-	}
-	return nil, false
 }
 
 func buildGeminiBody(model string, msgs []Message) ([]byte, error) {
@@ -258,20 +168,6 @@ func buildGeminiBody(model string, msgs []Message) ([]byte, error) {
 		role := "user"
 		if m.Role == "assistant" {
 			role = "model"
-		}
-		if len(m.Images) > 0 {
-			// v3.3.0 多模态：data:URL → inline_data；http(s):// → file_data
-			parts := []interface{}{}
-			if m.Content != "" {
-				parts = append(parts, map[string]interface{}{"text": m.Content})
-			}
-			for _, u := range m.Images {
-				if p, ok := geminiImagePart(u); ok {
-					parts = append(parts, p)
-				}
-			}
-			contents = append(contents, map[string]interface{}{"role": role, "parts": parts})
-			continue
 		}
 		contents = append(contents, map[string]interface{}{
 			"role":  role,
@@ -288,40 +184,6 @@ func buildGeminiBody(model string, msgs []Message) ([]byte, error) {
 		}
 	}
 	return json.Marshal(body)
-}
-
-// splitDataURL v3.3.0：拆 data:URL → (mime, base64 数据)。格式不符返回 ok=false。
-func splitDataURL(u string) (mime, data string, ok bool) {
-	if !strings.HasPrefix(u, "data:") {
-		return "", "", false
-	}
-	rest := strings.TrimPrefix(u, "data:")
-	i := strings.Index(rest, ",")
-	if i < 0 {
-		return "", "", false
-	}
-	meta := rest[:i]
-	data = rest[i+1:]
-	mime = strings.TrimSpace(strings.Split(meta, ";")[0])
-	if mime == "" || !strings.Contains(mime, "/") {
-		mime = "image/png"
-	}
-	return mime, data, true
-}
-
-// geminiImagePart v3.3.0：URL → gemini part 对象
-func geminiImagePart(u string) (map[string]interface{}, bool) {
-	if strings.HasPrefix(u, "data:") {
-		mime, data, ok := splitDataURL(u)
-		if !ok {
-			return nil, false
-		}
-		return map[string]interface{}{"inline_data": map[string]string{"mime_type": mime, "data": data}}, true
-	}
-	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
-		return map[string]interface{}{"file_data": map[string]string{"file_uri": u}}, true
-	}
-	return nil, false
 }
 
 // ===================== 响应归一 =====================
@@ -383,86 +245,6 @@ func parseGeminiContent(data []byte) (string, bool) {
 		sb.WriteString(p.Text)
 	}
 	return sb.String(), true
-}
-
-// parseOpenAIFull v3.3.0：openai-compat 富解析——内容 + usage + tool_calls。
-// 与 parseOpenAIContent 语义兼容：解析不出任何字段时 content 返回原文。
-func parseOpenAIFull(data []byte) (content string, usage Usage, toolCalls []ToolCall) {
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content   string          `json:"content"`
-				ToolCalls []ToolCall      `json:"tool_calls"`
-			} `json:"message"`
-		} `json:"choices"`
-		Usage *struct {
-			PromptTokens     int64 `json:"prompt_tokens"`
-			CompletionTokens int64 `json:"completion_tokens"`
-			TotalTokens      int64 `json:"total_tokens"`
-		} `json:"usage"`
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		content = string(data)
-		return content, usage, nil
-	}
-	if len(result.Choices) > 0 {
-		content = result.Choices[0].Message.Content
-		for i := range result.Choices[0].Message.ToolCalls {
-			tc := result.Choices[0].Message.ToolCalls[i]
-			if tc.Type == "" {
-				tc.Type = "function"
-			}
-			toolCalls = append(toolCalls, tc)
-		}
-	}
-	if result.Usage != nil {
-		usage = Usage{
-			PromptTokens:     result.Usage.PromptTokens,
-			CompletionTokens: result.Usage.CompletionTokens,
-			TotalTokens:      result.Usage.TotalTokens,
-		}
-		if usage.TotalTokens == 0 {
-			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-		}
-	}
-	if content == "" && usage.TotalTokens == 0 && len(toolCalls) == 0 {
-		// JSON 但非 openai 结构：整包文本（与 parseOpenAIContent 兜底一致）
-		content = string(data)
-	}
-	return content, usage, toolCalls
-}
-
-// parseAnthropicUsage v3.3.0：anthropic usage（input/output tokens）
-func parseAnthropicUsage(data []byte) Usage {
-	var result struct {
-		Usage struct {
-			InputTokens  int64 `json:"input_tokens"`
-			OutputTokens int64 `json:"output_tokens"`
-		} `json:"usage"`
-	}
-	_ = json.Unmarshal(data, &result)
-	return Usage{
-		PromptTokens:     result.Usage.InputTokens,
-		CompletionTokens: result.Usage.OutputTokens,
-		TotalTokens:      result.Usage.InputTokens + result.Usage.OutputTokens,
-	}
-}
-
-// parseGeminiUsage v3.3.0：gemini usageMetadata
-func parseGeminiUsage(data []byte) Usage {
-	var result struct {
-		UsageMetadata struct {
-			PromptTokenCount     int64 `json:"promptTokenCount"`
-			CandidatesTokenCount int64 `json:"candidatesTokenCount"`
-			TotalTokenCount      int64 `json:"totalTokenCount"`
-		} `json:"usageMetadata"`
-	}
-	_ = json.Unmarshal(data, &result)
-	return Usage{
-		PromptTokens:     result.UsageMetadata.PromptTokenCount,
-		CompletionTokens: result.UsageMetadata.CandidatesTokenCount,
-		TotalTokens:      result.UsageMetadata.TotalTokenCount,
-	}
 }
 
 // ===================== 响应缓存（tenant 隔离 · v3.2.3 分片锁）=====================
@@ -661,72 +443,43 @@ func handleV32Cache(w http.ResponseWriter, r *http.Request) {
 
 // ===================== provider 出站调用（适配层主路径）=====================
 
-// callProviderChat 经注册表调用一个 provider（v3.3.0：包装 Full 版，无 tools 路径）。
-func callProviderChat(spec ProviderSpec, model string, msgs []Message, tenant, trace string) (string, error) {
-	content, _, _, err := callProviderChatFull(spec, model, msgs, tenant, trace, ChatOpts{})
-	return content, err
-}
-
-// callProviderChatFull v3.3.0：经注册表调用一个 provider 的富路径——
-// 熔断检查 → 响应缓存 → 协议适配（含 custom 模板协议）→ 共享连接池出站 →
-// 响应归一（内容 + usage + tool_calls）→ 熔断记录 → 缓存回填。
+// callProviderChat 经注册表调用一个 provider：熔断检查 → 响应缓存 → 协议适配 →
+// 共享连接池出站 → 响应归一 → 熔断记录 → 缓存回填。
 // tenant 为空串时（如 handleUrgent 等无身份路径）用 "-" 占位。
-func callProviderChatFull(spec ProviderSpec, model string, msgs []Message, tenant, trace string, opts ChatOpts) (content string, usage Usage, toolCalls []ToolCall, err error) {
+func callProviderChat(spec ProviderSpec, model string, msgs []Message, tenant, trace string) (string, error) {
 	if !providerEnabled(spec) {
-		return "", usage, nil, fmt.Errorf("provider %s 已禁用（config providers.%s.enabled=false）", spec.ID, spec.ID)
+		return "", fmt.Errorf("provider %s 已禁用（config providers.%s.enabled=false）", spec.ID, spec.ID)
 	}
 	if !cbAllow(spec.ID) {
-		return "", usage, nil, fmt.Errorf("provider %s 熔断中（连续失败，冷却后自动恢复；详见 /api/admin/v32/providers）", spec.ID)
+		return "", fmt.Errorf("provider %s 熔断中（连续失败，冷却后自动恢复；详见 /api/admin/v32/providers）", spec.ID)
 	}
 	key, hasKey := providerAPIKey(spec)
 	if spec.Kind == "cloud" && !hasKey {
-		return "", usage, nil, fmt.Errorf("provider %s 未配置密钥（config.json providers.%s.apiKey 或环境变量 %s）", spec.ID, spec.ID, spec.KeyEnv)
+		return "", fmt.Errorf("provider %s 未配置密钥（config.json providers.%s.apiKey 或环境变量 %s）", spec.ID, spec.ID, spec.KeyEnv)
 	}
 
-	// v3.3.0：custom 协议必须带模板定义
-	if spec.Protocol == "custom" && spec.Custom == nil {
-		return "", usage, nil, fmt.Errorf("provider %s 声明 custom 协议但缺少 custom 模板定义", spec.ID)
-	}
-
-	// 响应缓存命中 → 直接返回（不再出站）；tools 请求不进缓存（结果含函数调用，
-	// 缓存整段文本会丢 tool_calls 语义）
+	// 响应缓存命中 → 直接返回（不再出站）
 	tenantKey := tenant
 	if tenantKey == "" {
 		tenantKey = "-"
 	}
 	ck := respCacheKey(tenantKey, spec.ID, model, msgs)
-	if len(opts.Tools) > 0 {
-		ck += ":tools"
-	}
-	cacheable := v32RespCacheEnabled() && len(opts.Tools) == 0
-	if cacheable {
+	if v32RespCacheEnabled() {
 		if v, ok := respCacheGet(ck); ok {
-			return v, usage, nil, nil
+			return v, nil
 		}
 	}
 
-	if spec.Protocol == "custom" {
-		content, usage, err = callCustomProvider(spec, model, msgs, key, trace)
-		if err != nil {
-			cbRecord(spec.ID, false)
-			return "", usage, nil, err
-		}
-		if cacheable {
-			respCachePut(ck, content)
-		}
-		return content, usage, nil, nil
-	}
-
-	body, err := buildRequestBody(spec.Protocol, model, msgs, opts)
+	body, err := buildRequestBody(spec.Protocol, model, msgs)
 	if err != nil {
 		cbRecord(spec.ID, false)
-		return "", usage, nil, err
+		return "", err
 	}
 	endpoint := providerChatEndpoint(spec, model)
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		cbRecord(spec.ID, false)
-		return "", usage, nil, err
+		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	switch spec.Protocol {
@@ -748,7 +501,7 @@ func callProviderChatFull(spec ProviderSpec, model string, msgs []Message, tenan
 	if err != nil {
 		obsRecordBackend(trace, backendLabel, false, time.Since(obsStart).Milliseconds(), 0)
 		cbRecord(spec.ID, false)
-		return "", usage, nil, err
+		return "", err
 	}
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
@@ -756,9 +509,10 @@ func callProviderChatFull(spec ProviderSpec, model string, msgs []Message, tenan
 	obsRecordBackend(trace, backendLabel, ok, time.Since(obsStart).Milliseconds(), resp.StatusCode)
 	cbRecord(spec.ID, ok)
 	if !ok {
-		return "", usage, nil, fmt.Errorf("上游 %s: %s", spec.ID, strings.TrimSpace(string(data)))
+		return "", fmt.Errorf("上游 %s: %s", spec.ID, strings.TrimSpace(string(data)))
 	}
 
+	var content string
 	switch spec.Protocol {
 	case "anthropic":
 		if c, okp := parseAnthropicContent(data); okp {
@@ -766,164 +520,17 @@ func callProviderChatFull(spec ProviderSpec, model string, msgs []Message, tenan
 		} else {
 			content = string(data)
 		}
-		usage = parseAnthropicUsage(data)
 	case "gemini":
 		if c, okp := parseGeminiContent(data); okp {
 			content = c
 		} else {
 			content = string(data)
 		}
-		usage = parseGeminiUsage(data)
 	default:
-		var tcs []ToolCall
-		content, usage, tcs = parseOpenAIFull(data)
-		// 无结构化结果时 parseOpenAIFull 会把整包当文本；usage 全 0 时不误报
-		toolCalls = tcs
+		content, _ = parseOpenAIContent(data)
 	}
-	if cacheable {
+	if v32RespCacheEnabled() {
 		respCachePut(ck, content)
 	}
-	return content, usage, toolCalls, nil
-}
-
-// callCustomProvider v3.3.0：custom 协议出站——任意 HTTP 后端模板化接入。
-// 模板占位符（值替换，非注入执行）：
-//   {{.Key}} {{.Model}} {{.System}} {{.User}} {{.Prompt}}={{.User}}
-//   {{.MessagesJSON}}  消息数组 [{role,content}] 的 JSON 串
-// headers 值同样支持占位符展开（典型：Authorization: Bearer {{.Key}}）。
-func callCustomProvider(spec ProviderSpec, model string, msgs []Message, key, trace string) (string, Usage, error) {
-	c := spec.Custom
-	method := strings.ToUpper(strings.TrimSpace(c.Method))
-	if method == "" {
-		method = http.MethodPost
-	}
-	// 汇总模板上下文
-	var system, user string
-	for _, m := range msgs {
-		if m.Role == "system" {
-			system += m.Content + "\n"
-		}
-	}
-	for i := len(msgs) - 1; i >= 0; i-- {
-		if msgs[i].Role == "user" {
-			user = msgs[i].Content
-			break
-		}
-	}
-	msgsJSON, _ := json.Marshal(msgs)
-	ctxVals := map[string]string{
-		"Key":           key,
-		"Model":         model,
-		"System":        strings.TrimSuffix(system, "\n"),
-		"User":          user,
-		"Prompt":        user,
-		"MessagesJSON":  string(msgsJSON),
-		"Trace":         trace,
-	}
-	bodyBytes, err := buildCustomBody(c.Body, ctxVals)
-	if err != nil {
-		return "", Usage{}, err
-	}
-	base, _ := providerEffectiveURL(spec)
-	endpoint := strings.TrimSuffix(base, "/") + c.Path
-	req, err := http.NewRequest(method, endpoint, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return "", Usage{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	for k, v := range c.Headers {
-		req.Header.Set(k, expandTemplate(v, ctxVals))
-	}
-	traceHeaderForward(req, trace)
-	obsStart := time.Now()
-	resp, err := httpClientLong.Do(req)
-	if err != nil {
-		obsRecordBackend(trace, spec.ID, false, time.Since(obsStart).Milliseconds(), 0)
-		return "", Usage{}, err
-	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
-	obsRecordBackend(trace, spec.ID, resp.StatusCode == 200, time.Since(obsStart).Milliseconds(), resp.StatusCode)
-	if resp.StatusCode != 200 {
-		return "", Usage{}, fmt.Errorf("上游 %s: %s", spec.ID, strings.TrimSpace(string(data)))
-	}
-	content, ok := extractJSONPath(data, c.ResponsePath)
-	if !ok {
-		return "", Usage{}, fmt.Errorf("provider %s：responsePath %q 未命中响应结构", spec.ID, c.ResponsePath)
-	}
-	return content, Usage{}, nil
-}
-
-// buildCustomBody 递归展开模板值（map / slice / string 均支持）
-func buildCustomBody(tpl interface{}, vals map[string]string) ([]byte, error) {
-	expanded := expandValue(tpl, vals)
-	return json.Marshal(expanded)
-}
-
-func expandValue(v interface{}, vals map[string]string) interface{} {
-	switch t := v.(type) {
-	case string:
-		return expandTemplate(t, vals)
-	case map[string]interface{}:
-		out := map[string]interface{}{}
-		for k, vv := range t {
-			out[k] = expandValue(vv, vals)
-		}
-		return out
-	case []interface{}:
-		out := make([]interface{}, 0, len(t))
-		for _, vv := range t {
-			out = append(out, expandValue(vv, vals))
-		}
-		return out
-	default:
-		return v
-	}
-}
-
-func expandTemplate(s string, vals map[string]string) string {
-	for k, v := range vals {
-		s = strings.ReplaceAll(s, "{{."+k+"}}", v)
-	}
-	return s
-}
-
-// extractJSONPath 点路径取值（a.b.0.c）；叶子为字符串返回其值，
-// 其它类型返回 JSON 序列化文本
-func extractJSONPath(data []byte, path string) (string, bool) {
-	if path == "" {
-		return "", false
-	}
-	var cur interface{}
-	if err := json.Unmarshal(data, &cur); err != nil {
-		return "", false
-	}
-	for _, seg := range strings.Split(path, ".") {
-		switch node := cur.(type) {
-		case map[string]interface{}:
-			v, ok := node[seg]
-			if !ok {
-				return "", false
-			}
-			cur = v
-		case []interface{}:
-			idx, err := strconv.Atoi(seg)
-			if err != nil || idx < 0 || idx >= len(node) {
-				return "", false
-			}
-			cur = node[idx]
-		default:
-			return "", false
-		}
-	}
-	switch leaf := cur.(type) {
-	case string:
-		return leaf, true
-	default:
-		b, err := json.Marshal(leaf)
-		if err != nil {
-			return "", false
-		}
-		return string(b), true
-	}
+	return content, nil
 }

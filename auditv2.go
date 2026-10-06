@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -119,6 +120,28 @@ func auditV2SeedFor(day string) (int, string) {
 }
 
 // auditV2Write 写入一条 v2 审计（内部含按天切换 / 续链 / 保留期清理）
+// maskSensitiveInDetail v3.2.5 P1-6：审计详情中的敏感头做哈希掩码
+func maskSensitiveInDetail(detail string) string {
+	for _, header := range []string{"Authorization", "X-API-Key", "Cookie"} {
+		// 匹配 Header: value 或 Header=value，值取到下一个逗号或行尾
+		re := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(header) + `[:=]\s*[^,]+`)
+		detail = re.ReplaceAllStringFunc(detail, func(match string) string {
+			idx := strings.IndexAny(match, ":=")
+			if idx < 0 {
+				return match
+			}
+			prefix := match[:idx+1]
+			val := strings.TrimSpace(match[idx+1:])
+			if val == "" {
+				return match
+			}
+			h := sha256.Sum256([]byte(val))
+			return prefix + " " + hex.EncodeToString(h[:])[:16] + "..."
+		})
+	}
+	return detail
+}
+
 func auditV2Write(action, tenant, group, user, ip, detail, trace string) {
 	auditV2Mu.Lock()
 	defer auditV2Mu.Unlock()
@@ -133,7 +156,7 @@ func auditV2Write(action, tenant, group, user, ip, detail, trace string) {
 		}
 		seq, prev := auditV2SeedFor(day)
 		auditV2Seq, auditV2PrevHash = seq, prev
-		f, err := os.OpenFile(auditV2FilePath(day), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+		f, err := os.OpenFile(auditV2FilePath(day), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			logMsg(fmt.Sprintf("[AUDIT-V2] 打开审计文件失败，v2 落盘暂停: %v", err))
 			auditV2File = nil
@@ -156,7 +179,7 @@ func auditV2Write(action, tenant, group, user, ip, detail, trace string) {
 		Group:    group,
 		User:     user,
 		IP:       ip,
-		Detail:   detail,
+		Detail:   maskSensitiveInDetail(detail),
 		Trace:    trace,
 		PrevHash: auditV2PrevHash,
 	}

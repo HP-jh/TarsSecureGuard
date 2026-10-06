@@ -11,14 +11,5 @@
     "hunyuan-turbos",
     "hunyuan-large"
   ],
-  "notes": "OpenAI 兼容接口",
-  "applyUrl": "https://console.cloud.tencent.com/cam/capi",
-  "defaultCaps": [
-    "tools",
-    "json"
-  ],
-  "pricing": {
-    "input": 0.5,
-    "output": 0.5
-  }
+  "notes": "OpenAI 兼容接口"
 }

@@ -57,10 +57,6 @@ type Config struct {
 	// 同样匿名内嵌提升到顶层，随 cfg 持久化（见 providerregistry.go / circuit.go /
 	// adapters.go / pool.go）。
 	V32Config
-	// v3.3.0 转换中枢扩展段（顶层键：capabilities / modelCaps）
-	V33Config
-	V34Config
-	V35Config
 	// v3.2.2 治理层扩展段（顶层键：oauth / gatekeeper / audit）——
 	// 共享记忆 / 共享信息的上限段（sharedMemory）为松散 map 段，走 cfgInt 读取。
 	OAuth      OAuthCfg      `json:"oauth"`
@@ -133,36 +129,41 @@ type V32Config struct {
 	} `json:"pool"`
 }
 
-// V35Config v3.5.0 极致模块化与自适应扩展段（顶层键：ui / moduleProfiles）
-type V35Config struct {
-	UI struct {
-		Mode string `json:"mode"` // beginner | advanced（默认 advanced）
-	} `json:"ui"`
-	ModuleProfiles map[string]map[string]bool `json:"moduleProfiles"` // 自定义裁剪档案（快照）
-}
-
-// V33Config v3.3.0 转换中枢扩展段（顶层键：capabilities / modelCaps）
-// V34Config v3.4.0 测量器扩展段（顶层键：pricing）
-type V34Config struct {
-	Pricing struct {
-		Overrides map[string]*Pricing `json:"overrides"` // 定价覆盖层：provider/model 或裸模型 → 定价
-	} `json:"pricing"`
-	Connectors []ConnectorInstance `json:"connectors"` // 连接器实例（v3.4.0 连接器生态）
-}
-
-// V33Config v3.3.0 转换中枢扩展段（顶层键：capabilities / modelCaps）
-type V33Config struct {
-	Capabilities struct {
-		AutoReroute *bool `json:"autoReroute"` // 能力改道开关（默认 true）
-	} `json:"capabilities"`
-	ModelCaps map[string][]string `json:"modelCaps"` // 能力覆盖层：模型名或 provider/model → 能力数组
-}
-
 type ExtServer struct {
 	Name    string   `json:"name"`
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
 	Enabled bool     `json:"enabled"`
+}
+
+// stripUnderscoreKeys v3.2.5 P0-3：解码前剥离 _ 前缀键（注释/说明键）
+func stripUnderscoreKeys(data []byte) []byte {
+	var root map[string]interface{}
+	if err := json.Unmarshal(data, &root); err != nil {
+		return data
+	}
+	strip := func(m map[string]interface{}) {
+		for k := range m {
+			if strings.HasPrefix(k, "_") {
+				delete(m, k)
+			}
+		}
+	}
+	strip(root)
+	for _, sec := range []string{"cloud", "security", "paths", "modules", "providers", "mcp", "direct", "tier1", "sidecar", "circuit", "responseCache", "pool"} {
+		if m, ok := root[sec].(map[string]interface{}); ok {
+			strip(m)
+		}
+	}
+	if cloud, ok := root["cloud"].(map[string]interface{}); ok {
+		for _, sub := range []string{"openai", "deepseek"} {
+			if m, ok := cloud[sub].(map[string]interface{}); ok {
+				strip(m)
+			}
+		}
+	}
+	b, _ := json.Marshal(root)
+	return b
 }
 
 func loadConfig() {
@@ -180,8 +181,10 @@ func loadConfig() {
 	if data, err := os.ReadFile(configPath); err == nil {
 		// 剥离 UTF-8 BOM：记事本等编辑器保存的 JSON 可能带 BOM，Go 解析会失败
 		data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+		// v3.2.5 P0-3：剥离注释键（_ 前缀）
+		data = stripUnderscoreKeys(data)
 		var c Config
-		if json.Unmarshal(data, &c) == nil {
+		if err := json.Unmarshal(data, &c); err == nil {
 			cfg = c
 			parsed = true
 			// v3.0.0：加载 v3 扩展段（resource / rateLimit / ipReputation）
@@ -317,15 +320,6 @@ func saveConfig() {
 		return
 	}
 	os.WriteFile(configPath, data, 0644)
-}
-
-// saveConfigChecked v3.3.0：带错误返回的保存（能力覆盖层写入用）
-func saveConfigChecked() error {
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(configPath, data, 0644)
 }
 
 // ===================== 路径解析（开源化：默认以 exe 所在目录为基准） =====================

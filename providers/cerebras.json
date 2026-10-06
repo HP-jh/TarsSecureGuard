@@ -11,14 +11,5 @@
     "llama-3.3-70b",
     "llama3.1-8b"
   ],
-  "notes": "OpenAI 兼容，极速推理",
-  "applyUrl": "https://cloud.cerebras.ai/",
-  "defaultCaps": [
-    "tools",
-    "json"
-  ],
-  "pricing": {
-    "input": 0.1,
-    "output": 0.3
-  }
+  "notes": "OpenAI 兼容，极速推理"
 }

@@ -500,11 +500,17 @@ var (
 		})
 )
 
+// v3.2.5 P2-11：鉴权失败 / 限速命中可观测指标
+var (
+	mAuthFailTotal    = obsNewCounter("tars_auth_fail_total", "鉴权失败次数（401）")
+	mRateLimitTotal   = obsNewCounter("tars_rate_limit_total", "速率限制拦截次数（429）")
+)
+
 // obsRegistry 渲染顺序（Grafana 面板依赖的名称都已覆盖）
 var obsRegistry = []*obsMetric{
 	mHTTPReqTotal, mHTTPDuration, mWAFHits, mRouteDecisions, mRouteExplore, mBackendDuration,
 	mGuardTier, mGuardRSS, mModuleUp, mBackendUp, mQuotaUsed, mUptime, mBuildInfo,
-	mActiveTraces, mTraceTotal,
+	mActiveTraces, mTraceTotal, mAuthFailTotal, mRateLimitTotal,
 }
 
 // ===================== 后端可达性缓存（15s）=====================
