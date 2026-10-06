@@ -66,6 +66,8 @@ var moduleRegistry = []Module{
 	{ID: "tokenMeter", Name: "Token Meter", Description: "轻量 Token 测量器：每次调用的 tokens 与成本实时反馈、tools schema 瘦身降耗（v3.4.0）", Category: "ops", Default: true, Deps: []string{"chatApi"}},
 	// v3.4.0：连接器生态（内置模板 + 用户实例，AI 可调用 conn_* 工具）
 	{ID: "connectors", Name: "Connectors", Description: "连接器生态：内置模板目录 + 用户实例，AI 经 conn_* 工具无缝接入外部平台与数据源（v3.4.0）", Category: "tools", Default: true, Deps: []string{"builtinTools"}},
+	// v3.5.0：极致模块化（裁剪档案）与自适应（使用习惯建议 / 新手-高阶 UI 模式）
+	{ID: "adaptive", Name: "Adaptive", Description: "极致模块化与自适应：内置/自定义裁剪档案一键切换、模块使用习惯分析建议、新手/高阶界面模式（v3.5.0）", Category: "ops", Default: true},
 }
 
 // securityModuleDesc 安全模块在模块列表中的展示形态（locked，无开关）
@@ -212,6 +214,7 @@ func moduleRoute(id string, h http.HandlerFunc) http.HandlerFunc {
 			})
 			return
 		}
+		noteModuleUse(id) // v3.5.0：模块使用埋点（使用习惯自适应）
 		h(w, r)
 	}
 }

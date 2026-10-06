@@ -18,6 +18,8 @@
   --glow-blue:0 0 24px rgba(88,166,255,.22);
 }
 html{font-size:15px}
+body.beginner .nav-adv{display:none!important}
+body.beginner .nav-group:empty{display:none}
 body{font-family:'Segoe UI',system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg0);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 45% at 15% 0%,rgba(88,166,255,.09),transparent 60%),radial-gradient(ellipse 55% 45% at 85% 100%,rgba(188,140,255,.08),transparent 60%);pointer-events:none;z-index:0}
 .app{display:flex;min-height:100vh;position:relative;z-index:1}
@@ -275,35 +277,35 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.4.0 DESKTOP</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.5.0 DESKTOP</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('chat',this)"><span class="ic"><svg><use href="#i-chat"/></svg></span> AI Chat</div></div>
 <div class="nav-group"><div class="nav-title">模型</div>
 <div class="nav-item" onclick="pg('models',this)"><span class="ic"><svg><use href="#i-model"/></svg></span> Models</div>
-<div class="nav-item" onclick="pg('caps',this)"><span class="ic"><svg><use href="#i-mod"/></svg></span> Capability</div>
-<div class="nav-item" onclick="pg('meter',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Token Meter</div>
+<div class="nav-item nav-adv" onclick="pg('caps',this)"><span class="ic"><svg><use href="#i-mod"/></svg></span> Capability</div>
+<div class="nav-item nav-adv" onclick="pg('meter',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Token Meter</div>
 <div class="nav-item" onclick="pg('agents',this)"><span class="ic"><svg><use href="#i-agent"/></svg></span> Agents</div>
-<div class="nav-item" onclick="pg('urgent',this)"><span class="ic"><svg><use href="#i-urgent"/></svg></span> Urgent</div>
-<div class="nav-item" onclick="pg('fallback',this)"><span class="ic"><svg><use href="#i-fallback"/></svg></span> Fallback</div></div>
+<div class="nav-item nav-adv" onclick="pg('urgent',this)"><span class="ic"><svg><use href="#i-urgent"/></svg></span> Urgent</div>
+<div class="nav-item nav-adv" onclick="pg('fallback',this)"><span class="ic"><svg><use href="#i-fallback"/></svg></span> Fallback</div></div>
 <div class="nav-group"><div class="nav-title">扩展</div>
-<div class="nav-item" onclick="pg('search',this)"><span class="ic"><svg><use href="#i-search"/></svg></span> Web Search</div>
-<div class="nav-item" onclick="pg('feishu',this)"><span class="ic"><svg><use href="#i-feishu"/></svg></span> Feishu</div>
-<div class="nav-item" onclick="pg('mcp',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> MCP Tools</div>
-<div class="nav-item" onclick="pg('conn',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> Connectors</div>
-<div class="nav-item" onclick="pg('discovery',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Discovery</div></div>
+<div class="nav-item nav-adv" onclick="pg('search',this)"><span class="ic"><svg><use href="#i-search"/></svg></span> Web Search</div>
+<div class="nav-item nav-adv" onclick="pg('feishu',this)"><span class="ic"><svg><use href="#i-feishu"/></svg></span> Feishu</div>
+<div class="nav-item nav-adv" onclick="pg('mcp',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> MCP Tools</div>
+<div class="nav-item nav-adv" onclick="pg('conn',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> Connectors</div>
+<div class="nav-item nav-adv" onclick="pg('discovery',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Discovery</div></div>
 <div class="nav-group"><div class="nav-title">安全</div>
-<div class="nav-item" onclick="pg('security',this)"><span class="ic"><svg><use href="#i-sec"/></svg></span> Security</div>
-<div class="nav-item" onclick="pg('waf',this)"><span class="ic"><svg><use href="#i-waf"/></svg></span> WAF Logs</div></div>
+<div class="nav-item nav-adv" onclick="pg('security',this)"><span class="ic"><svg><use href="#i-sec"/></svg></span> Security</div>
+<div class="nav-item nav-adv" onclick="pg('waf',this)"><span class="ic"><svg><use href="#i-waf"/></svg></span> WAF Logs</div></div>
 <div class="nav-group"><div class="nav-title">治理</div>
-<div class="nav-item" onclick="pg('gov',this)"><span class="ic"><svg><use href="#i-gov"/></svg></span> Governance</div>
-<div class="nav-item" onclick="pg('memory',this)"><span class="ic"><svg><use href="#i-mem"/></svg></span> Shared Memory</div>
-<div class="nav-item" onclick="pg('sinfo',this)"><span class="ic"><svg><use href="#i-sinfo"/></svg></span> Shared Info</div>
-<div class="nav-item" onclick="pg('audit2',this)"><span class="ic"><svg><use href="#i-chain"/></svg></span> Audit Chain</div></div>
+<div class="nav-item nav-adv" onclick="pg('gov',this)"><span class="ic"><svg><use href="#i-gov"/></svg></span> Governance</div>
+<div class="nav-item nav-adv" onclick="pg('memory',this)"><span class="ic"><svg><use href="#i-mem"/></svg></span> Shared Memory</div>
+<div class="nav-item nav-adv" onclick="pg('sinfo',this)"><span class="ic"><svg><use href="#i-sinfo"/></svg></span> Shared Info</div>
+<div class="nav-item nav-adv" onclick="pg('audit2',this)"><span class="ic"><svg><use href="#i-chain"/></svg></span> Audit Chain</div></div>
 <div class="nav-group"><div class="nav-title">系统</div>
-<div class="nav-item" onclick="pg('modules',this)"><span class="ic"><svg><use href="#i-mod"/></svg></span> Modules</div>
-<div class="nav-item" onclick="pg('device',this)"><span class="ic"><svg><use href="#i-device"/></svg></span> Device</div>
-<div class="nav-item" onclick="pg('logs',this)"><span class="ic"><svg><use href="#i-logs"/></svg></span> Logs</div>
+<div class="nav-item nav-adv" onclick="pg('modules',this)"><span class="ic"><svg><use href="#i-mod"/></svg></span> Modules</div>
+<div class="nav-item nav-adv" onclick="pg('device',this)"><span class="ic"><svg><use href="#i-device"/></svg></span> Device</div>
+<div class="nav-item nav-adv" onclick="pg('logs',this)"><span class="ic"><svg><use href="#i-logs"/></svg></span> Logs</div>
 <div class="nav-item" onclick="pg('settings',this)"><span class="ic"><svg><use href="#i-set"/></svg></span> Settings</div>
 <div class="nav-item" onclick="pg('about',this)"><span class="ic"><svg><use href="#i-about"/></svg></span> About</div></div>
 </div>
@@ -521,6 +523,17 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 
 <!-- ===== Modules（v2.0.0 模块管理） ===== -->
 <div class="page" id="p-modules">
+<div class="card"><div class="card-title"><span class="d"></span>界面模式 <span class="right" id="uimode-state"></span></div>
+<div style="font-size:11px;color:var(--muted);margin-bottom:12px">新手模式只保留核心页面（仪表盘 / 对话 / 模型 / 智能体 / 设置），隐藏高级管理页；高阶模式展示全部功能。</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+<label class="switch"><input type="checkbox" id="uimode-cb" onchange="setUIMode(this.checked)"><span class="slider"></span></label>
+<span style="font-size:12px" id="uimode-lbl">高阶模式</span></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>裁剪档案 <span class="right"><input id="prof-name" placeholder="档案名（字母数字-_）" style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text);width:150px"> <button class="btn btn-s btn-sm" onclick="saveProfile()">保存当前为档案</button></span></div>
+<div style="font-size:11px;color:var(--muted);margin-bottom:12px">一键切换整套模块组合（应用时自动补全依赖并落审计）：极简 / 标准 / 全量 / 纯本地（零外联）/ 低配（省资源不降安全）。也可把当前组合保存为自定义档案。</div>
+<div id="prof-list"><div class="skel skel-row" style="width:70%"></div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>自适应建议 <span class="right"><button class="btn btn-s btn-sm" onclick="loadAdapt()">刷新</button></span></div>
+<div style="font-size:11px;color:var(--muted);margin-bottom:12px">基于硬件档位、模块使用习惯（进程内统计）与 Token 成本生成的建议，可一键应用；进程重启后使用统计清零。</div>
+<div id="adapt-list"><div class="skel skel-row" style="width:70%"></div></div></div>
 <div class="card"><div class="card-title"><span class="d"></span>模块管理 <span class="right"><button class="btn btn-s btn-sm" onclick="loadModules()">刷新</button></span></div>
 <div style="font-size:11px;color:var(--muted);margin-bottom:12px">安全保护模块（Security Core）强制加载、不可关闭；其余模块可随时开关，config.json 手改 2 秒热重载生效。开启模块会自动连带开启其依赖；关闭被依赖的模块会被拒绝。</div>
 <div id="mod-list"><div class="skel skel-row" style="width:80%"></div><div class="skel skel-row" style="width:60%"></div></div></div></div>
@@ -560,7 +573,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px;background:linear-gradient(135deg,#1f6feb,#8957e5);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;box-shadow:0 0 32px rgba(88,166,255,.45)">T</div>
 <h1 style="font-size:24px;font-weight:800;background:linear-gradient(135deg,var(--cyan),var(--blue));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">TarsSecureGuard</h1>
 <div style="color:var(--text2);font-size:13px;margin-bottom:16px">AI Secure Gateway - Sci-Fi Edition</div>
-<div style="display:inline-block;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:6px 16px;font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:16px;letter-spacing:.5px">Version 1.0.0 (Build 20260919)</div>
+<div style="display:inline-block;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:6px 16px;font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:16px;letter-spacing:.5px">Version 3.5.0 (Build 20261006)</div>
 <div style="color:var(--text2);font-size:11px;line-height:2.2">Multi-model routing &middot; Security WAF &middot; Local loopback<br>7 Specialized Agents &middot; Urgent channel &middot; Auto fallback<br>MCP relay &middot; Web search &middot; Feishu integration &middot; Device scan</div></div>
 <div class="card"><div class="card-title"><span class="d"></span>System Information</div><div class="grid-2" style="font-size:12px;gap:10px">
 <div><span style="color:var(--text2)">Software: </span><b>TarsSecureGuard</b></div>
@@ -669,7 +682,7 @@ function closeSide(){$('sidebar').classList.remove('open');$('side-mask').classL
 var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],meter:['Token 测量器','系统 / 成本实时反馈'],conn:['连接器','扩展 / 连接器生态'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息']};
 var curPage='dashboard';
 function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
-  if(p==='dashboard'){updStats();loadHw();}if(p==='modules')loadModules();if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();
+  if(p==='dashboard'){updStats();loadHw();}if(p==='modules'){loadModules();loadAdapt();}if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();
   if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
 function jump(p){var it=document.querySelectorAll('.nav-item');for(var i=0;i<it.length;i++){if((it[i].getAttribute('onclick')||'').indexOf("'"+p+"'")>-1){pg(p,it[i]);return;}}pg(p,null);}
 function pgFromHash(){var h=(location.hash||'').replace(/^#/,'');if(!h)return;if(!$('p-'+h))return;jump(h);}
@@ -944,6 +957,66 @@ function loadWaf(){api('/api/admin/security/waf-logs').then(function(d){
   var l=d.logs||[];$('waf-content').textContent=Array.isArray(l)?(l.join('\n')||'[s] 无 WAF 拦截记录，系统干净。'):JSON.stringify(d,null,2);
 }).catch(function(e){$('waf-content').textContent='[e] 失败：'+e.message;});}
 /* ============ v2.0.0 模块管理 ============ */
+/* ============ v3.5.0 极致模块化与自适应 ============ */
+function initUIMode(){api('/api/admin/v35/ui-mode').then(function(d){
+  applyUIMode(d.mode||'advanced');
+}).catch(function(){});}
+function applyUIMode(m){var b=document.body.classList.toggle('beginner',m==='beginner');
+  var cb=$('uimode-cb');if(cb)cb.checked=(m==='beginner');
+  var lb=$('uimode-lbl');if(lb)lb.textContent=(m==='beginner')?'新手模式（精简界面）':'高阶模式';
+  var st=$('uimode-state');if(st)st.innerHTML='<span class="tag '+(m==='beginner'?'loc':'on')+'">'+(m==='beginner'?'BEGINNER':'ADVANCED')+'</span>';
+  if(m==='beginner'&&['caps','meter','urgent','fallback','search','feishu','mcp','conn','discovery','security','waf','gov','memory','sinfo','audit2','modules','device','logs'].indexOf(curPage)>=0)pg('dashboard');}
+function setUIMode(beginner){api('/api/admin/v35/ui-mode',{method:'POST',body:JSON.stringify({mode:beginner?'beginner':'advanced'})}).then(function(d){
+  applyUIMode(d.mode);toast('已切换为'+(beginner?'新手模式':'高阶模式'),'ok');
+}).catch(function(e){toast('失败：'+esc(e.message),'err');});}
+function loadAdapt(){loadUIModeState();loadProfiles();loadSuggestions();}
+function loadUIModeState(){api('/api/admin/v35/ui-mode').then(function(d){applyUIMode(d.mode||'advanced');}).catch(function(){});}
+function loadProfiles(){api('/api/admin/v35/profile').then(function(d){
+  var h='';
+  var cards=function(p,builtin){
+    var active=!!p.active;
+    h+='<div style="display:flex;align-items:center;gap:12px;background:var(--bg1);border:1px solid '+(active?'rgba(63,185,80,.4)':'var(--border)')+';border-radius:10px;padding:12px 16px;margin-bottom:8px">'
+      +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:13px">'+esc(p.name)+'</b>'
+      +(builtin?'<span class="tag on">内置</span>':'<span class="tag loc">自定义</span>')
+      +(p.onCount!=null?'<span class="tag">'+p.onCount+' 个模块</span>':'')
+      +(active?'<span class="tag on">当前</span>':'')+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:3px">'+esc(p.description||'')+'</div></div>'
+      +'<button class="btn btn-s btn-sm" onclick="applyProfile(\''+p.id+'\')">应用</button>'
+      +(!builtin?' <button class="btn btn-s btn-sm" style="color:var(--red)" onclick="deleteProfile(\''+p.id+'\')">删除</button>':'')
+      +'</div>';};
+  (d.builtin||[]).forEach(function(p){cards(p,true);});
+  (d.custom||[]).forEach(function(p){cards(p,false);});
+  if(!h)h='<div class="empty">暂无档案</div>';
+  h+='<div style="font-size:10px;color:var(--muted);margin-top:6px">应用会立即生效并落审计；被应用档案依赖的模块自动连带开启。</div>';
+  $('prof-list').innerHTML=h;
+}).catch(function(e){$('prof-list').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>';});}
+function applyProfile(id){if(!confirm('应用裁剪档案「'+id+'」？模块开关将立即变更并落审计。'))return;
+  api('/api/admin/v35/profile',{method:'POST',body:JSON.stringify({action:'apply',profile:id})}).then(function(d){
+    toast('档案 '+id+' 已应用（'+((d.changes||[]).length)+' 项变更）','ok');loadModules();loadProfiles();
+  }).catch(function(e){toast('失败：'+esc(e.message),'err');});}
+function saveProfile(){var n=$('prof-name').value.trim();if(!n){toast('请输入档案名','err');return;}
+  api('/api/admin/v35/profile',{method:'POST',body:JSON.stringify({action:'save',profile:n})}).then(function(d){
+    toast('已保存档案 '+d.saved,'ok');$('prof-name').value='';loadProfiles();
+  }).catch(function(e){toast('失败：'+esc(e.message),'err');});}
+function deleteProfile(id){if(!confirm('删除自定义档案「'+id+'」？'))return;
+  api('/api/admin/v35/profile',{method:'POST',body:JSON.stringify({action:'delete',profile:id})}).then(function(d){
+    toast('已删除档案 '+id,'ok');loadProfiles();
+  }).catch(function(e){toast('失败：'+esc(e.message),'err');});}
+function loadSuggestions(){api('/api/admin/v35/adaptive').then(function(d){
+  var ss=d.suggestions||[];var h='';
+  if(!ss.length)h='<div class="empty">暂无建议——当前配置与硬件 / 使用习惯匹配良好</div>';
+  ss.forEach(function(s){
+    var kindTag={eco:'<span class="tag on">省资源</span>','module-off':'<span class="tag off">裁剪</span>','module-on':'<span class="tag loc">增强</span>',info:'<span class="tag">提示</span>'}[s.kind]||'';
+    h+='<div style="display:flex;align-items:center;gap:12px;background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px">'
+      +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:13px">'+esc(s.title)+'</b>'+kindTag+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:3px">'+esc(s.detail||'')+'</div></div>'
+      +(s.apply?'<button class="btn btn-s btn-sm" onclick="applySuggestion(\''+s.id+'\')">应用</button>':'')
+      +'</div>';});
+  $('adapt-list').innerHTML=h;
+}).catch(function(e){$('adapt-list').innerHTML='<div class="empty">加载失败：'+esc(e.message)+'</div>';});}
+function applySuggestion(id){api('/api/admin/v35/adaptive',{method:'POST',body:JSON.stringify({apply:id})}).then(function(d){
+  toast(d.message||'已应用','ok');loadSuggestions();loadModules();
+}).catch(function(e){toast('失败：'+esc(e.message),'err');});}
 function loadModules(){api('/api/admin/modules').then(function(d){
   var ms=d.modules||[];var h='';
   ms.forEach(function(m){
@@ -1276,7 +1349,7 @@ function capsApplyRender(list){
   });
   $('caps-apply').innerHTML=cards.length?'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 10px">'+cards.join('')+'</div>':'<div class="empty">注册表无 applyUrl（更新 providers/*.json）</div>';
 }
-updStats();pgFromHash();
+updStats();initUIMode();pgFromHash();
 
 /* ============ 治理层（v3.2.4）：治理总览 / 共享记忆 / 共享信息 / 审计链 v2 ============ */
 function govDate(s){return s?String(s).replace('T',' ').replace(/\.\d+.*/,'').replace(/Z.*/,''):''}

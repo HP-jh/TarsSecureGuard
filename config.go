@@ -60,6 +60,7 @@ type Config struct {
 	// v3.3.0 转换中枢扩展段（顶层键：capabilities / modelCaps）
 	V33Config
 	V34Config
+	V35Config
 	// v3.2.2 治理层扩展段（顶层键：oauth / gatekeeper / audit）——
 	// 共享记忆 / 共享信息的上限段（sharedMemory）为松散 map 段，走 cfgInt 读取。
 	OAuth      OAuthCfg      `json:"oauth"`
@@ -130,6 +131,14 @@ type V32Config struct {
 	Pool struct {
 		MaxIdleConnsPerHost int `json:"maxIdleConnsPerHost"` // 默认 32
 	} `json:"pool"`
+}
+
+// V35Config v3.5.0 极致模块化与自适应扩展段（顶层键：ui / moduleProfiles）
+type V35Config struct {
+	UI struct {
+		Mode string `json:"mode"` // beginner | advanced（默认 advanced）
+	} `json:"ui"`
+	ModuleProfiles map[string]map[string]bool `json:"moduleProfiles"` // 自定义裁剪档案（快照）
 }
 
 // V33Config v3.3.0 转换中枢扩展段（顶层键：capabilities / modelCaps）

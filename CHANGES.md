@@ -1,3 +1,27 @@
+# TarsSecureGuard v3.5.0 · 极致模块化与自适应 —— 裁剪档案 / 使用习惯建议 / 新手-高阶模式
+
+> 对应 11 项纵深路线图项 6+7（极致模块化 / 自适应适配），功能明细见 `docs/v3.5.0-adaptive.md`。
+
+## 一、裁剪档案（按需裁剪）
+
+- 内置 5 档：minimal（极简对话链路）/ standard（注册表默认）/ full（全量）/ privacy（零外联纯本地）/ lowspec（低配省资源不降安全）；`POST /api/admin/v35/profile` 一键应用。
+- 档案语义依赖闭合：显式开启集 BFS 传递补全依赖，结果与顺序无关；与配置热重载的迭代式纠正并存各司其职。
+- 自定义档案：当前开关组合保存为命名档案（config `moduleProfiles` 段），可套用/删除；支持 dryRun 预览变更清单。
+
+## 二、自适应建议引擎
+
+- moduleRoute 使用埋点（次数 + 最后使用，进程内）；结合硬件档位（assessHardware）、使用习惯与 Token 成本生成建议：
+  D 档建议 eco、闲置模块建议关闭（core/models/security 类除外）、硬件充裕建议开启启动自拉、云端成本 >$1 给本地优先提示。POST 一键应用，落审计 ADAPTIVE_APPLY。
+
+## 三、新手 / 高阶界面模式
+
+- `ui.mode`：beginner 只保留核心 6 页（仪表盘/对话/模型/智能体/设置/关于），隐藏 18 个高级导航项；`/api/admin/v35/ui-mode` 切换即时生效。
+
+## 四、前端与验证
+
+- Modules 页新增：界面模式开关、裁剪档案卡片（当前态 + 模块数徽标 + 保存/删除）、自适应建议列表；版本徽章 v3.5.0。
+- 新增 `adaptive` 模块（ops，默认开）。`go build`/`go vet` 干净，`go test -race -count=1 ./...` 全绿（v350_test.go 8 用例：埋点/档案合法性/闭包顺序无关/dryRun/自定义档案生命周期/建议引擎/UI 模式/API 路径）。
+
 # TarsSecureGuard v3.4.0 · 连接器生态与工具链路降耗 —— 连接器目录 / Token 测量器 / schema 瘦身
 
 > 对应 11 项纵深路线图项 1+2（连接器生态 / 工具调用链路降耗 + Token 测量器），功能明细见 `docs/v3.4.0-connectors.md`。
