@@ -2,10 +2,10 @@
 
 # 🛡️ TarsSecureGuard
 
-### The Router of the AI Era —— AI 时代的路由器，自带安全带
+### The Router &amp; Configurator of the AI Era —— AI 时代的路由器与配置器，自带安全带
 
 <p>
-<b>解压即用</b> · <b>安全性强</b> · <b>无需配置</b> · <b>全平台兼容</b> · <b>连接一切</b>
+<b>解压即用</b> · <b>安全性强</b> · <b>无需配置</b> · <b>全平台兼容</b> · <b>连接一切</b> · <b>替你配好别的 AI 工具</b>
 </p>
 
 <p>
@@ -15,7 +15,12 @@
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.2.4-success">
+<b>不只是网关，还是配置器（v3.7.0 Extender）</b>：别的 AI 工具环境配置繁琐？TSG 反过来替你配好它们——内置探测器扫出本机已装的 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>，
+一键生成把该工具指向 TSG 端点的接入配置片段（密钥可选内嵌并全程审计），复制粘贴即完成。所有目标均为 MIT / Apache 生态，<b>零 GPL 污染、零外部依赖</b>。
+</p>
+
+<p>
+<img alt="Version" src="https://img.shields.io/badge/version-3.7.0-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">

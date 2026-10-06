@@ -277,7 +277,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.6.0 DESKTOP</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.7.0 DESKTOP</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('chat',this)"><span class="ic"><svg><use href="#i-chat"/></svg></span> AI Chat</div></div>
@@ -293,6 +293,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-item nav-adv" onclick="pg('feishu',this)"><span class="ic"><svg><use href="#i-feishu"/></svg></span> Feishu</div>
 <div class="nav-item nav-adv" onclick="pg('mcp',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> MCP Tools</div>
 <div class="nav-item nav-adv" onclick="pg('conn',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> Connectors</div>
+<div class="nav-item nav-adv" onclick="pg('ext',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Extender</div>
 <div class="nav-item nav-adv" onclick="pg('discovery',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Discovery</div></div>
 <div class="nav-group"><div class="nav-title">安全</div>
 <div class="nav-item nav-adv" onclick="pg('security',this)"><span class="ic"><svg><use href="#i-sec"/></svg></span> Security</div>
@@ -466,6 +467,22 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div style="color:var(--text2);font-size:11px">参数为 JSON 对象；必填参数缺失会被拒绝。禁用 = 保留配置但 AI 不可见。</div></div>
 </div>
 
+<!-- ===== 扩展器（v3.7.0） ===== -->
+<div class="page" id="p-ext">
+<div class="stats-grid" id="ext-stats"><div class="skel skel-row" style="width:70%"></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>本机 AI 工具探测 <span class="right"><button class="btn btn-s btn-sm" onclick="loadExt()">重新探测</button></span></div>
+<div id="ext-list"><div class="skel skel-row" style="width:70%"></div></div>
+<div style="color:var(--text2);font-size:11px;margin-top:10px">探测只读（可执行文件 / 扩展目录 / 配置文件存在性），不执行任何第三方二进制；所有目标均为 MIT / Apache 协议生态，无 GPL 污染。</div></div>
+<div class="card"><div class="card-title"><span class="d"></span>接入配置片段</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+<select class="input" id="ext-sel" style="flex:1;min-width:180px;font-size:12px"></select>
+<input class="input" id="ext-model" placeholder="模型 ID（默认 qwen2.5-3b，可换任意已配模型）" style="flex:1.4;min-width:220px;font-size:12px">
+<label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="ext-key"> 内嵌真实密钥</label>
+<button class="btn btn-p btn-sm" onclick="extGen()">生成片段</button></div>
+<div id="ext-snippet"><div class="empty">选择目标工具并点击「生成片段」</div></div>
+<div style="color:var(--text2);font-size:11px;margin-top:8px">片段默认使用占位密钥；勾选「内嵌真实密钥」将写入当前网关密钥并记入审计日志。粘贴到目标工具的配置文件后即完成接入——该工具的所有请求将经 TSG 网关鉴权、限速与审计。</div></div>
+</div>
+
 <!-- ===== 能力库（v3.3.0） ===== -->
 <div class="page" id="p-caps">
 <div class="card"><div class="card-title"><span class="d"></span>能力总览 <span class="right"><button class="btn btn-s btn-sm" onclick="loadCaps()">刷新</button><button class="btn btn-p btn-sm" id="caps-reroute-btn" onclick="capsToggleReroute()">自动改道</button></span></div>
@@ -573,7 +590,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px;background:linear-gradient(135deg,#1f6feb,#8957e5);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;box-shadow:0 0 32px rgba(88,166,255,.45)">T</div>
 <h1 style="font-size:24px;font-weight:800;background:linear-gradient(135deg,var(--cyan),var(--blue));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">TarsSecureGuard</h1>
 <div style="color:var(--text2);font-size:13px;margin-bottom:16px">AI Secure Gateway - Sci-Fi Edition</div>
-<div style="display:inline-block;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:6px 16px;font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:16px;letter-spacing:.5px">Version 3.6.0 (Build 20261006)</div>
+<div style="display:inline-block;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:6px 16px;font-size:11px;color:var(--cyan);font-weight:700;margin-bottom:16px;letter-spacing:.5px">Version 3.7.0 (Build 20261006)</div>
 <div style="color:var(--text2);font-size:11px;line-height:2.2">Multi-model routing &middot; Security WAF &middot; Local loopback<br>7 Specialized Agents &middot; Urgent channel &middot; Auto fallback<br>MCP relay &middot; Web search &middot; Feishu integration &middot; Device scan</div></div>
 <div class="card"><div class="card-title"><span class="d"></span>System Information</div><div class="grid-2" style="font-size:12px;gap:10px">
 <div><span style="color:var(--text2)">Software: </span><b>TarsSecureGuard</b></div>
@@ -663,7 +680,7 @@ function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 /* v3.2.1 桌面客户端（Tauri）：前端资产由 tauri://localhost 服务，API 跨源指向本地网关；
    浏览器模式下（页面即由网关服务）AB 为空串，行为与历史版本一致 */
 var AB=(location.protocol==='tauri:'||location.hostname==='tauri.localhost')?'http://127.0.0.1:18889':'';
-function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||''},o.headers||{});return fetch(AB+u,o).then(function(r){if(r.status===401){var k=prompt('网关密钥未配置或已失效（零信任基线：默认密钥通道须显式启用）。\n请输入安装目录 gateway-key.txt 中的网关密钥：');if(k){localStorage.setItem('tsg_api_key',k);return api(u,o);}throw new Error('HTTP 401');}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
+function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||''},o.headers||{});return fetch(AB+u,o).then(function(r){if(r.status===401){var k=prompt('网关密钥未配置或已失效（零信任基线：默认密钥通道须显式启用）。\n请输入安装目录 gateway-key.txt 中的网关密钥：');if(k){localStorage.setItem('tsg_api_key',k);o=Object.assign({},o,{headers:Object.assign({},o.headers)});delete o.headers['X-API-Key'];return api(u,o);}throw new Error('HTTP 401');}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
 function toast(msg,type){var w=$('toast-wrap');var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;w.appendChild(t);setTimeout(function(){t.classList.add('hide');setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},350)},2800);while(w.children.length>4)w.removeChild(w.firstChild);}
 function btnLoad(btn,on){if(!btn)return;if(typeof btn==='string')btn=$(btn);if(!btn)return;btn.classList.toggle('loading',!!on);btn.disabled=!!on;}
 function togglePwd(id,btn){var i=$(id);var show=i.type==='password';i.type=show?'text':'password';btn.innerHTML='<svg><use href="#i-eye'+(show?'off':'')+'"/></svg>';}
@@ -679,10 +696,10 @@ function toggleSide(){var s=$('sidebar'),m=$('side-mask');var open=!s.classList.
 function closeSide(){$('sidebar').classList.remove('open');$('side-mask').classList.remove('show');}
 
 /* ============ 页面路由 ============ */
-var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],meter:['Token 测量器','系统 / 成本实时反馈'],conn:['连接器','扩展 / 连接器生态'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息']};
+var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],meter:['Token 测量器','系统 / 成本实时反馈'],conn:['连接器','扩展 / 连接器生态'],ext:['扩展器','扩展 / 一键配置器'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息']};
 var curPage='dashboard';
 function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
-  if(p==='dashboard'){updStats();loadHw();}if(p==='modules'){loadModules();loadAdapt();}if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();
+  if(p==='dashboard'){updStats();loadHw();}if(p==='modules'){loadModules();loadAdapt();}if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='ext')loadExt();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();
   if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
 function jump(p){var it=document.querySelectorAll('.nav-item');for(var i=0;i<it.length;i++){if((it[i].getAttribute('onclick')||'').indexOf("'"+p+"'")>-1){pg(p,it[i]);return;}}pg(p,null);}
 function pgFromHash(){var h=(location.hash||'').replace(/^#/,'');if(!h)return;if(!$('p-'+h))return;jump(h);}
@@ -1294,6 +1311,49 @@ function connSave(enable){
   if(raw){try{params=JSON.parse(raw);}catch(e){alert('参数不是合法 JSON：'+e.message);return;}}
   api('/api/admin/v34/connectors',{method:'POST',body:JSON.stringify({template:tpl,params:params,enabled:enable})}).then(function(){loadConn();}).catch(function(e){alert('保存失败：'+(e&&e.message||e));});
 }
+/* ============ 扩展器（v3.7.0）：工具探测 / 接入片段生成 ============ */
+var extData={targets:[],baseUrl:'',model:'',chatApiOn:true,installed:0,total:0};
+function extKindLabel(k){return {agent:'智能体',cli:'命令行',editor:'编辑器插件'}[k]||k;}
+function loadExt(){
+  api('/api/admin/v37/extender').then(function(d){
+    extData=d||{};extData.targets=extData.targets||[];
+    $('ext-stats').innerHTML=
+      '<div class="stat"><div class="l">已装 AI 工具</div><div class="v">'+extData.installed+'<span style="font-size:12px;color:var(--muted)"> / '+extData.total+'</span></div><div class="sub">探测自可执行文件 / 扩展目录 / 配置</div></div>'+
+      '<div class="stat"><div class="l">TSG 端点</div><div class="v" style="font-size:13px;word-break:break-all">'+esc(extData.baseUrl).replace(/<br>/g,'')+'</div><div class="sub">OpenAI 兼容 · 已配模型可直接调用</div></div>'+
+      '<div class="stat"><div class="l">对话链路</div><div class="v">'+(extData.chatApiOn?'正常':'<span style="color:var(--warn,var(#e5a50a))">未启用</span>')+'</div><div class="sub">chatApi 模块（/v1 端点）</div></div>'+
+      '<div class="stat"><div class="l">接入目标</div><div class="v">'+extData.total+'</div><div class="sub">MIT / Apache 生态 · 零 GPL</div></div>';
+    var cards=[];
+    extData.targets.forEach(function(t){
+      var tag=t.installed?'<span class="tag on">已安装</span>':'<span class="tag off">未检测到</span>';
+      if(t.status==='warn'&&t.installed)tag+=' <span class="tag clo">上游停摆</span>';
+      cards.push('<div style="border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin:8px 0;background:var(--bg1)'+(t.installed?'':';opacity:.72')+'"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><span style="font-weight:700;font-size:13px">'+esc(t.name)+'</span> '+tag+'</div><span style="font-size:10px;color:var(--muted);letter-spacing:1px">'+esc(t.license)+' · '+esc(extKindLabel(t.kind))+'</span></div><div style="font-size:11px;color:var(--text2);margin:6px 0">'+esc(t.desc)+'</div>'+(t.note?'<div style="font-size:10px;color:var(--warn,#e5a50a);margin:4px 0">⚠ '+esc(t.note)+'</div>':'')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="font-size:10px;color:var(--muted)">'+esc(t.detail||'—')+'</span><button class="btn btn-p btn-sm" onclick="extPick(\''+t.id+'\')">生成接入配置</button></div></div>');
+    });
+    $('ext-list').innerHTML=cards.join('')||'<div class="empty">无目标</div>';
+    var opts='<option value="">— 选择工具 —</option>';
+    extData.targets.forEach(function(t){opts+='<option value="'+esc(t.id)+'">'+esc(t.name)+(t.installed?'（已装）':'')+'</option>';});
+    $('ext-sel').innerHTML=opts;
+    if(!extData.chatApiOn)$('ext-list').insertAdjacentHTML('beforeend','<div style="color:var(--warn,#e5a50a);font-size:11px;margin-top:8px">⚠ chatApi 模块当前未启用，/v1 端点不可用——请先在「模块」页开启。</div>');
+  }).catch(function(e){$('ext-list').innerHTML='<div class="empty">加载失败：'+esc(e&&e.message||e)+'</div>';});
+}
+function extPick(id){$('ext-sel').value=id;extGen();}
+function extGen(){
+  var id=$('ext-sel').value;
+  if(!id){alert('请选择目标工具');return;}
+  var body={target:id,includeKey:$('ext-key').checked,model:$('ext-model').value.trim()||''};
+  api('/api/admin/v37/extender',{method:'POST',body:JSON.stringify(body)}).then(function(d){
+    var sn=(d&&d.snippet)||{};
+    var code=String(sn.code||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    $('ext-snippet').innerHTML='<div style="border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg2,#0d1117);padding:12px 14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:11px;color:var(--muted)">'+esc(sn.file||'')+' · '+esc(sn.lang||'')+(d.keyEmbedded?' <span class="tag clo">含真实密钥（已审计）</span>':'')+'</span><button class="btn btn-s btn-sm" onclick="extCopy()">复制</button></div><pre style="margin:0;font-size:11px;line-height:1.55;overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:var(--text)">'+code+'</pre></div><div style="font-size:11px;color:var(--text2);margin-top:8px">'+esc(sn.steps||'')+'</div>';
+    extData._last=sn.code||'';
+  }).catch(function(e){$('ext-snippet').innerHTML='<div class="empty">生成失败：'+esc(e&&e.message||e)+'</div>';});
+}
+function extCopy(){
+  var t=extData._last||'';
+  if(!t)return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){},function(){extCopyFallback(t);});}
+  else extCopyFallback(t);
+}
+function extCopyFallback(t){var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
 /* ============ 能力库（v3.3.0）：矩阵 / 改道 / override / API 直达 ============ */
 var capsData={models:[],caps:[],descriptions:{},autoReroute:false};
 function capsCapTag(c){var cls={vision:'loc',tools:'on',longContext:'clo',json:'',reasoning:'off'}[c]||'';return '<span class="tag '+cls+'" style="margin:1px 3px 1px 0">'+c+'</span>';}

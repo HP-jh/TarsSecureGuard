@@ -11,8 +11,9 @@ import (
 )
 
 func TestV360VersionBumped(t *testing.T) {
-	if version != "3.6.0" {
-		t.Fatalf("version = %q, want 3.6.0", version)
+	// v3.6.0 已发布收口；此处只做下限校验（当前版本锁由最新版测试维护）
+	if version < "3.6.0" {
+		t.Fatalf("version = %q, want >= 3.6.0", version)
 	}
 }
 
