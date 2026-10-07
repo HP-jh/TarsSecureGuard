@@ -1,0 +1,46 @@
+{
+  "_comment": "TarsSecureGuard v3.0.4 team 场景配置示例（可直接改密钥后作为 config.json 使用；与 team-config.example.yaml 同构）",
+  "security": {
+    "apiKey": "REPLACE-ME-RANDOM-KEY",
+    "defaultKeyAllowed": false,
+    "auditLogEnabled": true,
+    "wafEnabled": true,
+    "mode": "normal"
+  },
+  "tenants": {
+    "globalTokenCapPerDay": 1000000,
+    "list": [
+      {
+        "id": "team-a",
+        "name": "团队A",
+        "enabled": true,
+        "quota": { "tokensPerDay": 500000, "tokensPerUserPerDay": 50000, "tokensPerGroupPerDay": 200000 },
+        "router": { "preferredBackends": ["llama", "ollama"] },
+        "rateLimit": { "chatPerMin": 30, "adminPerMin": 8, "modelPerMin": 5 },
+        "groups": [
+          { "id": "g-core", "name": "核心组", "quota": { "tokensPerDay": 200000 }, "router": { "preferredBackends": ["ollama"] } }
+        ]
+      },
+      {
+        "id": "team-b",
+        "name": "团队B",
+        "enabled": true,
+        "quota": { "tokensPerDay": 300000 },
+        "groups": [ { "id": "g-ext", "name": "外协组" } ]
+      }
+    ]
+  },
+  "users": [
+    { "name": "root",   "apiKey": "REPLACE-ME-1", "role": "global_admin",  "enabled": true },
+    { "name": "aud-g",  "apiKey": "REPLACE-ME-2", "role": "global_auditor", "enabled": true },
+    { "name": "alice",  "apiKey": "REPLACE-ME-3", "role": "admin",     "tenant": "team-a", "enabled": true },
+    { "name": "lead-core", "apiKey": "REPLACE-ME-4", "role": "team_lead", "tenant": "team-a", "groups": ["g-core"], "enabled": true },
+    { "name": "bob",    "apiKey": "REPLACE-ME-5", "role": "user",      "tenant": "team-a", "groups": ["g-core"], "enabled": true },
+    { "name": "carol",  "apiKey": "REPLACE-ME-6", "role": "readonly",  "tenant": "team-b", "enabled": true },
+    { "name": "aud-a",  "apiKey": "REPLACE-ME-7", "role": "auditor",   "tenant": "team-a", "enabled": true }
+  ],
+  "v3": {
+    "rateLimit": { "chatPerMin": 60, "adminPerMin": 10, "modelPerMin": 6, "perIpTotal": 240 },
+    "ipReputation": { "enabled": true, "whitelist": [] }
+  }
+}

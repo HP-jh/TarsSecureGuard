@@ -1,0 +1,12 @@
+{
+  "id": "localai",
+  "name": "LocalAI",
+  "kind": "local",
+  "protocol": "openai-compat",
+  "baseURL": "http://127.0.0.1:8080/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "",
+  "docs": "https://localai.io/docs/getting-started/",
+  "models": [],
+  "notes": "自托管 OpenAI 替代，OpenAI 兼容；端口按实际部署覆写"
+}

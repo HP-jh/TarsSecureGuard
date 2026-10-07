@@ -1,0 +1,12 @@
+{
+  "id": "mlc-llm",
+  "name": "MLC LLM (mlc_llm serve)",
+  "kind": "local",
+  "protocol": "openai-compat",
+  "baseURL": "http://127.0.0.1:8000/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "",
+  "docs": "https://llm.mlc.ai/docs/deploy/rest.html",
+  "models": [],
+  "notes": "编译级加速本地推理，OpenAI 兼容；端口按实际部署覆写"
+}

@@ -1,0 +1,283 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_TSG",
+      "label": "TSG Prometheus",
+      "description": "抓取 TarsSecureGuard /metrics 的 Prometheus 数据源",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0+" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "1.0.0" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "1.0.0" },
+    { "type": "panel", "id": "piechart", "name": "Pie chart", "version": "1.0.0" },
+    { "type": "panel", "id": "state-timeline", "name": "State timeline", "version": "1.0.0" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "1.0.0" }
+  ],
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "① 核心指标（QPS / 延迟 / 错误率 / 运行时长）",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 20 }, { "color": "red", "value": 100 }] } },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{ "expr": "sum(rate(tsg_http_requests_total[1m]))", "legendFormat": "QPS", "refId": "A" }],
+      "title": "总 QPS",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(tsg_http_request_duration_ms_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(tsg_http_request_duration_ms_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(tsg_http_request_duration_ms_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C" }
+      ],
+      "title": "延迟 p50 / p95 / p99（全端点）",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.02 }, { "color": "red", "value": 0.05 }] } }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(rate(tsg_http_requests_total{code=~\"5..\"}[5m])) / clamp_min(sum(rate(tsg_http_requests_total[5m])), 0.000001)", "legendFormat": "5xx 占比", "refId": "A" }],
+      "title": "5xx 错误率",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "tsg_uptime_seconds", "legendFormat": "uptime", "refId": "A" }],
+      "title": "运行时长 / 版本（tsg_build_info 见下方表）",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }, "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "id": 5,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (class) (rate(tsg_http_requests_total[1m]))", "legendFormat": "{{class}}", "refId": "A" }],
+      "title": "QPS 按端点类（chat / tools / admin / app …）",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }, "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "id": 6,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (class, le) (rate(tsg_http_request_duration_ms_bucket[5m])))", "legendFormat": "{{class}} p95", "refId": "A" }],
+      "title": "p95 延迟按端点类",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 200,
+      "title": "② WAF 详情（命中趋势 / 规则分布）",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "showPoints": "never" }, "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 7,
+      "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (rule) (rate(tsg_waf_hits_total[5m]))", "legendFormat": "{{rule}}", "refId": "A" }],
+      "title": "WAF 命中速率（按规则）",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 14 },
+      "id": 8,
+      "options": { "displayLabels": ["name", "value", "percent"], "legend": { "displayMode": "list", "placement": "bottom" }, "pieType": "pie", "reduceOptions": { "calcs": ["lastNotNull"] }, "tooltip": { "mode": "single" } },
+      "targets": [{ "expr": "sum by (rule) (increase(tsg_waf_hits_total[$__range]))", "legendFormat": "{{rule}}", "refId": "A" }],
+      "title": "WAF 命中分布（当前时间范围）",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 14 },
+      "id": 9,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(increase(tsg_waf_hits_total[24h]))", "legendFormat": "24h 命中", "refId": "A" }],
+      "title": "WAF 24h 总命中",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "id": 300,
+      "title": "③ 模型路由分布（后端份额 / 成功率 / 耗时）",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 30, "fillOpacity2": 30, "lineWidth": 2, "showPoints": "never", "stacking": { "group": "A", "mode": "normal" } }, "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 23 },
+      "id": 10,
+      "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (backend) (rate(tsg_router_decisions_total[5m]))", "legendFormat": "{{backend}}", "refId": "A" }],
+      "title": "路由决策速率（按后端，堆叠）",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 23 },
+      "id": 11,
+      "options": { "displayLabels": ["name", "value", "percent"], "legend": { "displayMode": "list", "placement": "bottom" }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum by (backend) (increase(tsg_router_decisions_total[$__range]))", "legendFormat": "{{backend}}", "refId": "A" }],
+      "title": "后端流量份额（当前时间范围）",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }, "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 23 },
+      "id": 12,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (backend, le) (rate(tsg_router_backend_duration_ms_bucket[5m])))", "legendFormat": "{{backend}} p95", "refId": "A" }],
+      "title": "后端调用 p95 耗时",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }, "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 31 },
+      "id": 13,
+      "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (backend) (rate(tsg_router_decisions_total{result=\"success\"}[5m])) / clamp_min(sum by (backend) (rate(tsg_router_decisions_total[5m])), 0.000001)", "legendFormat": "{{backend}} 成功率", "refId": "A" }],
+      "title": "后端调用成功率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 31 },
+      "id": 14,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(increase(tsg_router_explore_total[24h]))", "legendFormat": "探索", "refId": "A" }, { "expr": "sum(increase(tsg_router_decisions_total[24h]))", "legendFormat": "总决策", "refId": "B" }],
+      "title": "ε-greedy 探索次数 / 总决策（24h）",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+      "id": 400,
+      "title": "④ 资源与模块状态（tier / RSS / 模块 / 后端可达 / 配额）",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "mappings": [{ "options": { "0": { "text": "L0 正常", "index": 0, "color": "green" }, "1": { "text": "L1 降级", "index": 1, "color": "yellow" }, "2": { "text": "L2 熔断", "index": 2, "color": "orange" }, "3": { "text": "L3 停机", "index": 3, "color": "red" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "orange", "value": 2 }, { "color": "red", "value": 3 }] } }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 39 },
+      "id": 15,
+      "options": { "alignValue": "center", "mergeValues": true, "rowHeight": 0.9, "showValue": "auto", "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{ "expr": "tsg_guard_tier", "legendFormat": "资源守护层级", "refId": "A" }],
+      "title": "资源守护层级（L0-L3）",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }, "unit": "decmbytes" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 39 },
+      "id": 16,
+      "options": { "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [{ "expr": "tsg_guard_rss_mb", "legendFormat": "RSS", "refId": "A" }],
+      "title": "进程 RSS（L2/L3 判定口径）",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "mappings": [{ "options": { "0": { "text": "关闭", "index": 0, "color": "dark-red" }, "1": { "text": "启用", "index": 1, "color": "green" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 39 },
+      "id": 17,
+      "options": { "alignValue": "center", "mergeValues": true, "rowHeight": 0.6, "showValue": "auto", "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{ "expr": "tsg_module_up", "legendFormat": "{{module}}", "refId": "A" }, { "expr": "tsg_backend_up", "legendFormat": "backend:{{backend}}", "refId": "B" }],
+      "title": "模块启用状态 + 后端可达性",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 46 },
+      "id": 18,
+      "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "tsg_quota_used_today", "legendFormat": "{{tenant}}", "refId": "A" }],
+      "title": "租户当日配额用量（tokens 估算）",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_TSG}" },
+      "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 46 },
+      "id": 19,
+      "options": { "showHeader": true },
+      "targets": [{ "expr": "tsg_build_info", "format": "table", "instant": true, "legendFormat": "__auto", "refId": "A" }],
+      "title": "构建信息（版本 / 平台 / 架构）",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["tarssecureguard", "tsg", "observability"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "数据源",
+        "multi": false,
+        "name": "DS_TSG",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TarsSecureGuard v3.0.5 可观测性总览",
+  "uid": "tsg-observability",
+  "version": 1,
+  "weekStart": ""
+}

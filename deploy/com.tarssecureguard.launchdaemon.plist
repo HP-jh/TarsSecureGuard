@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TarsSecureGuard v3.0.0 macOS LaunchDaemon（Tier 0；分发前须 codesign + notarization）-->
+<!-- 安装：sudo cp com.tarssecureguard.launchdaemon.plist /Library/LaunchDaemons/ && sudo launchctl load -w /Library/LaunchDaemons/com.tarssecureguard.launchdaemon.plist -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tarssecureguard</string>
+  <key>ProgramArguments</key>
+  <array><string>/usr/local/bin/tsg</string></array>
+  <key>WorkingDirectory</key><string>/usr/local/var/tarssecureguard</string>
+  <key>UserName</key><string>tars</string>            <!-- 低权限专用账号，绝不 root -->
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key><false/>                  <!-- 退出码 42（L3 资源停机）冷却后自动拉起 -->
+  </dict>
+  <key>ProcessType</key><string>Background</string>
+  <key>ThrottleInterval</key><integer>60</integer>     <!-- 与应用内 60s L3 冷却对齐 -->
+</dict>
+</plist>

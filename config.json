@@ -1,0 +1,124 @@
+{
+  "cloud": {
+    "openai": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "deepseek": {
+      "name": "",
+      "baseUrl": "",
+      "apiKey": "",
+      "models": null
+    },
+    "custom": null
+  },
+  "search": {
+    "engine": "builtin",
+    "apiKey": ""
+  },
+  "security": {
+    "wafEnabled": true,
+    "mode": "normal",
+    "apiKey": "tars-gateway-key",
+    "firewallLock": null,
+    "auditLogEnabled": true,
+    "firewall": {
+      "policy": "passive",
+      "banDuration": ""
+    }
+  },
+  "users": null,
+  "mcp": {
+    "externalServers": [
+      {
+        "name": "filesystem",
+        "command": "C:\\Program Files\\nodejs\\node.exe",
+        "args": [
+          "D:\\AI-Tools\\MCP-Servers\\node_modules\\@modelcontextprotocol\\server-filesystem\\dist\\index.js",
+          "D:\\",
+          "C:\\Users\\q1736\\Desktop",
+          "C:\\Users\\q1736\\Documents",
+          "C:\\Users\\q1736\\Downloads"
+        ],
+        "enabled": true
+      },
+      {
+        "name": "fetch",
+        "command": "C:\\Users\\q1736\\AppData\\Local\\Python\\bin\\python.exe",
+        "args": [
+          "-m",
+          "mcp_server_fetch"
+        ],
+        "enabled": true
+      }
+    ]
+  },
+  "paths": {
+    "modelDir": "/home/gem/.aily/workdir/task_7690562725516168128/dev/smoke/Models",
+    "llamaDir": "/home/gem/.aily/workdir/task_7690562725516168128/dev/smoke/llama",
+    "allowedRoots": [
+      "/home/gem/.aily/workdir/task_7690562725516168128/dev/smoke",
+      "/home/gem/.aily/workdir/task_7690562725516168128/dev"
+    ]
+  },
+  "modules": {
+    "autoDiscovery": true,
+    "autoStartModel": false,
+    "builtinTools": true,
+    "chatApi": true,
+    "cloudModels": true,
+    "customAgents": false,
+    "customTools": false,
+    "hardwareAdvisor": true,
+    "localModels": true,
+    "mcpExternal": true,
+    "memory": true,
+    "modelDownload": true,
+    "openapiTools": true,
+    "resourceGuardian": true,
+    "sidecarHub": true,
+    "stats": true,
+    "urgentChat": false,
+    "webFetch": true,
+    "webSearch": true
+  },
+  "customTools": null,
+  "customAgents": null,
+  "direct": {
+    "transport": "native",
+    "grpcSidecar": {
+      "address": ""
+    }
+  },
+  "tier1": {
+    "enabled": true,
+    "cacheTtlSeconds": 300
+  },
+  "sidecar": {
+    "modules": {}
+  },
+  "providers": {
+    "openai": {
+      "apiKey": "",
+      "baseUrl": "",
+      "enabled": true,
+      "models": []
+    },
+    "_说明": "每家云端 provider 一条：apiKey 填密钥（或用环境变量如 OPENAI_API_KEY）；baseUrl 覆盖默认端点；enabled=false 关闭；models 覆盖默认模型清单。本地运行时（ollama/lmstudio 等）无需密钥，可只覆盖 baseUrl。完整清单见 docs/v3.2.0-connectivity.md"
+  },
+  "circuit": {
+    "failureThreshold": 5,
+    "openSeconds": 30,
+    "probeIntervalSec": 60
+  },
+  "responseCache": {
+    "enabled": true,
+    "ttlSec": 300,
+    "maxEntries": 1024
+  },
+  "pool": {
+    "maxIdleConnsPerHost": 32
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "anthropic",
+  "name": "Anthropic (Claude)",
+  "kind": "cloud",
+  "protocol": "anthropic",
+  "baseURL": "https://api.anthropic.com",
+  "chatPath": "/v1/messages",
+  "keyEnv": "TARS_ANTHROPIC_KEY",
+  "docs": "https://docs.anthropic.com/en/api/messages",
+  "models": [
+    "claude-sonnet-4-5",
+    "claude-opus-4-1",
+    "claude-haiku-4-5"
+  ],
+  "notes": "原生 Messages API，系统提示词走 system 字段",
+  "applyUrl": "https://console.anthropic.com/settings/keys",
+  "defaultCaps": [
+    "vision",
+    "tools",
+    "longContext"
+  ],
+  "pricing": {
+    "input": 3.0,
+    "output": 15.0
+  },
+  "modelPricing": {
+    "claude-3-5-haiku": {
+      "input": 0.8,
+      "output": 4.0
+    }
+  }
+}

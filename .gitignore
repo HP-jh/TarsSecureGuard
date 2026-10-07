@@ -1,0 +1,24 @@
+# 编译产物
+/tarssecureguard
+/tarssecureguard.exe
+*.exe
+*.test
+*.out
+
+# 运行时与冒烟产物
+smoke/*.pid
+smoke/*.log
+*.pid
+logs/
+state/
+
+# 本地模型与数据
+models/*.gguf
+*.gguf
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.preview/

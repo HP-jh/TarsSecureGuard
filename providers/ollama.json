@@ -1,0 +1,15 @@
+{
+  "id": "ollama",
+  "name": "Ollama",
+  "kind": "local",
+  "protocol": "ollama",
+  "baseURL": "http://127.0.0.1:11434",
+  "chatPath": "/api/chat",
+  "keyEnv": "",
+  "docs": "https://github.com/ollama/ollama/blob/main/docs/api.md",
+  "models": [
+    "qwen2.5:3b",
+    "llama3.1:8b"
+  ],
+  "notes": "本地运行时，原生 API；无需密钥"
+}

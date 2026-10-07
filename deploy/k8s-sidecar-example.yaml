@@ -1,0 +1,32 @@
+# TarsSecureGuard v3.0.0 K8s sidecar 注入示例：给任意 AI workload 挂"安全带"
+# 用法：将 tsg 作为 sidecar 容器加入 Pod，业务容器经 http://localhost:18889 访问模型
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-app-with-safety-belt
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ai-app }
+  template:
+    metadata:
+      labels: { app: ai-app }
+    spec:
+      containers:
+        - name: business-app          # 业务容器：AI 出站流量统一走 sidecar 网关
+          image: your/ai-app:latest
+          env:
+            - name: LLM_BASE_URL
+              value: "http://localhost:18889"   # ← 出站即被防护（B 线语义分流 + 限流 + 信誉）
+        - name: tarssecureguard       # 安全带 sidecar
+          image: tarssecureguard:3.0.0
+          ports:
+            - containerPort: 18889
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { memory: 512Mi }          # 与 A 线 GOMEMLIMIT 协同
+          volumeMounts:
+            - { name: tsg-data, mountPath: /data }
+      volumes:
+        - name: tsg-data
+          emptyDir: {}
