@@ -1,0 +1,12 @@
+{
+  "id": "tgi",
+  "name": "Text Generation Inference (TGI)",
+  "kind": "local",
+  "protocol": "openai-compat",
+  "baseURL": "http://127.0.0.1:8080/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "",
+  "docs": "https://huggingface.co/docs/text-generation-inference/en/messages_api",
+  "models": [],
+  "notes": "HuggingFace TGI，OpenAI 兼容端点；默认端口 8080（与 llama.cpp 同端口时按实际监听覆写 baseUrl）"
+}

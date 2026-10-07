@@ -1,0 +1,25 @@
+# TarsSecureGuard v3.0.0 Linux systemd 单元（Tier 0：单二进制，无依赖）
+# 安装：sudo cp tarssecureguard.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now tarssecureguard
+[Unit]
+Description=TarsSecureGuard - AI Gateway Security Belt
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 专用低权限用户运行（最小权限原则；安装前：sudo useradd -r -s /usr/sbin/nologin tars）
+User=tars
+Group=tars
+# 工作目录放配置/状态/日志（config.json state/ logs/ scoreboard/）
+WorkingDirectory=/opt/tarssecureguard
+ExecStart=/opt/tarssecureguard/tsg
+Restart=on-failure
+RestartSec=5
+# 资源边界与 A 线守护器协同：systemd 侧硬限，Go 侧软限（GOMEMLIMIT）
+MemoryMax=512M
+LimitNOFILE=65536
+# 退出码 42 = 资源守护器 L3 主动停机：冷却后由 systemd 拉起（60s 冷却在应用内）
+SuccessExitStatus=42
+
+[Install]
+WantedBy=multi-user.target

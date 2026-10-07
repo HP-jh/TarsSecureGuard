@@ -1,0 +1,24 @@
+{
+  "id": "cohere",
+  "name": "Cohere",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.cohere.ai/compatibility/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_COHERE_KEY",
+  "docs": "https://docs.cohere.com/docs/chat-completions",
+  "models": [
+    "command-r-plus-08-2024",
+    "command-r-08-2024"
+  ],
+  "notes": "OpenAI 兼容层",
+  "applyUrl": "https://dashboard.cohere.com/api-keys",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "pricing": {
+    "input": 0.25,
+    "output": 1.0
+  }
+}

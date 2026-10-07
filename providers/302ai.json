@@ -1,0 +1,25 @@
+{
+  "id": "302ai",
+  "name": "302.AI",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.302.ai/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_302AI_KEY",
+  "docs": "https://302ai.apifox.cn/",
+  "models": [
+    "gpt-4o",
+    "claude-sonnet-4-5",
+    "gemini-2.5-pro"
+  ],
+  "notes": "聚合中转，按量计费",
+  "applyUrl": "https://dash.302.ai/settings/api-key",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "pricing": {
+    "input": 2.0,
+    "output": 8.0
+  }
+}

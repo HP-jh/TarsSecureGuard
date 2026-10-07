@@ -1,0 +1,12 @@
+{
+  "id": "xinference",
+  "name": "Xinference",
+  "kind": "local",
+  "protocol": "openai-compat",
+  "baseURL": "http://127.0.0.1:9997/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "",
+  "docs": "https://inference.readthedocs.io/en/latest/openai_compatible_api.html",
+  "models": [],
+  "notes": "分布式推理平台，OpenAI 兼容；默认端口 9997"
+}

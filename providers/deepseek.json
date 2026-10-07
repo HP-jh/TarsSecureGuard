@@ -1,0 +1,38 @@
+{
+  "id": "deepseek",
+  "name": "DeepSeek",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.deepseek.com/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_DEEPSEEK_KEY",
+  "docs": "https://api-docs.deepseek.com/",
+  "models": [
+    "deepseek-chat",
+    "deepseek-reasoner"
+  ],
+  "notes": "OpenAI 兼容",
+  "applyUrl": "https://platform.deepseek.com/api_keys",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "modelCaps": {
+    "deepseek-reasoner": [
+      "reasoning",
+      "tools",
+      "json",
+      "longContext"
+    ]
+  },
+  "pricing": {
+    "input": 0.27,
+    "output": 1.1
+  },
+  "modelPricing": {
+    "deepseek-reasoner": {
+      "input": 0.55,
+      "output": 2.19
+    }
+  }
+}
