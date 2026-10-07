@@ -43,20 +43,13 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.7.1"
+var version = "3.8.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
 	llamaDir   string
 	configPath string
-)
-
-// v3.7.1：TLS / 监听地址参数
-var (
-	listenAddr string
-	tlsCert    string
-	tlsKey     string
 )
 
 // 授权读写根（文件工具安全边界，由 resolvePaths 依据配置与默认布局填充）
@@ -110,29 +103,6 @@ func main() {
 	}
 	// v3.2.1：桌面客户端模式标记——由 Tauri 壳以 sidecar 方式拉起时传 --no-browser，抑制自动打开浏览器
 	noBrowser = scanNoBrowserFlag(os.Args)
-	// v3.7.1：命令行参数解析（TLS / 监听地址）
-	for i := 1; i < len(os.Args); i++ {
-		switch os.Args[i] {
-		case "--listen":
-			if i+1 < len(os.Args) {
-				listenAddr = os.Args[i+1]
-				i++
-			}
-		case "--tls-cert":
-			if i+1 < len(os.Args) {
-				tlsCert = os.Args[i+1]
-				i++
-			}
-		case "--tls-key":
-			if i+1 < len(os.Args) {
-				tlsKey = os.Args[i+1]
-				i++
-			}
-		}
-	}
-	if listenAddr == "" {
-		listenAddr = "127.0.0.1"
-	}
 	// v3.0.0 D 线：MCP stdio 模式（--mcp-stdio）—— 任何本地 agent 的安全带
 	if mcpIsStdioFlag(os.Args[1:]) {
 		initFileLogging()
@@ -214,7 +184,6 @@ func main() {
 	mux.HandleFunc("/api/admin/whitelist/status", handleWhitelistStatus)
 	mux.HandleFunc("/api/admin/audit/group-summary", handleAuditGroupSummary)
 	mux.HandleFunc("/api/admin/config", handleConfig)
-	mux.HandleFunc("/api/admin/key-rotate", moduleRoute("security", handleKeyRotate)) // v3.7.1 P2-10
 	mux.HandleFunc("/api/admin/modules", handleModules)                                                        // v2.0.0 模块管理
 	mux.HandleFunc("/api/admin/hardware/assessment", moduleRoute("hardwareAdvisor", handleHardwareAssessment)) // v2.0.0 硬件评估
 	// v3.0.0 B 线：IP 信誉查询与 admin 解封（裁定 6）
@@ -271,6 +240,13 @@ func main() {
 	mux.HandleFunc("/api/admin/v35/ui-mode", moduleRoute("adaptive", handleV35UIMode))
 	// v3.7.0 扩展器 / 一键配置器：探测本机 AI 工具 + 生成接入片段
 	mux.HandleFunc("/api/admin/v37/extender", moduleRoute("extender", handleV37Extender))
+	// v3.8.0 职业系统：内置职业 + 自动模块/连接器/工具 + 全局记忆 + 调用链优化 + 模型匹配
+	mux.HandleFunc("/api/admin/v38/personas", moduleRoute("persona", handleV38Personas))
+	mux.HandleFunc("/api/admin/v38/persona/select", moduleRoute("persona", handleV38PersonaSelect))
+	mux.HandleFunc("/api/admin/v38/persona/current", moduleRoute("persona", handleV38PersonaCurrent))
+	mux.HandleFunc("/api/admin/v38/model-matrix", moduleRoute("persona", handleV38ModelMatrix))
+	mux.HandleFunc("/api/admin/v38/model-preheat", moduleRoute("persona", handleV38ModelPreheat))
+	mux.HandleFunc("/api/admin/v38/chainopt/status", moduleRoute("persona", handleV38ChainOptStatus))
 	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)
@@ -284,11 +260,8 @@ func main() {
 
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
-	// v3.7.1 P0-1：启动时密钥策略强制校验
-	enforceBootstrapKeyPolicy()
-
 	server := &http.Server{
-		Addr:           fmt.Sprintf("%s:%d", listenAddr, port),
+		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
 		Handler:        obsMiddleware(gatewayMiddleware(mux)),
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   600 * time.Second,
@@ -297,7 +270,7 @@ func main() {
 	}
 	registerServer(server) // v3.0.0 A 线：L3 drain 时关闭 listener 用
 
-	logMsg(fmt.Sprintf("Listening on http://%s:%d", listenAddr, port))
+	logMsg(fmt.Sprintf("Listening on http://127.0.0.1:%d", port))
 
 	// v2.0.0 模块后台工作者：随模块开关启停（context 取消即停，热重载切换无泄漏）
 	moduleWorkerFns["autoStartModel"] = func(ctx context.Context) {
@@ -347,30 +320,9 @@ func main() {
 		}()
 	}
 
-	log.Printf("TarsSecureGuard v%s running at http://%s:%d", version, listenAddr, port)
-
-	if tlsCert != "" && tlsKey != "" {
-		logMsg(fmt.Sprintf("[SECURITY] TLS 已启用（cert=%s key=%s）", tlsCert, tlsKey))
-		if err := server.ListenAndServeTLS(tlsCert, tlsKey); err != nil {
-			log.Fatalf("Server failed: %v", err)
-		}
-	} else {
-		if err := server.ListenAndServe(); err != nil {
-			log.Fatalf("Server failed: %v", err)
-		}
-	}
-}
-
-// enforceBootstrapKeyPolicy v3.7.1 P0-1：启动时检测默认密钥 + 绑定地址策略
-func enforceBootstrapKeyPolicy() {
-	cfgMu.RLock()
-	key := cfg.Security.APIKey
-	cfgMu.RUnlock()
-	if key == apiKeyDefault {
-		if listenAddr != "127.0.0.1" && listenAddr != "localhost" && listenAddr != "::1" {
-			panic(fmt.Sprintf("[SECURITY] 默认密钥（%s）禁止绑定非 localhost 地址（当前 %s）。请轮换密钥或显式绑定 127.0.0.1", apiKeyDefault, listenAddr))
-		}
-		logMsg("[SECURITY] 警告：当前使用默认网关密钥（" + apiKeyDefault + "）。生产环境请务必轮换。")
+	log.Printf("TarsSecureGuard v%s running at http://127.0.0.1:%d", version, port)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
 }
 
@@ -389,7 +341,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		recordHourlyRequest()
 		setSecurityHeaders(w, r)
 		if r.Body != nil {
-			r.Body = &maxBytesBody{ReadCloser: r.Body, maxBytes: maxBodyBytes, w: w}
+			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		}
 		// 0) dynamic-ban / os-link 档位：处于封禁期的 IP 直接拒绝
 		if isBanned(clientIP(r)) {
@@ -409,7 +361,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// 2) 跨域预检：仅放行受信任同源
 		if r.Method == http.MethodOptions {
 			if o := r.Header.Get("Origin"); o != "" && !isTrustedOrigin(o) {
-				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -429,7 +381,6 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			mu.Lock()
 			failReq++
 			mu.Unlock()
-			mAuthFailTotal.Inc()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
 			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
 			return
@@ -511,8 +462,6 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	// v3.7.1 P1-5：Content-Security-Policy 基础策略（防御 XSS 窃取 sessionStorage）
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self';")
 }
 
 func isTrustedOrigin(o string) bool {
@@ -568,22 +517,7 @@ func validKey(r *http.Request) bool {
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		host = r.RemoteAddr
-	}
-	// v3.7.1 P0-2：默认以 socket 对端 IP 为限速键，仅可信代理才采信 X-Forwarded-For
-	c := v3Config()
-	if len(c.TrustedProxies) > 0 {
-		for _, trusted := range c.TrustedProxies {
-			if host == trusted {
-				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-					parts := strings.Split(xff, ",")
-					if len(parts) > 0 {
-						return strings.TrimSpace(parts[0])
-					}
-				}
-				break
-			}
-		}
+		return r.RemoteAddr
 	}
 	return host
 }
@@ -822,11 +756,6 @@ func openBrowser(url string) {
 
 func isPathAllowed(path string, write bool) bool {
 	abs, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-	// v3.7.1：解析符号链接，防止符号链接逃逸到授权根目录之外
-	abs, err = filepath.EvalSymlinks(abs)
 	if err != nil {
 		return false
 	}

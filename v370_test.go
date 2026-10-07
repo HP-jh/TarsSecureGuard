@@ -112,8 +112,8 @@ func TestV370ExtenderGet(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("响应解析失败: %v", err)
 	}
-	if resp.Version != "3.7.1" {
-		t.Errorf("version = %q, want 3.7.1", resp.Version)
+	if resp.Version != "3.8.0" {
+		t.Errorf("version = %q, want 3.8.0", resp.Version)
 	}
 	if resp.BaseURL != extenderBaseURL() {
 		t.Errorf("baseUrl = %q", resp.BaseURL)

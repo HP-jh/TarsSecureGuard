@@ -74,8 +74,6 @@ type V3Config struct {
 	Sidecar struct {
 		Modules map[string]SidecarPin `json:"modules"`
 	} `json:"sidecar"`
-	// v3.7.1 P0-2：可信代理列表；仅列表中的 IP 才采信 X-Forwarded-For
-	TrustedProxies []string `json:"trustedProxies,omitempty"`
 }
 
 // SidecarPin 单个 sidecar 模块的管理员确认项

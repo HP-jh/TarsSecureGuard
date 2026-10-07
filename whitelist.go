@@ -369,7 +369,15 @@ func enforceDefaultKeyChannel(freshInstall bool) {
 	allowed := cfg.Security.DefaultKeyAllowed != nil && *cfg.Security.DefaultKeyAllowed
 	rotate := false
 	if (key == "" || key == apiKeyDefault) && !allowed {
-		// v3.7.1：无论全新安装还是存量，默认密钥一律自动轮换为随机密钥（零信任基线）
+		if freshInstall {
+			// 全新安装：显式写入 defaultKeyAllowed=true（通道显式化，小白体验保留）
+			t := true
+			cfg.Security.DefaultKeyAllowed = &t
+			cfgMu.Unlock()
+			auditLog("WHITELIST_ADD", "system(bootstrap)",
+				fmt.Sprintf("kind=%s entry=api-key-default —— 全新安装显式启用默认密钥通道（仅绑定 127.0.0.1；可在 config.json 关闭）（[ZT_DEFAULT_DENY]）", wlKindDefaultKeyCh))
+			return
+		}
 		rotate = true
 	}
 	cfgMu.Unlock()

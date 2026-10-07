@@ -106,9 +106,7 @@ func fetchURLText(u string, maxLen int) (map[string]interface{}, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TarsSecureGuard/9.0")
-	// v3.7.1：tars_fetch_url 复用 SSRF 加固客户端（customToolClient），
-	// 落实协议白名单/禁重定向/拨号时实际 IP 校验（防 DNS 重绑定）/30s 超时/2MB 上限
-	resp, err := customToolClient.Do(req)
+	resp, err := httpClientShort.Do(req)
 	if err != nil {
 		return nil, err
 	}

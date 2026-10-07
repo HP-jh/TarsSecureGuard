@@ -177,9 +177,8 @@ func handleRateLimited(w http.ResponseWriter, r *http.Request, reason string) {
 	ip := clientIP(r)
 	auditLog("RATE_LIMIT_BLOCK", "-", reason)
 	ipRepPenalty(ip, 15, "rate-limit")
-	w.Header().Set("Retry-After", "60")
 	writeJSONStatus(w, http.StatusTooManyRequests, map[string]string{
-		"error": "rate limit exceeded",
+		"error": "429 Too Many Requests: " + reason,
 		"hint":  "速率限制：分层额度见 config.rateLimit（默认 chat 60 / admin 10 / model 6 每分钟）",
 	})
 }

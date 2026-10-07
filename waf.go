@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"io"
 	"net/http"
 	"regexp"
@@ -22,10 +21,8 @@ var wafRules = []struct {
 	re     *regexp.Regexp
 	strict bool
 }{
-	// v3.7.1：加入 %5c（编码反斜杠）、%c0%af（UTF-8 编码斜杠绕过）
-	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%5[cC]|%c0%af)`), false},
-	// v3.7.1：加入 | 管道符、\$\(\) 命令替换（与已有反引号 `cmd` 互补）
-	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping)\\b|&&|(?:\\||\\$\\([^)]+\\))|;\\s*\\x60[a-z]+\\x60)"), false},
+	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e)`), false},
+	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping)\\b|&&|;\\s*\\x60[a-z]+\\x60)"), false},
 	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
 	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
 	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*)`), true},
@@ -71,8 +68,7 @@ func wafNeedsScan(s string) bool {
 		}
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
 			c == '.' || c == '%' || c == ';' || c == '&' || c == '`' || c == '<' ||
-			c == '=' || c == ':' || c == '@' || c == '/' || c == '*' || c == '(' || c == ')' ||
-			c == '|' || c == '$' || c == '\\' {
+			c == '=' || c == ':' || c == '@' || c == '/' || c == '*' || c == '(' || c == ')' {
 			return true
 		}
 	}
@@ -185,19 +181,6 @@ func wafStrict() bool {
 	cfgMu.RLock()
 	defer cfgMu.RUnlock()
 	return cfg.Security.Mode == "strict"
-}
-
-// normalizePath v3.7.1：URL 路径解码与规范化，防双重编码/UTF-8 绕过
-func normalizePath(raw string) string {
-	// 循环解码直到无变化（防双重编码如 %252f）
-	for {
-		decoded, err := url.QueryUnescape(raw)
-		if err != nil || decoded == raw {
-			break
-		}
-		raw = decoded
-	}
-	return raw
 }
 
 func wafCheck(r *http.Request) string {

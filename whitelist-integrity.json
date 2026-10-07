@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-07 18:28:54",
+  "kinds": {
+    "ip_reputation.whitelist": {
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "entries": null
+    },
+    "mcp.externalServers": {
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "entries": null
+    },
+    "paths.allowedRoots": {
+      "sha256": "64df85b5d5faf46adf22a1a34b14c63f92db317a545ed69061fdb18c24ab4400",
+      "entries": [
+        "/home/gem/.aily/workdir/task_7693867458830011379",
+        "/home/gem/.aily/workdir/task_7693867458830011379/tsg"
+      ]
+    },
+    "sidecar.modules": {
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "entries": null
+    }
+  }
+}

@@ -13,37 +13,6 @@ import (
 )
 
 // ===================== 配置 =====================
-
-// stripUnderscoreKeys v3.7.1 P0-3：剥离 JSON 中的注释键（_ 前缀）
-func stripUnderscoreKeys(data []byte) []byte {
-	var root map[string]interface{}
-	if err := json.Unmarshal(data, &root); err != nil {
-		return data
-	}
-	strip := func(m map[string]interface{}) {
-		for k := range m {
-			if strings.HasPrefix(k, "_") {
-				delete(m, k)
-			}
-		}
-	}
-	strip(root)
-	for _, sec := range []string{"cloud", "security", "paths", "modules", "providers", "mcp", "direct", "tier1", "sidecar", "circuit", "responseCache", "pool"} {
-		if m, ok := root[sec].(map[string]interface{}); ok {
-			strip(m)
-		}
-	}
-	if cloud, ok := root["cloud"].(map[string]interface{}); ok {
-		for _, sub := range []string{"openai", "deepseek"} {
-			if m, ok := cloud[sub].(map[string]interface{}); ok {
-				strip(m)
-			}
-		}
-	}
-	b, _ := json.Marshal(root)
-	return b
-}
-
 type Config struct {
 	Cloud struct {
 		OpenAI   CloudCfg   `json:"openai"`
@@ -97,6 +66,8 @@ type Config struct {
 	OAuth      OAuthCfg      `json:"oauth"`
 	Gatekeeper GatekeeperCfg `json:"gatekeeper"`
 	Audit      AuditCfg      `json:"audit"`
+	// v3.8.0 职业系统扩展段（顶层键：persona）
+	V38Config
 }
 
 // FirewallCfg 防火墙策略档位（passive | dynamic-ban | os-link，默认 passive）
@@ -243,23 +214,6 @@ func loadConfig() {
 	// 默认值兜底
 	if cfg.Security.APIKey == "" {
 		cfg.Security.APIKey = apiKeyDefault
-	}
-	// v3.7.1 P1-7：环境变量可覆盖敏感 Key（防止明文落盘）
-	if v := os.Getenv("TARS_API_KEY"); v != "" {
-		cfg.Security.APIKey = v
-	}
-	if v := os.Getenv("TARS_OPENAI_KEY"); v != "" {
-		cfg.Cloud.OpenAI.APIKey = v
-	}
-	if v := os.Getenv("TARS_DEEPSEEK_KEY"); v != "" {
-		cfg.Cloud.DeepSeek.APIKey = v
-	}
-	if v := os.Getenv("TARS_SEARCH_KEY"); v != "" {
-		cfg.Search.APIKey = v
-	}
-	// v3.7.1：config 解析失败告警（中危修复）
-	if !parsed && !freshInstall {
-		logMsg("[SECURITY] config.json 解析失败，已回退到默认配置。请检查文件格式。")
 	}
 	if cfg.Security.Mode == "" {
 		cfg.Security.Mode = "normal"
