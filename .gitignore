@@ -22,3 +22,8 @@ Thumbs.db
 .idea/
 .vscode/
 .preview/
+tsg-v3.7.1-linux-amd64
+tsg
+*.exe
+state/
+logs/
