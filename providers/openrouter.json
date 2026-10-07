@@ -1,0 +1,26 @@
+{
+  "id": "openrouter",
+  "name": "OpenRouter",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://openrouter.ai/api/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_OPENROUTER_KEY",
+  "docs": "https://openrouter.ai/docs",
+  "models": [
+    "openrouter/auto",
+    "anthropic/claude-sonnet-4.5",
+    "openai/gpt-4o"
+  ],
+  "notes": "聚合路由，一个 key 访问多家模型",
+  "applyUrl": "https://openrouter.ai/settings/keys",
+  "defaultCaps": [
+    "tools",
+    "json",
+    "longContext"
+  ],
+  "pricing": {
+    "input": 0.2,
+    "output": 0.8
+  }
+}

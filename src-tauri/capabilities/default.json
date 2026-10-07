@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "v3.2.1：前端为纯 Web UI，不调用任何 Tauri IPC API；sidecar 由 Rust 侧拉起，不经前端 shell 权限。权限集保持为空（最小权限）。",
+  "windows": ["main"],
+  "permissions": []
+}

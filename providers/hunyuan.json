@@ -1,0 +1,24 @@
+{
+  "id": "hunyuan",
+  "name": "腾讯混元",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://api.hunyuan.cloud.tencent.com/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_HUNYUAN_KEY",
+  "docs": "https://cloud.tencent.com/document/product/1729/111007",
+  "models": [
+    "hunyuan-turbos",
+    "hunyuan-large"
+  ],
+  "notes": "OpenAI 兼容接口",
+  "applyUrl": "https://console.cloud.tencent.com/cam/capi",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "pricing": {
+    "input": 0.5,
+    "output": 0.5
+  }
+}

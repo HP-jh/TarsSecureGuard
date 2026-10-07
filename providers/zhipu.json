@@ -1,0 +1,50 @@
+{
+  "id": "zhipu",
+  "name": "智谱 GLM",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://open.bigmodel.cn/api/paas/v4",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_ZHIPU_KEY",
+  "docs": "https://open.bigmodel.cn/dev/api",
+  "models": [
+    "glm-4.5",
+    "glm-4.5-air",
+    "glm-4-flash"
+  ],
+  "notes": "OpenAI 兼容",
+  "applyUrl": "https://open.bigmodel.cn/",
+  "defaultCaps": [
+    "tools",
+    "json"
+  ],
+  "modelCaps": {
+    "glm-4.5": [
+      "tools",
+      "json",
+      "longContext"
+    ],
+    "glm-4.5-air": [
+      "tools",
+      "json"
+    ],
+    "glm-4-flash": [
+      "tools",
+      "json"
+    ],
+    "glm-4v": [
+      "vision",
+      "tools"
+    ]
+  },
+  "pricing": {
+    "input": 0.6,
+    "output": 0.6
+  },
+  "modelPricing": {
+    "glm-4-flash": {
+      "input": 0.0,
+      "output": 0.0
+    }
+  }
+}

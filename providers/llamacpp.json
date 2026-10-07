@@ -1,0 +1,12 @@
+{
+  "id": "llamacpp",
+  "name": "llama.cpp (llama-server)",
+  "kind": "local",
+  "protocol": "openai-compat",
+  "baseURL": "http://127.0.0.1:8080/v1",
+  "chatPath": "/chat/completions",
+  "keyEnv": "",
+  "docs": "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md",
+  "models": [],
+  "notes": "本地运行时，OpenAI 兼容；默认端口 8080"
+}

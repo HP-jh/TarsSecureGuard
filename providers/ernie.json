@@ -1,0 +1,25 @@
+{
+  "id": "ernie",
+  "name": "百度文心一言 (千帆)",
+  "kind": "cloud",
+  "protocol": "openai-compat",
+  "baseURL": "https://qianfan.baidubce.com/v2",
+  "chatPath": "/chat/completions",
+  "keyEnv": "TARS_ERNIE_KEY",
+  "docs": "https://cloud.baidu.com/doc/AppBuilder/s/zm2vqbsdl",
+  "models": [
+    "ernie-4.5-turbo-128k",
+    "ernie-speed-128k"
+  ],
+  "notes": "千帆 v2 OpenAI 兼容接口",
+  "applyUrl": "https://console.bce.baidu.com/iam/",
+  "defaultCaps": [
+    "tools",
+    "json",
+    "longContext"
+  ],
+  "pricing": {
+    "input": 0.85,
+    "output": 3.4
+  }
+}
