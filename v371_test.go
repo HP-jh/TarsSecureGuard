@@ -31,7 +31,7 @@ func TestV371RateLimitWording(t *testing.T) {
 	if strings.Contains(body, "blocked by WAF") {
 		t.Fatal("限速错误不应包含 'blocked by WAF'")
 	}
-	if !strings.Contains(body, "rate limit") && !strings.Contains(body, "请求频率") {
+	if !strings.Contains(body, "rate limit") && !strings.Contains(body, "速率限制") {
 		t.Fatalf("限速错误措辞不正确: %s", body)
 	}
 }
@@ -68,7 +68,7 @@ func TestV371ConfigParseWarning(t *testing.T) {
 // ===================== 版本号校验 =====================
 
 func TestV371VersionBumped(t *testing.T) {
-	if version != "3.7.1" {
-		t.Fatalf("版本号应为 3.7.1, got %s", version)
+	if version != "3.9.0" {
+		t.Fatalf("版本号应为 3.9.0, got %s", version)
 	}
 }

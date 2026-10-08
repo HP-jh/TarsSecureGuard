@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.8.0"
+var version = "3.9.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -152,6 +152,23 @@ func main() {
 	firewallReconcile() // 防火墙策略档位（passive/dynamic-ban/os-link，默认 passive）
 	quotaLoad()         // v3.0.4 [MT_QUOTA]：恢复上一次运行的日配额用量（data/quota-usage.json）
 
+	// v3.9.0 初始化：知识库 + 动态防护 + 稳定性增强
+	if err := initKnowledgeBase(filepath.Join(filepath.Dir(configPath), "knowledge")); err != nil {
+		logMsg(fmt.Sprintf("知识库初始化失败: %v", err))
+	}
+	initDynadef(DynadefConfig{
+		Enabled: true,
+		ShadowRules: []ShadowRule{
+			{ID: "shadow-sqli", Name: "影子-SQL注入探测", Pattern: "UNION SELECT", Enabled: true},
+			{ID: "shadow-xss", Name: "影子-XSS探测", Pattern: "<script", Enabled: true},
+		},
+		HoneyTokens: HoneyTokenCfg{Enabled: true, HTMLComment: "ht", CSSHidden: "ht-hidden", CookieName: "__ht_session"},
+		DecodePerturb: DecodePerturbCfg{Enabled: true, MaxRounds: 3, Techniques: []string{"url", "base64", "html"}, TriggerScore: 0.5},
+		HoneypotRoutes: []string{"/admin.php", "/wp-login.php", "/.env", "/config.json"},
+		HoneypotDelay:  2 * time.Second,
+	})
+	initStability()
+
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
 
 	// v2.0.0 模块化路由：路由启动时注册一次，经 moduleRoute 包装——
@@ -197,6 +214,10 @@ func main() {
 	mux.HandleFunc("/api/admin/iprep/unban", handleIPRepUnban)
 	// v3.0.0 A 线：资源守护器面板数据
 	mux.HandleFunc("/api/admin/guard/status", handleGuardStatus)
+	// v3.9.0 知识库 API
+	mux.HandleFunc("/api/kb/list", handleKBList)
+	mux.HandleFunc("/api/kb/get", handleKBGet)
+	mux.HandleFunc("/api/kb/setkey", handleKBSetKey)
 	mux.HandleFunc("/api/search", moduleRoute("webSearch", handleSearch))
 	mux.HandleFunc("/api/feishu/", handleFeishu)
 	mux.HandleFunc("/mcp", moduleRoute("mcpExternal", handleMCP))
@@ -337,6 +358,18 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 				writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "internal error（已恢复并审计）"})
 			}
 		}()
+		// v3.9.0 动态防护：蜜罐路由优先拦截
+		if dyna != nil && dyna.cfg.Enabled && dyna.isHoneypotPath(r.URL.Path) {
+			dyna.handleHoneypot(w, r)
+			return
+		}
+		// v3.9.0 影子规则流水线（只记录不阻断）
+		if dyna != nil && dyna.cfg.Enabled {
+			hits := dyna.runShadowPipeline(r)
+			for _, h := range hits {
+				auditLog("SHADOW_HIT", h.ClientIP, fmt.Sprintf("%s:%s", h.RuleID, h.Path))
+			}
+		}
 		// 请求量按小时统计（新增）：供 /api/stats/history 查询
 		recordHourlyRequest()
 		setSecurityHeaders(w, r)

@@ -15,8 +15,8 @@ import (
 // v3.3.0：转换中枢与模型库（custom 协议适配器 / 能力库与能力感知路由 / provider API 申请直达）
 // v3.4.0：连接器生态 / 工具链路降耗与轻量 Token 测量器
 func TestV321VersionBumped(t *testing.T) {
-	if version != "3.8.0" {
-		t.Fatalf("version = %q, want 3.8.0", version)
+	if version != "3.9.0" {
+		t.Fatalf("version = %q, want 3.9.0", version)
 	}
 }
 

@@ -278,7 +278,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.7.0 DESKTOP</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.9.0 DESKTOP</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('persona',this)"><span class="ic"><svg><use href="#i-persona"/></svg></span> 职业</div>
@@ -300,6 +300,9 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-group"><div class="nav-title">安全</div>
 <div class="nav-item nav-adv" onclick="pg('security',this)"><span class="ic"><svg><use href="#i-sec"/></svg></span> Security</div>
 <div class="nav-item nav-adv" onclick="pg('waf',this)"><span class="ic"><svg><use href="#i-waf"/></svg></span> WAF Logs</div></div>
+<div class="nav-group"><div class="nav-title">防护</div>
+<div class="nav-item nav-adv" onclick="pg('kb',this)"><span class="ic">📚</span> 知识库</div>
+<div class="nav-item nav-adv" onclick="pg('dynadef',this)"><span class="ic">🛡️</span> 动态防护</div></div>
 <div class="nav-group"><div class="nav-title">治理</div>
 <div class="nav-item nav-adv" onclick="pg('gov',this)"><span class="ic"><svg><use href="#i-gov"/></svg></span> Governance</div>
 <div class="nav-item nav-adv" onclick="pg('memory',this)"><span class="ic"><svg><use href="#i-mem"/></svg></span> Shared Memory</div>
@@ -469,7 +472,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div style="color:var(--text2);font-size:11px">参数为 JSON 对象；必填参数缺失会被拒绝。禁用 = 保留配置但 AI 不可见。</div></div>
 </div>
 
-<!-- ===== 扩展器（v3.7.0） ===== -->
+<!-- ===== 扩展器（v3.9.0） ===== -->
 <div class="page" id="p-ext">
 <div class="stats-grid" id="ext-stats"><div class="skel skel-row" style="width:70%"></div></div>
 <div class="card"><div class="card-title"><span class="d"></span>本机 AI 工具探测 <span class="right"><button class="btn btn-s btn-sm" onclick="loadExt()">重新探测</button></span></div>
@@ -699,6 +702,41 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 </div>
 <div id="toast-wrap"></div>
 
+
+<!-- ===== Knowledge Base ===== -->
+<div class="page" id="p-kb">
+<div class="topbar"><div><h2>知识库</h2><div class="crumb">防护 / 网关知识资产中心</div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>知识条目 <span class="right"><button class="btn btn-s btn-sm" onclick="loadKB()">刷新</button></span></div>
+<div id="kb-list" style="margin-top:10px"><div class="skel skel-row" style="width:80%"></div><div class="skel skel-row" style="width:65%"></div></div>
+</div>
+<div class="card"><div class="card-title"><span class="d"></span>加密设置</div>
+<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+<input type="password" id="kb-passphrase" placeholder="输入用户自管密钥（SSOT）" style="flex:1;min-width:200px;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit">
+<button class="btn btn-s" onclick="setKBKey()">设置密钥</button>
+</div>
+<div style="margin-top:8px;font-size:11px;color:var(--text2)">L2 敏感 / L3 机密条目需要用户密钥解密。系统不存储密钥，只存密文。</div>
+</div>
+</div>
+
+<!-- ===== Dynamic Defense ===== -->
+<div class="page" id="p-dynadef">
+<div class="topbar"><div><h2>动态防护</h2><div class="crumb">防护 / Dynadef 四子能力</div></div></div>
+<div class="grid-2">
+<div class="card"><div class="card-title"><span class="d"></span>影子规则流水线</div>
+<div id="dyna-shadow" style="margin-top:10px;font-size:12px;color:var(--text2)">加载中...</div>
+</div>
+<div class="card"><div class="card-title"><span class="d"></span>蜜令牌陷阱</div>
+<div id="dyna-honey" style="margin-top:10px;font-size:12px;color:var(--text2)">加载中...</div>
+</div>
+<div class="card"><div class="card-title"><span class="d"></span>解码扰动池</div>
+<div id="dyna-decode" style="margin-top:10px;font-size:12px;color:var(--text2)">加载中...</div>
+</div>
+<div class="card"><div class="card-title"><span class="d"></span>蜜罐路由</div>
+<div id="dyna-honeypot" style="margin-top:10px;font-size:12px;color:var(--text2)">加载中...</div>
+</div>
+</div>
+</div>
+
 <script>
 /* ============ 基础工具 ============ */
 function $(id){return document.getElementById(id)}
@@ -727,7 +765,7 @@ var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工�
 var curPage='dashboard';
 function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
   if(p==='dashboard'){updStats();loadHw();}if(p==='modules'){loadModules();loadAdapt();}if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='ext')loadExt();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings')loadSettings();if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();if(p==='persona')loadPersona();
-  if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
+  if(p==='kb'){loadKB();}if(p==='dynadef'){loadDynadef();}if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
 function jump(p){var it=document.querySelectorAll('.nav-item');for(var i=0;i<it.length;i++){if((it[i].getAttribute('onclick')||'').indexOf("'"+p+"'")>-1){pg(p,it[i]);return;}}pg(p,null);}
 function pgFromHash(){var h=(location.hash||'').replace(/^#/,'');if(!h)return;if(!$('p-'+h))return;jump(h);}
 window.addEventListener('hashchange',pgFromHash);
@@ -745,6 +783,8 @@ var PAL=[
  {n:'MCP 工具',k:'mcp relay tool 工具',a:function(){jump('mcp')}},
  {n:'服务发现',k:'discovery scan network 发现',a:function(){jump('discovery')}},
  {n:'安全',k:'security waf mode 安全',a:function(){jump('security')}},
+{n:'知识库',k:'knowledge base kb 知识库',a:function(){jump('kb')}},
+{n:'动态防护',k:'dynadef defense 动态防护',a:function(){jump('dynadef')}},
  {n:'WAF 日志',k:'waf block logs 日志',a:function(){jump('waf')}},
  {n:'设备',k:'device hardware cpu 设备',a:function(){jump('device')}},
  {n:'日志',k:'logs viewer system 日志',a:function(){jump('logs')}},
@@ -1338,7 +1378,7 @@ function connSave(enable){
   if(raw){try{params=JSON.parse(raw);}catch(e){alert('参数不是合法 JSON：'+e.message);return;}}
   api('/api/admin/v34/connectors',{method:'POST',body:JSON.stringify({template:tpl,params:params,enabled:enable})}).then(function(){loadConn();}).catch(function(e){alert('保存失败：'+(e&&e.message||e));});
 }
-/* ============ 扩展器（v3.7.0）：工具探测 / 接入片段生成 ============ */
+/* ============ 扩展器（v3.9.0）：工具探测 / 接入片段生成 ============ */
 var extData={targets:[],baseUrl:'',model:'',chatApiOn:true,installed:0,total:0};
 function extKindLabel(k){return {agent:'智能体',cli:'命令行',editor:'编辑器插件'}[k]||k;}
 function loadExt(){
@@ -1648,5 +1688,43 @@ function updateFloatWidget(){
 }
 function hideFloatWidget(){$('float-widget').style.display='none';}
 setTimeout(function(){updateFloatWidget();},1000);
+
+/* ============ v3.9.0 知识库 ============ */
+function loadKB(){
+fetchJSON('/api/kb/list?min_level=0',function(d){
+  var list=$('kb-list'); if(!list) return;
+  if(!d.entries||d.entries.length===0){list.innerHTML='<div style="color:var(--text2)">暂无条目</div>';return;}
+  var html='<div style="display:flex;flex-direction:column;gap:6px">';
+  d.entries.forEach(function(e){
+    var levelBadge=e.level===0?'公开':e.level===1?'内部':e.level===2?'敏感':'机密';
+    var levelColor=e.level===0?'var(--green)':e.level===1?'var(--blue)':e.level===2?'var(--orange)':'var(--red)';
+    html+='<div style="background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">';
+    html+='<div><div style="font-weight:600;font-size:13px">'+esc(e.name)+'</div><div style="font-size:11px;color:var(--text2);margin-top:2px">'+esc(e.category)+' · '+esc(e.tags.join(', '))+'</div></div>';
+    html+='<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:'+levelColor+'22;color:'+levelColor+'">'+levelBadge+'</span>';
+    html+='</div>';
+  });
+  html+='</div>';
+  list.innerHTML=html;
+},function(){var list=$('kb-list');if(list)list.innerHTML='<div style="color:var(--red)">加载失败</div>';});
+}
+function setKBKey(){
+var p=$('kb-passphrase').value;
+fetchJSON('/api/kb/setkey',function(d){
+  toast('密钥已设置','ok');
+},function(err){toast('设置失败: '+err,'err');},JSON.stringify({passphrase:p}));
+}
+
+/* ============ v3.9.0 动态防护 ============ */
+function loadDynadef(){
+fetchJSON('/api/status',function(d){
+  var shadow=$('dyna-shadow'); if(shadow) shadow.innerHTML='<div style="color:var(--green)">运行中</div><div style="margin-top:4px;font-size:11px">影子规则持续监控可疑请求，只记录不阻断</div>';
+  var honey=$('dyna-honey'); if(honey) honey.innerHTML='<div style="color:var(--green)">运行中</div><div style="margin-top:4px;font-size:11px">HTML注释/CSS隐藏/Cookie蜜令牌已激活</div>';
+  var decode=$('dyna-decode'); if(decode) decode.innerHTML='<div style="color:var(--green)">运行中</div><div style="margin-top:4px;font-size:11px">URL/Base64/HTML实体多轮解码探测</div>';
+  var honeypot=$('dyna-honeypot'); if(honeypot) honeypot.innerHTML='<div style="color:var(--green)">运行中</div><div style="margin-top:4px;font-size:11px">蜜罐端点: /admin.php, /wp-login.php, /.env, /config.json</div>';
+},function(err){
+  ['dyna-shadow','dyna-honey','dyna-decode','dyna-honeypot'].forEach(function(id){var el=$(id);if(el)el.innerHTML='<div style="color:var(--red)">加载失败</div>';});
+});
+}
+
 </script>
 </body></html>
