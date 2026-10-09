@@ -265,7 +265,7 @@ func (s *Service) setupRoutes() http.Handler {
 	mux.HandleFunc("/api/assistant/health", s.handleAssistantHealth)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"service": "tsg-android", "version": "4.4.0"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"service": "tsg-android", "version": "4.5.0"})
 	})
 	return mux
 }
