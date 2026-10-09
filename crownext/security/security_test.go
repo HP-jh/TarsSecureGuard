@@ -65,8 +65,8 @@ func TestEvaluate_Single(t *testing.T) {
 	if report.Grade != "B" {
 		t.Errorf("expected grade B (score 80), got %s", report.Grade)
 	}
-	if report.Version != "4.3.0" {
-		t.Errorf("expected version 4.3.0, got %s", report.Version)
+	if report.Version != "4.4.0" {
+		t.Errorf("expected version 4.4.0, got %s", report.Version)
 	}
 }
 

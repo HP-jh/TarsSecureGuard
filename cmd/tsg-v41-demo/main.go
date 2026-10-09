@@ -33,8 +33,8 @@ func main() {
 	fmt.Println("[1] Agent Mesh Setup")
 	reg := agentmesh.NewRegistry()
 	disp := agentmesh.NewDispatcher(reg)
-	reg.RegisterLocal(&agentmesh.AgentCard{AgentID: "alpha", Version: "4.3.0", RBACRole: "admin", Accepts: []agentmesh.TaskType{agentmesh.TaskChat}})
-	reg.RegisterLocal(&agentmesh.AgentCard{AgentID: "beta", Version: "4.3.0", RBACRole: "user", Accepts: []agentmesh.TaskType{agentmesh.TaskChat}, Capabilities: []string{"summarize"}})
+	reg.RegisterLocal(&agentmesh.AgentCard{AgentID: "alpha", Version: "4.4.0", RBACRole: "admin", Accepts: []agentmesh.TaskType{agentmesh.TaskChat}})
+	reg.RegisterLocal(&agentmesh.AgentCard{AgentID: "beta", Version: "4.4.0", RBACRole: "user", Accepts: []agentmesh.TaskType{agentmesh.TaskChat}, Capabilities: []string{"summarize"}})
 	fmt.Printf("    Registered %d agents\n", reg.Count())
 
 	// 2. MCP Guard
