@@ -74,7 +74,7 @@ func (s *Server) handleInitialize(w http.ResponseWriter, req jsonRPCRequest) {
 	writeJSONRPCResult(w, req.ID, map[string]any{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
-		"serverInfo":      map[string]any{"name": "tars-secure-guard-mcp", "version": "4.1.0"},
+		"serverInfo":      map[string]any{"name": "tars-secure-guard-mcp", "version": "4.3.0"},
 	})
 }
 
