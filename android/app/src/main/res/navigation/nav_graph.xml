@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/controlFragment">
+
+    <fragment
+        android:id="@+id/controlFragment"
+        android:name="com.tarssecureguard.android.ui.ControlFragment"
+        android:label="控制" />
+    <fragment
+        android:id="@+id/statusFragment"
+        android:name="com.tarssecureguard.android.ui.StatusFragment"
+        android:label="状态" />
+    <fragment
+        android:id="@+id/configFragment"
+        android:name="com.tarssecureguard.android.ui.ConfigFragment"
+        android:label="配置" />
+    <fragment
+        android:id="@+id/logsFragment"
+        android:name="com.tarssecureguard.android.ui.LogsFragment"
+        android:label="日志" />
+</navigation>

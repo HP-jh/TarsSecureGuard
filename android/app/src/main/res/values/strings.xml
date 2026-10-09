@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">TSG 安卓</string>
+    <string name="control_title">控制台</string>
+    <string name="status_title">服务状态</string>
+    <string name="config_title">配置管理</string>
+    <string name="logs_title">日志管理</string>
+</resources>
