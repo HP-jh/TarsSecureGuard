@@ -21,7 +21,7 @@ var wafRules = []struct {
 	re     *regexp.Regexp
 	strict bool
 }{
-	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e)`), false},
+	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%c0%af|%c1%9c)`), false},
 	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping)\\b|&&|;\\s*\\x60[a-z]+\\x60)"), false},
 	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
 	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
@@ -107,7 +107,7 @@ var scannerUABlacklist = []string{
 	"sqlmap", "nikto", "nmap scripting engine", "masscan", "zgrab",
 	"dirbuster", "gobuster", "ffuf", "nuclei", "wpscan", "acunetix",
 	"nessus", "openvas", "metasploit", "burpsuite", "havij", "hydra",
-	"w3af", "arachni", "whatweb", "dotdotpwn",
+	"w3af", "arachni", "whatweb", "dotdotpwn", "censys", "shodan",
 }
 
 // sensitivePathPatterns：敏感路径探测特征（小写子串匹配）。
@@ -116,11 +116,12 @@ var scannerUABlacklist = []string{
 // 以保证向后兼容、不破坏现有功能。
 var sensitivePathPatterns = []string{
 	"/.env", "/.git", "/.svn", "/.ssh", "/.aws", "/.ds_store",
-	"/.htaccess", "/.htpasswd", "/.idea",
+	"/.htaccess", "/.htpasswd", "/.idea", "/.dockerenv",
 	"/wp-admin", "/wp-login", "/wp-content", "/xmlrpc.php",
 	"/phpmyadmin", "/pma/",
 	"/admin/", "/administrator",
 	"/server-status", "/actuator", "/.bak", "/.sql",
+	"/proc/", "/sys/", "/swagger-ui", "/api-docs",
 }
 
 // allowedHTTPMethods：允许的 HTTP 方法白名单；
