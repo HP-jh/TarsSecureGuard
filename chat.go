@@ -361,7 +361,7 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 		// "providerId/model" 形式优先于既有本地/云端判定
 		spec, _ := providerSpec(pid)
 		if !moduleEnabledByID("cloudModels") && spec.Kind == "cloud" {
-			return fail(pid, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）"))
+			return fail(pid, fmt.Errorf("云端模型已关闭。如需使用，请在「模块」页面开启「云端模型」开关。"))
 		}
 		content, usage, toolCalls, err := callProviderChatFull(spec, rest, msgs, "", obsTr, opts)
 		res = ChatResult{Content: content, Backend: pid, Usage: usage, ToolCalls: toolCalls}
@@ -386,14 +386,14 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 			backend = "llama"
 			target = cur
 		} else {
-			return fail(backend, fmt.Errorf("未知模型 %s", model))
+			return fail(backend, fmt.Errorf("暂时找不到模型「%s」。请检查名称拼写是否正确，或先在「模型」页面添加该模型。", model))
 		}
 	}
 
 	switch backend {
 	case "llama":
 		if !moduleEnabledByID("localModels") {
-			return fail(backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）"))
+			return fail(backend, fmt.Errorf("本地模型已关闭。如需使用，请在「模块」页面开启「本地模型」开关。"))
 		}
 		if running, _ := modelState(); !running {
 			if err := startLocalModel(target); err != nil {
@@ -408,7 +408,7 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 		return callOpenAICompatibleEx(ep, "", target, msgs, opts, obsTr)
 	case "lmstudio", "ollama":
 		if !moduleEnabledByID("localModels") {
-			return fail(backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）"))
+			return fail(backend, fmt.Errorf("本地模型已关闭。如需使用，请在「模块」页面开启「本地模型」开关。"))
 		}
 		if backend == "lmstudio" {
 			return callOpenAICompatibleEx(lmStudioBase+"/v1/chat/completions", "", target, msgs, opts, obsTr)
@@ -416,7 +416,7 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 		return callOllamaChatEx(target, msgs, obsTr)
 	case "cloud":
 		if !moduleEnabledByID("cloudModels") {
-			return fail(backend, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）"))
+			return fail(backend, fmt.Errorf("云端模型已关闭。如需使用，请在「模块」页面开启「云端模型」开关。"))
 		}
 		// v3.2.0：注册表 provider 的裸模型名（无 providerId 前缀）在此接管；
 		// 未命中再回落 v3.0.x 的 legacy cloud 配置（config.json cloud 段）
