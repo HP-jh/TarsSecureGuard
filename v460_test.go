@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// TestV461VersionBumped 版本号必须已升至 4.6.2
+// TestV461VersionBumped 版本号必须已升至 4.6.6
 func TestV462VersionBumped(t *testing.T) {
-	if version != "4.6.2" {
-		t.Fatalf("version expected 4.6.2, got %s", version)
+	if version != "4.6.6" {
+		t.Fatalf("version expected 4.6.6, got %s", version)
 	}
 }
 
