@@ -648,8 +648,16 @@ func isAdminRoute(path string) bool {
 	return false
 }
 
+// sanitizeAuditField v3.2.2：审计字段防注入清洗——剔除 CR/LF/TAB（防止外部输入
+// 伪造审计行），保证「一条记录一行」的日志格式不变量。
+func sanitizeAuditField(s string) string {
+s = strings.NewReplacer("\n", " ", "\r", " ", "\t", " ").Replace(s)
+return strings.TrimSpace(s)
+}
+
 // auditLog 写入审计日志：audit-YYYY-MM-DD.log + 内存日志
 func auditLog(action, user, detail string) {
+// v3.2.2：user/detail 可被请求体/工具参数影响——落盘前统一清洗
 	cfgMu.RLock()
 	enabled := cfg.Security.AuditLogEnabled
 	cfgMu.RUnlock()
@@ -657,7 +665,8 @@ func auditLog(action, user, detail string) {
 		return
 	}
 	line := fmt.Sprintf("[%s] ACTION=%s USER=%s IP=%s DETAIL=%s",
-		time.Now().Format("2006-01-02 15:04:05"), action, user, "-", detail)
+		time.Now().Format("2006-01-02 15:04:05"),
+		sanitizeAuditField(action), sanitizeAuditField(user), "-", sanitizeAuditField(detail))
 	fileLog("audit", line)
 	logMsg("[AUDIT] " + line)
 }
@@ -715,9 +724,38 @@ func openBrowser(url string) {
 	cmd.Start()
 }
 
+// sensitiveGatewayFiles v3.2.2（锦衣卫红线）：网关自身安全资产 denylist。
+// tars_file_read/write、OpenAPI 本地文档等模型可控路径即使落在 allowedRoots
+// 内也不得触及这些文件——否则「写 config.json → watchConfig 2s 热重载」即构成
+// 提权/RCE 链路（可打开 defaultKeyAllowed、注入 customTools 端点、关 WAF），
+// 读取则泄露 gateway-key.txt 中的轮换密钥。判定基于 Clean 后的绝对路径尾段。
+var sensitiveGatewayFiles = []string{"config.json", "gateway-key.txt"}
+
+func isSensitiveGatewayPath(abs string) bool {
+	lower := strings.ToLower(filepath.Clean(abs))
+	base := filepath.Base(lower)
+	for _, name := range sensitiveGatewayFiles {
+		if base == name {
+			return true
+		}
+	}
+	// logs/ 目录整体保护（审计日志完整性：防篡改/伪造审计记录）
+	d := filepath.Dir(lower)
+	if filepath.Base(d) == "logs" {
+		return true
+	}
+	return false
+}
+
 func isPathAllowed(path string, write bool) bool {
 	abs, err := filepath.Abs(path)
 	if err != nil {
+		return false
+	}
+	// v3.2.2：先过 denylist——模型可控文件工具禁止读写网关安全资产
+	if isSensitiveGatewayPath(abs) {
+		auditLog("POLICY_VIOLATION", "system(path-guard)",
+			fmt.Sprintf("拒绝访问敏感路径 %s (write=%v) [FILE_GUARD]", abs, write))
 		return false
 	}
 	lower := strings.ToLower(abs)

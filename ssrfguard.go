@@ -60,18 +60,19 @@ func ssrfSafeDialContext(allowLocalTargets, allowPrivateTargets bool) func(ctx c
 			ips = resolved
 		}
 		var chosen net.IP
-		for _, ip := range ips {
+		for _, ipa := range ips {
+			ip := ipa.IP
 			blocked := ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
 				ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() ||
 				ip.IsMulticast() || ip.IsUnspecified()
 			allowedException := allowLocalTargets && (ip.IsLoopback() || ip.IsUnspecified())
 			allowedPrivate := allowPrivateTargets && ip.IsPrivate()
 			if blocked && !allowedException && !allowedPrivate {
-				auditLog("SSRF_BLOCKED", "system", fmt.Sprintf("host=%s ip=%s 拒绝（非公网地址）", host, ip.IP))
-				return nil, fmt.Errorf("SSRF 防护: 拒绝非公网地址 %s（%s）", host, ip.IP)
+				auditLog("SSRF_BLOCKED", "system", fmt.Sprintf("host=%s ip=%s 拒绝（非公网地址）", host, ip))
+				return nil, fmt.Errorf("SSRF 防护: 拒绝非公网地址 %s（%s）", host, ip)
 			}
 			if chosen == nil {
-				chosen = ip.IP
+				chosen = ip
 			}
 		}
 		// 无可连地址且例外通道关闭 → 拒绝
