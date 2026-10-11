@@ -15,6 +15,7 @@ type DynamicProtector struct {
 	threshold    int           // requests per window before anomaly flag
 	buckets      map[string]*rateBucket
 	events       []AnomalyEvent
+	eventsHead   int           // ring buffer head for O(1) rotation
 	eventsCap    int
 }
 
@@ -86,14 +87,23 @@ func (p *DynamicProtector) Reset() {
 	defer p.mu.Unlock()
 	p.buckets = make(map[string]*rateBucket)
 	p.events = nil
+	p.eventsHead = 0
 }
 
-// Events returns recent anomaly events.
+// Events returns recent anomaly events in chronological order.
 func (p *DynamicProtector) Events() []AnomalyEvent {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	out := make([]AnomalyEvent, len(p.events))
-	copy(out, p.events)
+	if len(p.events) < p.eventsCap {
+		out := make([]AnomalyEvent, len(p.events))
+		copy(out, p.events)
+		return out
+	}
+	// Ring buffer: reorder from head so output is chronological
+	out := make([]AnomalyEvent, p.eventsCap)
+	for i := 0; i < p.eventsCap; i++ {
+		out[i] = p.events[(p.eventsHead+i)%p.eventsCap]
+	}
 	return out
 }
 
@@ -117,10 +127,13 @@ func (p *DynamicProtector) Snapshot() map[string]interface{} {
 }
 
 func (p *DynamicProtector) addEvent(e AnomalyEvent) {
-	p.events = append(p.events, e)
-	if len(p.events) > p.eventsCap {
-		p.events = p.events[len(p.events)-p.eventsCap:]
+	if len(p.events) < p.eventsCap {
+		p.events = append(p.events, e)
+		return
 	}
+	// O(1) ring-buffer rotation — no allocation, no copy
+	p.events[p.eventsHead] = e
+	p.eventsHead = (p.eventsHead + 1) % p.eventsCap
 }
 
 // DynamicEvaluator implements the Evaluator interface for dynamic protection.

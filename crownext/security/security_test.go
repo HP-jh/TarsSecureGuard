@@ -65,8 +65,8 @@ func TestEvaluate_Single(t *testing.T) {
 	if report.Grade != "B" {
 		t.Errorf("expected grade B (score 80), got %s", report.Grade)
 	}
-	if report.Version != "4.5.0" {
-		t.Errorf("expected version 4.4.0, got %s", report.Version)
+	if report.Version != "4.6.2" {
+		t.Errorf("expected version 4.6.2, got %s", report.Version)
 	}
 }
 
@@ -606,3 +606,4 @@ func TestFullEvaluation(t *testing.T) {
 		t.Logf("Recommendations: %v", report.Recommendations)
 	}
 }
+

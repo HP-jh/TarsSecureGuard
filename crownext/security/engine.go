@@ -66,7 +66,7 @@ func (e *ScoreEngine) Evaluate(ctx context.Context) (*Report, error) {
 	report := &Report{
 		Dimensions:   make([]Dimension, 0, len(e.evaluators)),
 		GeneratedAt:  time.Now(),
-		Version:      "4.5.0",
+		Version:      "4.6.2",
 		Recommendations: make([]string, 0),
 	}
 
@@ -128,3 +128,4 @@ func scoreToGrade(s float64) string {
 func NormalizeScore(v float64) float64 {
 	return math.Round(math.Max(0, math.Min(100, v)))
 }
+
