@@ -2,11 +2,9 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -37,55 +35,11 @@ type CustomTool struct {
 	SecretHeaders map[string]string `json:"secretHeaders,omitempty"` // 值支持 env:VAR 引用
 }
 
-// customToolClient SSRF 加固的专用 HTTP 客户端（与全局 httpClient 隔离）
-var customToolClient = &http.Client{
-	Timeout: 30 * time.Second,
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse // 禁用重定向跟随（防 3xx 跳内网绕过）
-	},
-	Transport: &http.Transport{
-		DialContext: ssrfSafeDialContext(), // 连接时校验实际 IP（防 DNS 重绑定）
-	},
-}
-
-// ssrfSafeDialContext 仅允许连接公网地址；解析出的任一 IP 落入私网/保留段即拒绝
-func ssrfSafeDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
-	return func(ctx context.Context, network, addr string) (net.Conn, error) {
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, fmt.Errorf("SSRF 防护: 非法地址 %s", addr)
-		}
-		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-		if err != nil {
-			return nil, err
-		}
-		var public net.IP
-		for _, ip := range ips {
-			if !isPublicIP(ip.IP) {
-				return nil, fmt.Errorf("SSRF 防护: 拒绝非公网地址 %s（%s）", host, ip.IP)
-			}
-			if public == nil {
-				public = ip.IP
-			}
-		}
-		if public == nil {
-			return nil, fmt.Errorf("SSRF 防护: %s 无可解析公网地址", host)
-		}
-		d := &net.Dialer{Timeout: 10 * time.Second}
-		// 用已校验的 IP 直连（域名解析结果与实际连接目标一致）
-		return d.DialContext(ctx, network, net.JoinHostPort(public.String(), port))
-	}
-}
-
-// isPublicIP 校验 IP 是否公网：拒绝回环/RFC1918/链路本地(含 169.254.169.254 云元数据)/组播/未指定
-func isPublicIP(ip net.IP) bool {
-	if ip == nil {
-		return false
-	}
-	return !(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() ||
-		ip.IsMulticast() || ip.IsUnspecified())
-}
+// customToolClient SSRF 加固的专用 HTTP 客户端（与全局 httpClient 隔离）。
+// v3.2.2：统一并入 ssrfguard 模块——严格模式拨号（连接时实际 IP 校验，防 DNS
+// 重绑定）+ 禁用重定向跟随 + 30s 超时；响应大小限制仍在 executeCustomTool 中
+// 通过 io.LimitReader(maxFetchBytes) 落实。
+var customToolClient = ssrfGuardedClient(30 * time.Second)
 
 // customToolList 当前配置的自定义工具（仅 customTools 模块开启时对外可见）
 func customToolList() []CustomTool {
