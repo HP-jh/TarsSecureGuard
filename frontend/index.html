@@ -246,6 +246,14 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
   .topbar h2{font-size:17px}
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* v4.6.0 客户端下载器 */
+.client-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:linear-gradient(135deg,#1f6feb,#8957e5);color:#fff;font-size:11px;font-weight:600;cursor:pointer;border:none;transition:all .2s;box-shadow:0 2px 10px rgba(88,166,255,.25)}
+.client-btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(88,166,255,.35)}
+.client-btn .dot{width:6px;height:6px;border-radius:50%;background:#fff;animation:ringPulse 2s infinite}
+.client-btn.hidden{display:none}
+.download-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.3);color:var(--green);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s}
+.download-btn:hover{background:rgba(63,185,80,.2)}
+.download-btn.hidden{display:none}
 </style>
 </head>
 <body>
@@ -278,7 +286,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v3.9.0 DESKTOP</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v4.6.0</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('persona',this)"><span class="ic"><svg><use href="#i-persona"/></svg></span> 职业</div>
@@ -320,8 +328,10 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div style="display:flex;align-items:center;gap:12px;min-width:0">
 <button class="hambtn" onclick="toggleSide()" aria-label="Menu">&#9776;</button>
 <div><h2 id="pt">仪表盘</h2><div class="crumb" id="pc">总览 / 实时监控</div></div>
-</div>
+<\/div>
 <div class="topbar-r">
+<button class="client-btn hidden" id="clientOpenBtn" onclick="openDesktopClient()" title="打开本地客户端"><span class="dot"></span>打开本地客户端</button>
+<button class="download-btn hidden" id="clientDownloadBtn" onclick="showClientDownload()" title="下载桌面客户端">下载客户端</button>
 <div class="search-pill" onclick="openPalette()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>搜索页面</span><kbd>Ctrl K</kbd></div>
 <span class="badge" id="sb"><span class="dot"></span><span id="sm">运行中</span></span>
 <span style="color:var(--text2)" title="Uptime"><span id="ut">0s</span></span>
@@ -1725,6 +1735,18 @@ fetchJSON('/api/status',function(d){
   ['dyna-shadow','dyna-honey','dyna-decode','dyna-honeypot'].forEach(function(id){var el=$(id);if(el)el.innerHTML='<div style="color:var(--red)">加载失败</div>';});
 });
 }
+
+
+// v4.6.0 客户端检测与调起
+var clientInfo=null;
+function detectClient(){api('/api/admin/installer-info',{method:'GET'}).then(function(r){clientInfo=r||{};updateClientButtons();}).catch(function(e){console.log('client detection failed',e);});}
+function updateClientButtons(){var openBtn=$('clientOpenBtn'),dlBtn=$('clientDownloadBtn');if(!openBtn||!dlBtn)return;if(clientInfo&&clientInfo.hasDesktopClient){openBtn.classList.remove('hidden');dlBtn.classList.add('hidden');}else{openBtn.classList.add('hidden');dlBtn.classList.remove('hidden');}}
+function openDesktopClient(){window.location.href='tsg://open';}
+function showClientDownload(){var url='https://github.com/HP-jh/TarsSecureGuard/releases/latest';window.open(url,'_blank');}
+// 页面加载后检测
+document.addEventListener('DOMContentLoaded',function(){setTimeout(detectClient,800);});
+// 监听 deep-link 事件（Tauri 壳内）
+if(window.__TAURI__&&window.__TAURI__.event){window.__TAURI__.event.listen('deeplink',function(e){console.log('deeplink',e);});}
 
 </script>
 </body></html>

@@ -1,7 +1,7 @@
 [package]
 name = "tsg-desktop"
-version = "3.2.1"
-description = "TarsSecureGuard v3.2.1 桌面客户端（Tauri 壳，本地网关 sidecar 承载）"
+version = "4.6.0"
+description = "TarsSecureGuard v4.6.0 桌面客户端（Tauri 壳，本地网关 sidecar 承载）"
 edition = "2021"
 rust-version = "1.90"
 
@@ -13,9 +13,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# v3.2.1 选型钉版：Tauri 2.12.0（2.x 当前稳定线；遇阻降 2.11.5 只改本行）
+# v4.6.0 选型：Tauri 2.12 + deep-link + single-instance
 tauri = { version = "2.12", features = [] }
 tauri-plugin-shell = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = "2"
 
 # 发布体积优先（Go 网关约 10MB + 壳 <5MB + 前端 100KB，总预算 <30MB）
 [profile.release]

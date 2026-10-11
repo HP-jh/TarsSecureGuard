@@ -8,6 +8,11 @@ import (
 	"unsafe"
 )
 
+// hideWindowAttr 隐藏子进程窗口（Windows 专用）
+func hideWindowAttr() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{HideWindow: true}
+}
+
 // getDiskUsage Windows 实现：调用 kernel32.dll GetDiskFreeSpaceExW
 func getDiskUsage(path string) (diskUsage, error) {
 	var du diskUsage

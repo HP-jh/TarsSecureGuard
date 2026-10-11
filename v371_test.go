@@ -68,7 +68,7 @@ func TestV371ConfigParseWarning(t *testing.T) {
 // ===================== 版本号校验 =====================
 
 func TestV371VersionBumped(t *testing.T) {
-	if version != "3.9.0" {
+	if version != "4.6.0" {
 		t.Fatalf("版本号应为 3.9.0, got %s", version)
 	}
 }

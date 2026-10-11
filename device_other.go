@@ -6,6 +6,11 @@ import (
 	"syscall"
 )
 
+// hideWindowAttr 非 Windows 平台无窗口隐藏需求
+func hideWindowAttr() *syscall.SysProcAttr {
+	return nil
+}
+
 // getDiskUsage 非 Windows 平台实现（Linux / macOS / FreeBSD）
 func getDiskUsage(path string) (diskUsage, error) {
 	var du diskUsage

@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.9.0"
+var version = "4.6.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -103,6 +103,8 @@ func main() {
 	}
 	// v3.2.1：桌面客户端模式标记——由 Tauri 壳以 sidecar 方式拉起时传 --no-browser，抑制自动打开浏览器
 	noBrowser = scanNoBrowserFlag(os.Args)
+	// v4.6.0：客户端下载器主线——优先调起本地 Tauri 客户端（--launch-client）
+	launchClient = scanLaunchClientFlag(os.Args)
 	// v3.0.0 D 线：MCP stdio 模式（--mcp-stdio）—— 任何本地 agent 的安全带
 	if mcpIsStdioFlag(os.Args[1:]) {
 		initFileLogging()
@@ -278,6 +280,8 @@ func main() {
 	mux.HandleFunc("/oauth/callback", handleOAuthCallback)
 	mux.HandleFunc("/oauth/logout", handleOAuthLogout)
 	mux.HandleFunc("/api/admin/oauth/status", handleOAuthStatus)
+	// v4.6.0：客户端下载器——安装器元信息查询（供前端"打开本地客户端"按钮决策）
+	mux.HandleFunc("/api/admin/installer-info", handleInstallerInfo)
 
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
@@ -333,11 +337,11 @@ func main() {
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
 	go watchConfig()
 
-	// 打开浏览器（v3.2.1：--no-browser 桌面客户端模式下抑制——窗口由 Tauri 壳承载，不再依赖浏览器）
-	if !noBrowser {
+	// v4.6.0：智能打开——优先本地客户端 → 回退浏览器（--no-browser 桌面客户端模式下仍抑制）
+	if !noBrowser && !isDesktopClientMode() {
 		go func() {
 			time.Sleep(1 * time.Second)
-			openBrowser(fmt.Sprintf("http://127.0.0.1:%d", port))
+			openBrowserOrClient(fmt.Sprintf("http://127.0.0.1:%d", port))
 		}()
 	}
 

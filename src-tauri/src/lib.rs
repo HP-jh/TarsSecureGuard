@@ -1,4 +1,4 @@
-//! TarsSecureGuard v3.2.1 桌面客户端壳（Tauri 2）
+//! TarsSecureGuard v4.6.0 桌面客户端壳（Tauri 2）
 //!
 //! 职责（最小壳原则——UI 与业务逻辑全部复用 Go 网关 embed 的管理台）：
 //! 1. 启动时探活 `127.0.0.1:18889/health`：已有网关实例（CLI / systemd 起的）
@@ -9,9 +9,11 @@
 //! 3. 轮询 /health 就绪后显示窗口；前端资产由 Tauri 服务（tauri://localhost），
 //!    api() 跨源请求由网关 isTrustedOrigin 信任 + CORS 放行（Go 侧已收口）；
 //! 4. 退出时终止本壳拉起的 sidecar（连接模式不触碰外部实例的生命周期）。
+//! 5. v4.6.0 新增：deep-link 协议注册（tsg:// + tsg-installer://）+
+//!    single-instance 单实例锁 +
+//!    Opened 事件处理（deep link 打开时聚焦窗口）。
 //!
-//! v3.2.1 明确不做（留 v3.2.2+）：Job Object 兜底、updater、系统托盘、
-//! 单实例锁、WS 事件流。壳被强杀时 sidecar 可能残留为已知限制（正常关窗不残留）。
+//! v4.6.0 明确不做（留 v4.7.0+）：自更新器、系统托盘、WS 事件流。
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -54,11 +56,46 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
+/// v4.6.0：聚焦主窗口（供 single-instance 回调与 deep-link 复用）
+fn focus_main_window(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+        // 尝试将窗口提到最前（各平台行为略有差异）
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let _ = win.set_always_on_top(true);
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let _ = win.set_always_on_top(false);
+    }
+}
+
+/// v4.6.0：处理 deep-link URL，通知前端导航到对应页面
+fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
+    eprintln!("[tsg-desktop] deep-link received: {url}");
+    // 提取路径部分通知前端（如 tsg://settings → 导航到设置页）
+    if let Some(path) = url.strip_prefix("tsg://") {
+        let _ = app.emit("deeplink", path);
+    }
+}
+
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_deep_link::init())
         .manage(SidecarHandle(Mutex::new(None)))
         .setup(|app| {
+            // v4.6.0：注册 deep-link schemes（桌面端）
+            #[cfg(desktop)]
+            {
+                let handle = app.handle().clone();
+                if let Ok(deep_link) = handle.deep_link() {
+                    let _ = deep_link.register("tsg");
+                    let _ = deep_link.register("tsg-installer");
+                }
+            }
+
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 // ① 探活：已有网关实例 → 连接模式，仅承载窗口
@@ -78,7 +115,6 @@ pub fn run() {
                         data_dir.display()
                     );
                 }
-                // 网关内少量 cwd 相对路径（state/）也随主进程 cwd 落到数据目录
                 let _ = std::env::set_current_dir(&data_dir);
 
                 // ③ 以 sidecar 拉起网关
@@ -91,13 +127,11 @@ pub fn run() {
                                 .lock()
                                 .unwrap()
                                 .replace(child);
-                            // 回收 stdout/stderr 事件流，防止子进程管道写满阻塞
                             std::thread::spawn(move || {
                                 while let Some(_ev) = rx.blocking_recv() {}
                             });
                         }
                         Err(e) => {
-                            // 前端启动遮罩超时会给出提示；仍显示窗口便于排查
                             eprintln!("[tsg-desktop] sidecar 启动失败: {e}");
                         }
                     },
@@ -114,16 +148,34 @@ pub fn run() {
                 show_main_window(&handle);
             });
             Ok(())
-        })
+        });
+
+    // v4.6.0：single-instance 插件——已有实例时聚焦窗口而非启动新实例
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        focus_main_window(app);
+    }));
+
+    builder
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                // ⑤ 退出清理：仅终止本壳拉起的 sidecar
-                let state = app.state::<SidecarHandle>();
-                if let Some(mut child) = state.0.lock().unwrap().take() {
-                    let _ = child.kill();
+            match event {
+                // v4.6.0：处理 deep-link 打开（协议调起或文件关联）
+                tauri::RunEvent::Opened { urls } => {
+                    for url in urls {
+                        handle_deep_link_url(app, &url.to_string());
+                    }
+                    focus_main_window(app);
                 }
+                tauri::RunEvent::Exit => {
+                    // ⑤ 退出清理：仅终止本壳拉起的 sidecar
+                    let state = app.state::<SidecarHandle>();
+                    if let Some(mut child) = state.0.lock().unwrap().take() {
+                        let _ = child.kill();
+                    }
+                }
+                _ => {}
             }
         });
 }
