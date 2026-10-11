@@ -748,6 +748,24 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 </div>
 
 <script>
+/* ============ 前端运行时监控 ============ */
+(function(){
+  var errLog=[];
+  window._tsgErrLog=errLog;
+  var origError=console.error;
+  console.error=function(){
+    var args=Array.prototype.slice.call(arguments);
+    errLog.push({t:Date.now(),type:'console.error',msg:args.join(' ')});
+    origError.apply(console,arguments);
+  };
+  window.onerror=function(msg,url,line,col,err){
+    errLog.push({t:Date.now(),type:'window.onerror',msg:msg,url:url,line:line,col:col,stack:err&&err.stack?err.stack:''});
+    return false;
+  };
+  window.onunhandledrejection=function(e){
+    errLog.push({t:Date.now(),type:'unhandledrejection',msg:e.reason&&e.reason.message?e.reason.message:String(e.reason)});
+  };
+})();
 /* ============ 基础工具 ============ */
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
@@ -1622,7 +1640,7 @@ function renderPersonaGrid(list,cur){
     var active=p.id===cur?'border-color:var(--cyan);box-shadow:0 0 16px rgba(88,166,255,.2)':'';
     var badge=p.id===cur?'<span style="margin-left:auto;font-size:10px;color:var(--green)">当前</span>':'';
     var tags=(p.shortTags||[]).map(function(t){return '<span style="display:inline-block;padding:2px 8px;background:var(--bg2);border-radius:10px;font-size:10px;margin:2px">'+esc(t)+'</span>'}).join('');
-    return '<div class="card" style="cursor:pointer;'+active+'" onclick="selectPersona(''+p.id+'')">'+
+    return '<div class="card" style="cursor:pointer;'+active+'" onclick="selectPersona(\''+p.id+'\')">'+
       '<div style="font-size:22px;margin-bottom:6px">'+esc(p.icon)+'</div>'+
       '<div style="font-size:13px;font-weight:700;margin-bottom:4px;display:flex;align-items:center">'+esc(p.name)+badge+'</div>'+
       '<div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.4">'+esc(p.description)+'</div>'+
@@ -1647,7 +1665,7 @@ function renderShortcuts(list,cur){
   var p=list.find(function(x){return x.id===cur});
   if(!p||!p.shortTags||!p.shortTags.length){el.innerHTML='<span style="color:var(--muted);font-size:11px">暂无快捷标签</span>';return;}
   el.innerHTML=p.shortTags.map(function(t){
-    return '<button class="btn" style="font-size:11px;padding:5px 12px" onclick="quickChat(''+t+'')">'+esc(t)+'</button>';
+    return '<button class="btn" style="font-size:11px;padding:5px 12px" onclick="quickChat(\''+t+'\')">'+esc(t)+'</button>';
   }).join('');
 }
 function quickChat(text){
@@ -1691,7 +1709,7 @@ function updateFloatWidget(){
     if(tags.length){
       qb.style.display='flex';
       qb.innerHTML=tags.slice(0,4).map(function(t){
-        return '<button class="btn" style="font-size:10px;padding:4px 10px;border-radius:12px;background:var(--bg2);border:1px solid var(--border)" onclick="quickChat(''+t+'')">'+esc(t)+'</button>';
+        return '<button class="btn" style="font-size:10px;padding:4px 10px;border-radius:12px;background:var(--bg2);border:1px solid var(--border)" onclick="quickChat(\''+t+'\')">'+esc(t)+'</button>';
       }).join('');
     }else{qb.style.display='none';}
   }).catch(function(e){});

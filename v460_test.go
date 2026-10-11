@@ -1,4 +1,4 @@
-// v4.6.0 客户端下载器主线测试
+// v4.6.1 客户端下载器主线测试
 package main
 
 import (
@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// TestV460VersionBumped 版本号必须已升至 4.6.0
-func TestV460VersionBumped(t *testing.T) {
-	if version != "4.6.0" {
-		t.Fatalf("version expected 4.6.0, got %s", version)
+// TestV461VersionBumped 版本号必须已升至 4.6.1
+func TestV461VersionBumped(t *testing.T) {
+	if version != "4.6.1" {
+		t.Fatalf("version expected 4.6.1, got %s", version)
 	}
 }
 

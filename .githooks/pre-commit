@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Pre-commit hook for TarsSecureGuard
+# Enforces: JS inline syntax (acorn), go vet, go test -race (quick subset)
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+echo "=== Pre-commit checks ==="
+
+# 1. JS inline syntax check
+if [[ -f "scripts/lint-js-inline.js" && -f "frontend/index.html" ]]; then
+  echo "[check] JS inline syntax (acorn)..."
+  if ! node scripts/lint-js-inline.js frontend/index.html; then
+    echo "[FAIL] JS syntax error in frontend/index.html — commit blocked"
+    exit 1
+  fi
+fi
+
+# 2. go vet
+echo "[check] go vet..."
+if ! go vet ./...; then
+  echo "[FAIL] go vet failed — commit blocked"
+  exit 1
+fi
+
+# 3. go test -race (main package only, fast subset)
+echo "[check] go test -race (main package)..."
+if ! go test -race -count=1 . 2>&1 | tail -5; then
+  echo "[FAIL] go test -race failed — commit blocked"
+  exit 1
+fi
+
+echo "=== All pre-commit checks passed ==="
