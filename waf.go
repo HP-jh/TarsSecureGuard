@@ -109,6 +109,10 @@ var scannerUABlacklist = []string{
 	"dirbuster", "gobuster", "ffuf", "nuclei", "wpscan", "acunetix",
 	"nessus", "openvas", "metasploit", "burpsuite", "havij", "hydra",
 	"w3af", "arachni", "whatweb", "dotdotpwn", "censys", "shodan",
+	// v4.6.3 WAF 盲区补全：脚本化 HTTP 客户端与目录扫描器常见 UA 特征
+	"nmap", "python-requests", "go-http-client", "curl/", "wget",
+	"libwww-perl", "okhttp", "scrapy", "sqlninja",
+	"awfuzz", "wfuzz", "xray", "anchashi",
 }
 
 // sensitivePathPatterns：敏感路径探测特征（小写子串匹配）。

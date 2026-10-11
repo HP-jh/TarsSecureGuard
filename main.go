@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.6.2"
+var version = "4.6.3"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -83,9 +83,17 @@ var (
 	rlHits = map[string]*rlEntry{}
 
 	// 可复用的 HTTP 客户端（避免每次请求新建连接）
+	// v4.6.3 SSRF 统一防护：出站按「目标是否用户/模型可控」分两池——
+	//   fetchClient / downloadClient：目标 URL 来自工具参数 / API 请求体，
+	//     走 ssrfGuardedClient（连接时实际 IP 校验 + 禁自动重定向）；
+	//   httpClientShort / httpClientLong：固定端点（127.0.0.1 运行时、云端
+	//     provider baseURL 由运维配置决定），保留共享连接池，但 Transport
+	//     接入 ssrfSafeDialContext(true,true)——仅放行回环+私网，链路本地/
+	//     云元数据/组播/未指定仍拒绝。
 	httpClientShort = &http.Client{Timeout: 30 * time.Second}
 	httpClientLong  = &http.Client{Timeout: 300 * time.Second}
-	downloadClient  = &http.Client{} // 模型下载专用：超时由请求 context 控制
+	fetchClient     = ssrfGuardedClient(30 * time.Second) // 网页抓取 / OpenAPI 文档 / 搜索源
+	downloadClient  = ssrfGuardedClient(0)                // 模型下载专用：超时由请求 context 控制
 )
 
 // ===================== HTTP 主入口 =====================
@@ -727,6 +735,13 @@ func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 	}
 }
 
+// sanitizeAuditField v4.6.3：审计字段防注入清洗——剔除 CR/LF/TAB（防止外部输入
+// 伪造审计行），保证「一条记录一行」的日志格式不变量。
+func sanitizeAuditField(s string) string {
+	s = strings.NewReplacer("\n", " ", "\r", " ", "\t", " ").Replace(s)
+	return strings.TrimSpace(s)
+}
+
 // isAdminRoute 判断是否为仅 admin 可访问的管理端点
 func isAdminRoute(path string) bool {
 	adminPaths := []string{
@@ -753,8 +768,10 @@ func auditLog(action, user, detail string) {
 	if !enabled {
 		return
 	}
+	// v4.6.3：user/detail 可被请求体/工具参数影响——落盘前统一清洗
 	line := fmt.Sprintf("[%s] ACTION=%s USER=%s IP=%s DETAIL=%s",
-		time.Now().Format("2006-01-02 15:04:05"), action, user, "-", detail)
+		time.Now().Format("2006-01-02 15:04:05"),
+		sanitizeAuditField(action), sanitizeAuditField(user), "-", sanitizeAuditField(detail))
 	fileLog("audit", line)
 	logMsg("[AUDIT] " + line)
 	// v3.2.2 审计升级：同步落结构化 JSONL 哈希链条目（tenant 感知变体见 auditLogT）
@@ -814,9 +831,40 @@ func openBrowser(url string) {
 	cmd.Start()
 }
 
+// sensitiveGatewayFiles v4.6.3（锦衣卫红线）：网关自身安全资产 denylist。
+// tars_file_read/write、OpenAPI 本地文档等模型可控路径即使落在 allowedRoots
+// 内也不得触及这些文件——否则「写 config.json → watchConfig 2s 热重载」即构成
+// 提权/RCE 链路（可打开 defaultKeyAllowed、注入 customTools 端点、关 WAF），
+// 读取则泄露 gateway-key.txt 中的轮换密钥。判定基于 Clean 后的绝对路径尾段。
+var sensitiveGatewayFiles = []string{"config.json", "gateway-key.txt"}
+
+func isSensitiveGatewayPath(abs string) bool {
+	// 统一处理 Windows 路径分隔符（测试用例含 C:\Tars\gateway-key.txt）
+	normalized := strings.ReplaceAll(abs, "\\", "/")
+	lower := strings.ToLower(filepath.Clean(normalized))
+	base := filepath.Base(lower)
+	for _, name := range sensitiveGatewayFiles {
+		if base == name {
+			return true
+		}
+	}
+	// logs/ 目录整体保护（审计日志完整性：防篡改/伪造审计记录）
+	d := filepath.Dir(lower)
+	if filepath.Base(d) == "logs" {
+		return true
+	}
+	return false
+}
+
 func isPathAllowed(path string, write bool) bool {
 	abs, err := filepath.Abs(path)
 	if err != nil {
+		return false
+	}
+	// v4.6.3：先过 denylist——模型可控文件工具禁止读写网关安全资产
+	if isSensitiveGatewayPath(abs) {
+		auditLog("POLICY_VIOLATION", "system(path-guard)",
+			fmt.Sprintf("拒绝访问敏感路径 %s (write=%v) [FILE_GUARD]", abs, write))
 		return false
 	}
 	lower := strings.ToLower(abs)
