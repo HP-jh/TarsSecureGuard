@@ -83,9 +83,16 @@ var (
 	rlHits = map[string]*rlEntry{}
 
 	// 可复用的 HTTP 客户端（避免每次请求新建连接）
+	// v3.2.2 SSRF 统一防护：出站按「目标是否用户/模型可控」分两池——
+	//   fetchClient / downloadClient：目标 URL 来自工具参数 / API 请求体，
+	//     走 ssrfGuardedClient（连接时实际 IP 校验 + 禁自动重定向）；
+	//   httpClientShort / httpClientLong：固定端点（127.0.0.1 运行时、云端
+	//     provider baseURL 由运维配置决定），保留共享连接池，但 Transport
+	//     接入 ssrfSafeTransport(true)——仅放行回环，私网/云元数据仍拒绝。
 	httpClientShort = &http.Client{Timeout: 30 * time.Second}
 	httpClientLong  = &http.Client{Timeout: 300 * time.Second}
-	downloadClient  = &http.Client{} // 模型下载专用：超时由请求 context 控制
+	fetchClient     = ssrfGuardedClient(30 * time.Second) // 网页抓取 / OpenAPI 文档 / 搜索源
+	downloadClient  = ssrfGuardedClient(0)                // 模型下载专用：超时由请求 context 控制
 )
 
 // ===================== HTTP 主入口 =====================
