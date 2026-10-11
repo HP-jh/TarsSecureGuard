@@ -45,6 +45,8 @@ type V3Config struct {
 		AdminPerMin int `json:"adminPerMin"` // admin 类默认 10
 		ModelPerMin int `json:"modelPerMin"` // 模型操作默认 6
 		PerIPTotal  int `json:"perIpTotal"`  // 单 IP 总量默认 240/分（防洗端点绕过分维度）
+		WindowSec   int `json:"windowSec"`   // 全局滑窗秒数，默认 10
+		MaxReq      int `json:"maxReq"`      // 全局滑窗最大请求数，默认 120
 	} `json:"rateLimit"`
 	IPReputation struct {
 		Enabled   *bool    `json:"enabled"`   // 默认 true

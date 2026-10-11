@@ -284,6 +284,25 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleConfigRevert v4.6.2：回滚到上一份合法配置（admin only）
+func handleConfigRevert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "仅支持 POST"})
+		return
+	}
+	name, role, ok := userFromRequest(r)
+	if !ok || role != "admin" {
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "需要 admin 角色"})
+		return
+	}
+	if err := revertConfig(); err != nil {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	auditLog("CONFIG_REVERT", name, "配置已回滚至上一份合法快照")
+	writeJSON(w, map[string]string{"status": "reverted"})
+}
+
 // ===================== 搜索 / 占位 / 发现 =====================
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {

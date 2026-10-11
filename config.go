@@ -480,7 +480,9 @@ func setJSONPath(root map[string]interface{}, path string, value interface{}) {
 // 采用轮询 + 文件内容哈希的方式监听 config.json 变化（不引入外部依赖），
 // 检测到变化且文件可完整解析时自动调用 loadConfig 重载，无需重启服务。
 
-var lastCfgHash string // 上次加载时 config.json 的 SHA-256 指纹
+var lastCfgHash string   // 上次加载时 config.json 的 SHA-256 指纹
+var prevCfgJSON []byte   // 热重载前一份合法配置的 JSON 快照（供回滚）
+var prevCfgHash string   // 回滚基线的指纹
 
 // configHash 计算配置文件的 SHA-256 指纹；读取失败返回空串
 func configHash() string {
@@ -509,6 +511,76 @@ func configParsable() bool {
 	return json.Unmarshal(data, &probe) == nil
 }
 
+// configDiff 生成两段 JSON 的字段级差异摘要（扁平键值对）
+func configDiff(oldJSON, newJSON []byte) string {
+	var oldM, newM map[string]interface{}
+	json.Unmarshal(oldJSON, &oldM)
+	json.Unmarshal(newJSON, &newM)
+	var changes []string
+	flattenDiff("", oldM, newM, &changes)
+	if len(changes) == 0 {
+		return "无字段级差异"
+	}
+	if len(changes) > 20 {
+		changes = append(changes[:20], "...")
+	}
+	return strings.Join(changes, "; ")
+}
+func flattenDiff(prefix string, oldM, newM map[string]interface{}, out *[]string) {
+	allKeys := map[string]bool{}
+	for k := range oldM {
+		allKeys[k] = true
+	}
+	for k := range newM {
+		allKeys[k] = true
+	}
+	for k := range allKeys {
+		path := k
+		if prefix != "" {
+			path = prefix + "." + k
+		}
+		ov, oe := oldM[k]
+		nv, ne := newM[k]
+		if !oe && ne {
+			*out = append(*out, path+"=新增")
+			continue
+		}
+		if oe && !ne {
+			*out = append(*out, path+"=删除")
+			continue
+		}
+		om, oIsMap := ov.(map[string]interface{})
+		nm, nIsMap := nv.(map[string]interface{})
+		if oIsMap && nIsMap {
+			flattenDiff(path, om, nm, out)
+		} else {
+			oldS := fmt.Sprintf("%v", ov)
+			newS := fmt.Sprintf("%v", nv)
+			if oldS != newS {
+				*out = append(*out, path+"="+newS)
+			}
+		}
+	}
+}
+
+// revertConfig 回滚到上一份合法配置
+func revertConfig() error {
+	if len(prevCfgJSON) == 0 {
+		return fmt.Errorf("无可用回滚快照")
+	}
+	var c Config
+	if err := json.Unmarshal(prevCfgJSON, &c); err != nil {
+		return fmt.Errorf("回滚配置解析失败: %w", err)
+	}
+	cfgMu.Lock()
+	cfg = c
+	cfgMu.Unlock()
+	// 回滚后同步持久化并触发对齐
+	saveConfig()
+	loadConfig()
+	return nil
+}
+
 // watchConfig 每 2 秒轮询一次配置文件指纹，变化时自动重载并记录日志。
 // 说明：loadConfig 解析成功后会 saveConfig 回写文件（规范化格式），
 // 重载完成后以回写后的指纹为新基线，避免自我触发循环重载。
@@ -523,9 +595,20 @@ func watchConfig() {
 		if !configParsable() {
 			continue // 文件写入未完成（半写状态），等下一轮再试
 		}
+		// 保存当前合法配置作为回滚基线
+		cfgMu.RLock()
+		oldJSON, _ := json.Marshal(cfg)
+		cfgMu.RUnlock()
 		logMsg("[CONFIG] 检测到配置文件变化，自动重载...")
-		auditLog("CONFIG_HOT_RELOAD", "system", "外部 config.json 变更已热重载（含模块/防火墙对齐）") // v3.0.0 B 线：热重载审计
 		loadConfig()
+		// 生成差异并审计
+		cfgMu.RLock()
+		newJSON, _ := json.Marshal(cfg)
+		cfgMu.RUnlock()
+		diff := configDiff(oldJSON, newJSON)
+		prevCfgJSON = oldJSON
+		prevCfgHash = lastCfgHash
+		auditLog("CONFIG_CHANGE", "system", "外部 config.json 变更已热重载；差异: "+diff)
 		// v3.0.1 Tier 1：配置热重载触发缓存全量失效
 		//（[TIER1_CACHE_DEGRADE] 条件 3：热重载 / 安全级别变更 / 开关切换 / POLICY_VIOLATION）
 		tier1CacheInvalidate("config_hot_reload")

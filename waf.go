@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -22,7 +23,7 @@ var wafRules = []struct {
 	strict bool
 }{
 	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%c0%af|%c1%9c)`), false},
-	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping)\\b|&&|;\\s*\\x60[a-z]+\\x60)"), false},
+	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|&&\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|;\\s*\\x60[a-z]+\\x60)"), false},
 	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
 	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
 	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*)`), true},
@@ -208,14 +209,19 @@ func wafCheck(r *http.Request) string {
 	if r.ContentLength > maxBodyBytes {
 		return "请求体过大"
 	}
-	// 6) 路径与查询串检测（所有模式都查）
-	if reason := wafMatch(r.URL.Path+" "+r.URL.RawQuery, false); reason != "" {
+	// 6) 路径与查询串检测（所有模式都查；查询串先解码再扫，防编码穿越）
+	scanQuery := r.URL.RawQuery
+	if decoded, err := url.QueryUnescape(scanQuery); err == nil {
+		scanQuery = decoded
+	}
+	if reason := wafMatch(r.URL.Path+" "+scanQuery, false); reason != "" {
 		return reason
 	}
-	// 7) 请求体扫描：工具端点总是扫描；strict 模式下扫描所有端点
+	// 7) 请求体扫描：工具端点总是扫描；chat 端点扫 messages[].content（strict 规则）；strict 模式下扫描所有端点
 	strict := wafStrict()
 	toolEndpoint := strings.Contains(r.URL.Path, "/mcp") || strings.HasPrefix(r.URL.Path, "/api/tools/")
-	if !toolEndpoint && !strict {
+	chatEndpoint := strings.Contains(r.URL.Path, "/v1/chat") || strings.Contains(r.URL.Path, "/api/chat")
+	if !toolEndpoint && !chatEndpoint && !strict {
 		return ""
 	}
 	if r.Body != nil {
@@ -228,19 +234,37 @@ func wafCheck(r *http.Request) string {
 			return ""
 		}
 		r.Body = io.NopCloser(bytes.NewReader(b))
-		if reason := wafScanBody(b, strict); reason != "" {
+		if reason := wafScanBody(b, strict, chatEndpoint); reason != "" {
 			return reason
 		}
 	}
 	return ""
 }
 
-// wafScanBody：normal 模式只扫描工具调用参数中的字符串值（降低聊天内容误报），
+// wafScanBody：normal 模式只扫描工具调用参数中的字符串值（降低聊天内容误报）；
+// chat 端点提取 messages[].content 用 strict 规则扫描（PromptInjection/PII/XSS/SQLi）；
 // strict 模式扫描整个请求体。
-func wafScanBody(b []byte, strict bool) string {
+func wafScanBody(b []byte, strict bool, isChat bool) string {
 	if strict {
 		return wafMatch(string(b), true)
 	}
+	// chat 端点：提取 messages[].content 用 strict 规则扫描（成本极低，已走 ASCII 预筛）
+	if isChat {
+		var req struct {
+			Messages []struct {
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if json.Unmarshal(b, &req) == nil {
+			for _, m := range req.Messages {
+				if reason := wafMatch(m.Content, true); reason != "" {
+					return reason
+				}
+			}
+		}
+		return ""
+	}
+	// 工具端点扫描
 	var m map[string]interface{}
 	if json.Unmarshal(b, &m) != nil {
 		return ""

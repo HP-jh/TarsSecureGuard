@@ -173,6 +173,7 @@ func routeClass(path string) string {
 		strings.HasPrefix(path, "/api/admin/models/stop"),
 		strings.HasPrefix(path, "/api/admin/model/download"),
 		path == "/api/admin/config",
+		path == "/api/admin/config/revert",
 		path == "/api/admin/modules",
 		path == "/api/admin/sidecar/reload",
 		path == "/api/admin/v32/auto-discovery/scan",
