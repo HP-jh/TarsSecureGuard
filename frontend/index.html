@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TarsSecureGuard</title>
+<!-- v4.6.5 内联 SVG favicon（与侧边栏 logo 同款渐变 T）：消除浏览器 /favicon.ico 404，无外部请求 -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2358a6ff%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23bc8cff%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url%28%23g%29%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2245%22%20font-family%3D%22Arial%2Csans-serif%22%20font-size%3D%2238%22%20font-weight%3D%22800%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3ET%3C%2Ftext%3E%3C%2Fsvg%3E">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -286,7 +288,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
-<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver">v4.6.0</div></div></div>
+<div class="logo"><div class="logo-mark">T</div><div><h1>TarsSecureGuard</h1><div class="ver" id="ver-badge">v…</div></div></div>
 <div class="nav-group"><div class="nav-title">总览</div>
 <div class="nav-item active" onclick="pg('dashboard',this)"><span class="ic"><svg><use href="#i-dash"/></svg></span> Dashboard</div>
 <div class="nav-item" onclick="pg('persona',this)"><span class="ic"><svg><use href="#i-persona"/></svg></span> 职业</div>
@@ -679,6 +681,15 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="acts"><button class="btn btn-g" onclick="cfmNo()">Cancel</button><button class="btn btn-d" id="cfm-yes" onclick="cfmYes()">确认</button></div>
 </div></div>
 
+<!-- ===== v4.6.6 网关密钥引导弹窗（小白化）：401 时弹出，讲清密钥从哪来、填错有反馈 ===== -->
+<div class="overlay" id="key-dlg" onclick="if(event.target===this)keyDlgCancel()">
+<div class="dialog">
+<h3>需要网关密钥</h3>
+<p>网关密钥是这台 AI 网关的「门禁卡」，用来确认是你本人在使用，防止别人随便调用你的 AI。<br><br><b style="color:var(--text)">密钥在哪找？</b> 打开网关所在的文件夹，找到 <b style="color:var(--cyan)">gateway-key.txt</b> 这个文件，用记事本打开，把里面的内容全部复制、粘贴到下面就行。</p>
+<div class="fg"><input class="input" id="key-input" type="password" placeholder="粘贴 gateway-key.txt 里的密钥" autocomplete="off" onkeydown="if(event.key==='Enter')keyDlgSubmit()"><div id="key-err" style="color:var(--red);font-size:11px;margin-top:6px;min-height:14px"></div></div>
+<div class="acts"><button class="btn btn-g" onclick="keyDlgCancel()">以后再说</button><button class="btn btn-p" onclick="keyDlgSubmit()">连接网关</button></div>
+</div></div>
+
 <!-- ===== Command palette (Ctrl+K) ===== -->
 <div class="overlay" id="palette" onclick="if(event.target===this)closePalette()">
 <div class="palette">
@@ -773,8 +784,24 @@ function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 /* v3.2.1 桌面客户端（Tauri）：前端资产由 tauri://localhost 服务，API 跨源指向本地网关；
    浏览器模式下（页面即由网关服务）AB 为空串，行为与历史版本一致 */
 var AB=(location.protocol==='tauri:'||location.hostname==='tauri.localhost')?'http://127.0.0.1:18889':'';
-function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||''},o.headers||{});return fetch(AB+u,o).then(function(r){if(r.status===401){var k=prompt('网关密钥未配置或已失效（零信任基线：默认密钥通道须显式启用）。\n请输入安装目录 gateway-key.txt 中的网关密钥：');if(k){localStorage.setItem('tsg_api_key',k);o=Object.assign({},o,{headers:Object.assign({},o.headers)});delete o.headers['X-API-Key'];return api(u,o);}throw new Error('HTTP 401');}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
+function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','X-API-Key':localStorage.getItem('tsg_api_key')||''},o.headers||{});return fetch(AB+u,o).then(function(r){
+/* v4.6.6 小白化：401 不再弹浏览器原生 prompt——改为应用内密钥引导弹窗（见 key-dlg），
+   密钥填对后自动重试刚才的请求；填错会再次弹出并提示核对 */
+if(r.status===401){return askGatewayKey(u,o);}
+if(!r.ok){throw new Error(humanErrMsg(r.status));}
+return r.json();});}
+/* v4.6.6 小白化：常见错误码翻译成人话 */
+function humanErrMsg(code){switch(code){case 403:return '没有权限做这个操作（当前密钥的角色不够）';case 404:return '接口不存在——网关和页面版本可能不匹配，试试重启网关';case 429:return '操作太快啦，稍等几秒再试';case 500:case 502:case 503:return '网关内部出了点问题，请稍后重试或查看日志';default:return '请求失败（错误码 '+code+'）';}}
+/* v4.6.6 密钥引导弹窗：挂起当前请求，密钥确认后自动重试 */
+var keyWaiters=[],keyDlgOpen=false;
+function askGatewayKey(u,o){return new Promise(function(resolve,reject){keyWaiters.push({u:u,o:o,res:resolve,rej:reject});if(!keyDlgOpen){keyDlgOpen=true;$('key-dlg').classList.add('show');setTimeout(function(){var i=$('key-input');i.value='';i.focus();},60);}});}
+function keyDlgSubmit(){var k=$('key-input').value.trim();if(!k){$('key-err').textContent='密钥不能为空：打开安装文件夹里的 gateway-key.txt，把内容复制过来';return;}localStorage.setItem('tsg_api_key',k);keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){api(w.u,w.o).then(w.res).catch(function(e){w.rej(e);toast('密钥可能不对：'+(e&&e.message||e),'err');});});}
+function keyDlgClose(){$('key-dlg').classList.remove('show');keyDlgOpen=false;$('key-err').textContent='';}
+function keyDlgCancel(){keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){w.rej(new Error('需要网关密钥才能继续'))});}
 function toast(msg,type){var w=$('toast-wrap');var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;w.appendChild(t);setTimeout(function(){t.classList.add('hide');setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},350)},2800);while(w.children.length>4)w.removeChild(w.firstChild);}
+/* v4.6.5 版本徽章动态化：从 /api/status 读取真实版本号，侧边栏徽章与标签页标题同步刷新——
+   彻底消灭「徽章写死旧版本」的漂移（此前 v4.6.0 后连续三个版本徽章未更新） */
+function syncVerBadge(){api('/api/status').then(function(d){if(!d||!d.version)return;var v='v'+d.version;var b=$('ver-badge');if(b&&b.textContent!==v)b.textContent=v;var t='TarsSecureGuard '+v;if(document.title!==t)document.title=t;}).catch(function(){});}
 function btnLoad(btn,on){if(!btn)return;if(typeof btn==='string')btn=$(btn);if(!btn)return;btn.classList.toggle('loading',!!on);btn.disabled=!!on;}
 function togglePwd(id,btn){var i=$(id);var show=i.type==='password';i.type=show?'text':'password';btn.innerHTML='<svg><use href="#i-eye'+(show?'off':'')+'"/></svg>';}
 
@@ -1364,10 +1391,10 @@ function loadMeter(){
     $('meter-recent').innerHTML=rr||'<tr><td colspan="5" style="color:var(--muted)">暂无数据</td></tr>';
   }).catch(function(e){$('meter-stats').innerHTML='<div class="empty">加载失败：'+esc(e&&e.message||e)+'</div>';});
 }
-function meterReset(){if(!confirm('清零测量器（环形缓冲 + 聚合）？'))return;api('/api/admin/v34/meter',{method:'POST'}).then(function(){loadMeter();}).catch(function(e){alert('清零失败：'+(e&&e.message||e));});}
+function meterReset(){if(!confirm('清零测量器（环形缓冲 + 聚合）？'))return;api('/api/admin/v34/meter',{method:'POST'}).then(function(){loadMeter();}).catch(function(e){toast('清零失败：'+(e&&e.message||e),'err');});}
 function meterEstimate(){
   var text=$('meter-est-text').value;
-  if(!text){alert('请输入待估算文本');return;}
+  if(!text){toast('请先输入待估算的文本','err');return;}
   var body={text:text};
   var m=$('meter-est-model').value.trim();
   if(m)body.model=m;
@@ -1400,11 +1427,11 @@ function loadConn(){
 }
 function connSave(enable){
   var tpl=$('conn-sel').value;
-  if(!tpl){alert('请选择连接器模板');return;}
+  if(!tpl){toast('请先选择一个连接器模板','err');return;}
   var params={};
   var raw=$('conn-params').value.trim();
-  if(raw){try{params=JSON.parse(raw);}catch(e){alert('参数不是合法 JSON：'+e.message);return;}}
-  api('/api/admin/v34/connectors',{method:'POST',body:JSON.stringify({template:tpl,params:params,enabled:enable})}).then(function(){loadConn();}).catch(function(e){alert('保存失败：'+(e&&e.message||e));});
+  if(raw){try{params=JSON.parse(raw);}catch(e){toast('参数格式不对（要填 JSON）：'+e.message,'err');return;}}
+  api('/api/admin/v34/connectors',{method:'POST',body:JSON.stringify({template:tpl,params:params,enabled:enable})}).then(function(){loadConn();}).catch(function(e){toast('保存失败：'+(e&&e.message||e),'err');});
 }
 /* ============ 扩展器（v3.9.0）：工具探测 / 接入片段生成 ============ */
 var extData={targets:[],baseUrl:'',model:'',chatApiOn:true,installed:0,total:0};
@@ -1433,7 +1460,7 @@ function loadExt(){
 function extPick(id){$('ext-sel').value=id;extGen();}
 function extGen(){
   var id=$('ext-sel').value;
-  if(!id){alert('请选择目标工具');return;}
+  if(!id){toast('请先选择要接入的目标工具','err');return;}
   var body={target:id,includeKey:$('ext-key').checked,model:$('ext-model').value.trim()||''};
   api('/api/admin/v37/extender',{method:'POST',body:JSON.stringify(body)}).then(function(d){
     var sn=(d&&d.snippet)||{};
@@ -1484,17 +1511,17 @@ function capsRender(){
   $('caps-matrix').innerHTML=rows.length?rows.join(''):'<tr><td colspan="5" style="color:var(--muted)">无匹配模型</td></tr>';
 }
 function capsToggleReroute(){
-  api('/api/admin/v33/capabilities',{method:'POST',body:JSON.stringify({autoReroute:!capsData.autoReroute})}).then(function(){loadCaps();}).catch(function(e){alert('切换失败：'+(e&&e.message||e));});
+  api('/api/admin/v33/capabilities',{method:'POST',body:JSON.stringify({autoReroute:!capsData.autoReroute})}).then(function(){loadCaps();}).catch(function(e){toast('切换失败：'+(e&&e.message||e),'err');});
 }
 function capsSaveOverride(clear){
   var m=$('caps-ov-model').value.trim();
-  if(!m){alert('请输入模型名（provider/model 或裸模型名）');return;}
+  if(!m){toast('请先填写模型名（如 provider/model）','err');return;}
   var caps=[];
   if(!clear){
     ($('caps-ov-caps').value||'').split(',').forEach(function(x){x=x.trim();if(x)caps.push(x);});
-    if(!caps.length){alert('请输入至少一个能力标签，或点「清除」删除覆盖');return;}
+    if(!caps.length){toast('请至少填一个能力标签，或点「清除」删除覆盖','err');return;}
   }
-  api('/api/admin/v33/capabilities',{method:'POST',body:JSON.stringify({model:m,capabilities:clear?null:caps})}).then(function(){$('caps-ov-model').value='';$('caps-ov-caps').value='';loadCaps();}).catch(function(e){alert('保存失败：'+(e&&e.message||e));});
+  api('/api/admin/v33/capabilities',{method:'POST',body:JSON.stringify({model:m,capabilities:clear?null:caps})}).then(function(){$('caps-ov-model').value='';$('caps-ov-caps').value='';loadCaps();}).catch(function(e){toast('保存失败：'+(e&&e.message||e),'err');});
 }
 function capsApplyRender(list){
   var cards=[],seen={};
@@ -1613,7 +1640,7 @@ function auditVerify(){
 function auditExport(){
   var d=$('a2-date').value;if(!d){toast('请先选择日期','err');return}
   fetch(AB+'/api/admin/audit/export?date='+encodeURIComponent(d),{headers:{'X-API-Key':localStorage.getItem('tsg_api_key')||''}}).then(function(r){
-    if(!r.ok)throw new Error('HTTP '+r.status);
+    if(!r.ok)throw new Error(humanErrMsg(r.status));
     return r.blob();
   }).then(function(b){
     var u=URL.createObjectURL(b),a=document.createElement('a');
@@ -1762,7 +1789,7 @@ function updateClientButtons(){var openBtn=$('clientOpenBtn'),dlBtn=$('clientDow
 function openDesktopClient(){window.location.href='tsg://open';}
 function showClientDownload(){var url='https://github.com/HP-jh/TarsSecureGuard/releases/latest';window.open(url,'_blank');}
 // 页面加载后检测
-document.addEventListener('DOMContentLoaded',function(){setTimeout(detectClient,800);});
+document.addEventListener('DOMContentLoaded',function(){syncVerBadge();setTimeout(detectClient,800);});
 // 监听 deep-link 事件（Tauri 壳内）
 if(window.__TAURI__&&window.__TAURI__.event){window.__TAURI__.event.listen('deeplink',function(e){console.log('deeplink',e);});}
 
