@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.7.1"
+var version = "4.7.2"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -295,12 +295,15 @@ func main() {
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
 	server := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
-		Handler:        obsMiddleware(gatewayMiddleware(mux)),
-		ReadTimeout:    60 * time.Second,
-		WriteTimeout:   600 * time.Second,
-		IdleTimeout:    120 * time.Second,
-		MaxHeaderBytes: 1 << 20,
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
+		Handler: obsMiddleware(gatewayMiddleware(mux)),
+		// v4.7.2：ReadHeaderTimeout 限制 header 读取时间（防 Slowloris 慢连接
+		// 拖死 listener；与 ReadTimeout/WriteTimeout 配合形成三层超时）
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      600 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 	registerServer(server) // v3.0.0 A 线：L3 drain 时关闭 listener 用
 

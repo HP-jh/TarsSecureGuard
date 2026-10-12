@@ -1,4 +1,4 @@
-// v4.7.1 WAF 安全加固测试：Host 头注入检测 + HTTP 请求走私检测
+// v4.7.2 WAF 安全加固测试：Host 头注入检测 + HTTP 请求走私检测
 package main
 
 import (
@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-// TestV471VersionBumped 版本号必须已升至 4.7.1
+// TestV471VersionBumped 版本号必须已升至 4.7.2
 func TestV471VersionBumped(t *testing.T) {
-	if version != "4.7.1" {
-		t.Fatalf("version expected 4.7.1, got %s", version)
+	if version != "4.7.2" {
+		t.Fatalf("version expected 4.7.2, got %s", version)
 	}
 }
 
