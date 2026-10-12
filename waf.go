@@ -209,6 +209,17 @@ func wafCheck(r *http.Request) string {
 			return "敏感路径探测: " + hit
 		}
 	}
+	// 4.5) Host 头注入检测（v4.7.1）：拒绝含换行符/空字节的 Host 头，
+	// 防止 HTTP 响应分割、缓存投毒、虚拟主机混淆等攻击向量
+	if host := r.Host; strings.ContainsAny(host, "\r\n\x00") {
+		return "Host 头注入"
+	}
+	// 4.6) HTTP 请求走私检测（v4.7.1）：同时存在 Content-Length 与
+	// Transfer-Encoding 头是经典走私攻击向量，前端可能按一个长度解析、
+	// 后端按另一个解析，导致绕过访问控制
+	if r.ContentLength >= 0 && r.Header.Get("Transfer-Encoding") != "" {
+		return "HTTP 请求走私: CL+TE 双重头"
+	}
 	// 5) 大文件上传检测（新增）：Content-Length 超过 maxBodyBytes 直接拦截
 	if r.ContentLength > maxBodyBytes {
 		return "请求体过大"
