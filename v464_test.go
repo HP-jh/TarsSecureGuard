@@ -10,10 +10,10 @@ import (
 	"tarssecureguard-v41/crownext/security"
 )
 
-// TestV464VersionBumped 版本号必须已升至 4.6.6
+// TestV464VersionBumped 版本号必须已升至 4.7.0
 func TestV464VersionBumped(t *testing.T) {
-	if version != "4.6.6" {
-		t.Fatalf("version expected 4.6.6, got %s", version)
+	if version != "4.7.0" {
+		t.Fatalf("version expected 4.7.0, got %s", version)
 	}
 }
 

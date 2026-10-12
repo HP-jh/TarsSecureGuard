@@ -1,3 +1,37 @@
+# TarsSecureGuard v4.7.0 · 官方三站 + 多语言文档 + 安装器加固 —— GitHub Pages / i18n / SHA256
+
+> 对应项：GitHub Pages 介绍站与实时性能监控站、下载页、6 语言 README、红蓝对抗报告、安装器防篡改与桌面快捷方式。
+
+## 一、GitHub Pages 官方三站（site/）
+
+- **介绍站**（index.html）：极光动效 Hero、核心数据带（32 模型源 / 13 客户端 / 243+ 测试 / 7 平台）、9 大特性卡片、**竞品对比表**（vs LiteLLM / One API / OpenRouter × 7 项能力）、性能速览、FAQ、多语言页脚；附「小白推荐」手绘风印章（盖章动画）
+- **下载站**（download.html）：自动识别 OS/CPU，直连 GitHub Releases API 一键下载对应资产；API 不可达时优雅降级到 Releases 页；中英双语；SHA256 校验指引
+- **性能监控站**（perf.html + perf-data.json）：11 项基准指标（计算/网络/存储三维度）跨版本趋势图 + 可筛选指标表 + 里程碑时间线 + 测量方法学卡片；60 秒自动刷新（缓存穿透）；每次发版由 `scripts/perf-site-update.sh` 追加真实测量数据点
+- sitemap.xml / robots.txt 同步更新三站 URL
+
+## 二、多语言文档（i18n 分支并入）
+
+- README 新增 6 语言版本：English / Русский / العربية / Français / 日本語 / 한국어（顶部导航互链）
+- 红蓝对抗渗透测试报告 7 语言版（docs/i18n/red-blue-battle-2026-10-11/）
+
+## 三、安装器加固（install.sh / install.ps1）
+
+- **修复资产命名**：统一使用 `tsg-vX.Y.Z-<os>-<arch>` 真实资产名（latest 自动解析真实 tag，API + 302 跳转双兜底）
+- **SHA256 校验**：下载后对照 SHA256SUMS.txt 校验，不匹配即中止安装（TSG_NO_VERIFY / -NoVerify 可关）
+- **桌面快捷方式**：Linux 建 .desktop（应用菜单+桌面）、macOS 建 .command、Windows 建 .lnk —— 双击即启动网关面板
+
+## 四、基准死锁修复（crownext/bench/harness.go）
+
+- 修复 B8 遗留缺陷：Harness.Run 嵌套 testing.Benchmark 触发全局 benchmarkLock 死锁（真实 `go test -bench` 下聚合基准挂死）；改为手动计时 + runtime.MemStats 统计，单测与基准均可正常运行
+
+## 五、版本与配套
+
+- 版本号 4.6.6 → 4.7.0（main / security engine / Tauri 壳 / 版本锁测试同步）
+- Release 资产：7 平台二进制 + android-arm64 + SHA256SUMS.txt
+- 新增 `scripts/perf-site-update.sh` 发版数据点采集脚本
+
+---
+
 # TarsSecureGuard v3.8.0 · 职业系统 —— 人性化 / 少点击 / 全年龄段 / 自动配置
 
 > 对应项：人性化交互升级、内置职业、调用链优化、模型库自动匹配。

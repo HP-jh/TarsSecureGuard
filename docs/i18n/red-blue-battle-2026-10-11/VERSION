@@ -1,0 +1,25 @@
+# VERSION
+
+build: 2026-10-11.1
+released: 2026-10-11 20:42 (UTC+8)
+project: red-blue-battle-i18n
+languages: zh-Hans, en, ru, ar, fr, ja, ko (7 total)
+source_event_date: 2026-10-11 17:28–18:28 (60 min)
+translator: aily-text-translate / Doubao Seed 16
+artifacts:
+  - zh/red-blue-battle-report.md
+  - en/red-blue-battle-report.md
+  - ru/red-blue-battle-report.md
+  - ar/red-blue-battle-report.md
+  - fr/red-blue-battle-report.md
+  - ja/red-blue-battle-report.md
+  - ko/red-blue-battle-report.md
+  - code/blue_service.py
+  - code/red_service.py
+  - README.md
+excluded:
+  - target.txt (temporary API key, deliberately not shipped in public build)
+notes:
+  - Chinese historical official titles preserved in ja/ko versions
+  - Technical terms (WAF/SQLi/Bearer/canary/honeypot) preserved in EN
+  - Build reproducibility: aily-text-translate artifacts/red-blue-battle-report.md -t <lang>

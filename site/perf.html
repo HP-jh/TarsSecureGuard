@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TarsSecureGuard 性能监控 — 实时基准数据看板</title>
+<meta name="description" content="TarsSecureGuard（TSG）性能监控站：计算 / 网络 / 存储三维度基准数据实时看板，跨版本趋势对比，自动刷新。数据由每次发版自动测量并发布。">
+<meta name="keywords" content="TarsSecureGuard,性能监控,基准测试,Benchmark,性能看板,性能趋势">
+<meta name="referrer" content="no-referrer">
+<link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/perf.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TarsSecureGuard">
+<meta property="og:title" content="TarsSecureGuard 性能监控看板">
+<meta property="og:description" content="计算 / 网络 / 存储三维度基准数据实时看板，跨版本趋势对比。">
+<style>
+:root{--bg:#0d1220;--card:#151c30;--line:#232c48;--txt:#e8ecf6;--sub:#9aa6c0;--acc:#4f8cff;--ok:#3fd08c;--warn:#ffb454;--bad:#ff6b6b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
+a{color:var(--acc);text-decoration:none}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+header{padding:48px 0 28px;text-align:center;background:linear-gradient(180deg,#101a33 0%,var(--bg) 100%)}
+h1{font-size:32px}
+.tagline{color:var(--sub);font-size:16px;margin-top:8px}
+.langbar{margin-top:12px}
+.langbar button{background:none;border:1px solid var(--line);color:var(--sub);border-radius:6px;padding:3px 14px;cursor:pointer;font-size:14px;margin:0 4px}
+.langbar button.on{border-color:var(--acc);color:var(--txt)}
+.statusline{margin-top:14px;font-size:13px;color:var(--sub)}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+section{padding:30px 0}
+h2{font-size:21px;margin-bottom:16px}
+h2 .num{color:var(--acc);margin-right:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.kpi .v{font-size:26px;font-weight:700;color:var(--acc);font-family:ui-monospace,Consolas,monospace}
+.kpi .l{color:var(--sub);font-size:13px;margin-top:4px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center}
+.controls select,.controls button{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:7px 14px;font-size:14px;cursor:pointer}
+.controls button:hover{border-color:var(--acc)}
+.controls .refresh-btn{border-color:var(--acc);color:var(--acc)}
+.chartbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+.chart-meta{color:var(--sub);font-size:13px;margin-bottom:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--sub);font-weight:600;font-size:12.5px}
+td.mono{font-family:ui-monospace,Consolas,monospace}
+td.dim{color:var(--sub)}
+.bar{height:6px;background:#1c2742;border-radius:4px;overflow:hidden;min-width:90px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),#7db1ff);border-radius:4px}
+.cat-chip{display:inline-block;border-radius:20px;padding:0 10px;font-size:11.5px;line-height:20px}
+.cat-compute{background:#173047;color:#6fb7ff}
+.cat-network{background:#183a2e;color:#5fe0a8}
+.cat-storage{background:#3a2f18;color:#ffd27a}
+.cat-aggregate{background:#31204a;color:#c9a0ff}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+.card h3{font-size:15px;margin-bottom:8px}
+.card p,.card li{color:var(--sub);font-size:14px}
+.card ul{margin-left:18px}
+pre{background:#0a0f1c;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;font-size:13px;color:#c7d4f0;margin-top:8px}
+code{font-family:ui-monospace,Consolas,monospace}
+.mstone{border-left:2px solid var(--acc);padding:2px 0 2px 16px;margin:14px 0}
+.mstone .ver{color:var(--acc);font-weight:600;font-size:14px}
+.mstone .txt{color:var(--sub);font-size:14px}
+footer{border-top:1px solid var(--line);padding:24px 0;color:var(--sub);font-size:13px;text-align:center}
+footer a{margin:0 10px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--ok);color:var(--ok);border-radius:10px;padding:10px 18px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (max-width:640px){table{font-size:12px}th,td{padding:6px 8px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1 data-i18n="h1">TarsSecureGuard 性能监控</h1>
+    <p class="tagline" data-i18n="tagline">计算 / 网络 / 存储三维度基准数据 —— 每次发版自动测量，本页自动刷新</p>
+    <div class="langbar">
+      <button id="lang-zh" class="on" onclick="setLang('zh')">🇨🇳 简体中文</button>
+      <button id="lang-en" onclick="setLang('en')">🇺🇸 English</button>
+    </div>
+    <p class="statusline"><span class="live-dot"></span><span id="statusline">加载中…</span></p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="kpis" id="kpis"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="num">01</span><span data-i18n="trendTitle">跨版本趋势</span></h2>
+    <div class="controls">
+      <select id="metric-sel" onchange="drawTrend()"></select>
+      <span style="flex:1"></span>
+      <button class="refresh-btn" onclick="refreshNow()" id="refresh-btn">↻ <span data-i18n="refresh">立即刷新</span></button>
+    </div>
+    <div class="chartbox">
+      <div class="chart-meta"><span id="chart-desc"></span><span id="chart-unit"></span></div>
+      <svg id="trend-svg" viewBox="0 0 960 300" width="100%" style="display:block"></svg>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="num">02</span><span data-i18n="curTitle">当前版本全量指标</span></h2>
+    <div class="controls">
+      <button class="on-cat" data-cat="all" onclick="setCat('all',this)" data-i18n="catAll">全部</button>
+      <button data-cat="compute" onclick="setCat('compute',this)" data-i18n="catCompute">计算</button>
+      <button data-cat="network" onclick="setCat('network',this)" data-i18n="catNetwork">网络</button>
+      <button data-cat="storage" onclick="setCat('storage',this)" data-i18n="catStorage">存储</button>
+      <button data-cat="aggregate" onclick="setCat('aggregate',this)" data-i18n="catAgg">汇总</button>
+    </div>
+    <div class="chartbox" style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th data-i18n="thMetric">指标</th><th data-i18n="thDim">维度</th><th data-i18n="thDesc">说明</th>
+          <th data-i18n="thPerOp">每次操作耗时</th><th data-i18n="thRel">相对</th><th data-i18n="thAlloc">分配次数/op</th><th data-i18n="thBytes">分配字节/op</th>
+        </tr></thead>
+        <tbody id="metric-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="num">03</span><span data-i18n="msTitle">性能里程碑</span></h2>
+    <div id="milestones"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><span class="num">04</span><span data-i18n="howTitle">数据从哪来 · 如何维护</span></h2>
+    <div class="cards">
+      <div class="card">
+        <h3 data-i18n="how1T">自动测量</h3>
+        <p data-i18n="how1P">每个版本发布时，由 scripts/perf-site-update.sh 在统一环境跑完整基准（go test -bench + benchmem），结果写入 site/perf-data.json 随仓库发布。</p>
+        <pre><code>./scripts/perf-site-update.sh v4.7.0</code></pre>
+      </div>
+      <div class="card">
+        <h3 data-i18n="how2T">自动刷新</h3>
+        <p data-i18n="how2P">本页每 60 秒自动重新拉取 perf-data.json（带缓存穿透参数），数据更新后无需任何操作即自动呈现；也可点右上角「立即刷新」。</p>
+      </div>
+      <div class="card">
+        <h3 data-i18n="how3T">口径说明</h3>
+        <p data-i18n="how3P">所有数值为每操作平均耗时（ns/op）与每操作堆分配（allocs/op、B/op），环境为 2 vCPU Linux 容器；跨版本对比请以同环境测量为准，不同硬件的绝对值不可直接比较。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a href="./index.html" data-i18n="fHome">返回首页</a>
+    <a href="./download.html" data-i18n="fDl">下载</a>
+    <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="fCode">源码</a>
+    <p style="margin-top:12px">© 2026 TarsSecureGuard · Performance Monitoring</p>
+  </div>
+</footer>
+<div class="toast" id="toast" data-i18n="toast">已刷新为最新数据</div>
+
+<script>
+"use strict";
+var I18N = {
+  zh: {
+    h1: "TarsSecureGuard 性能监控",
+    tagline: "计算 / 网络 / 存储三维度基准数据 —— 每次发版自动测量，本页自动刷新",
+    trendTitle: "跨版本趋势", curTitle: "当前版本全量指标", msTitle: "性能里程碑",
+    howTitle: "数据从哪来 · 如何维护",
+    refresh: "立即刷新", loading: "加载中…",
+    catAll: "全部", catCompute: "计算", catNetwork: "网络", catStorage: "存储", catAgg: "汇总",
+    thMetric: "指标", thDim: "维度", thDesc: "说明", thPerOp: "每次操作耗时", thRel: "相对", thAlloc: "分配次数/op", thBytes: "分配字节/op",
+    how1T: "自动测量", how1P: "每个版本发布时，由 scripts/perf-site-update.sh 在统一环境跑完整基准（go test -bench + benchmem），结果写入 site/perf-data.json 随仓库发布。",
+    how2T: "自动刷新", how2P: "本页每 60 秒自动重新拉取 perf-data.json（带缓存穿透参数），数据更新后无需任何操作即自动呈现；也可点右上角「立即刷新」。",
+    how3T: "口径说明", how3P: "所有数值为每操作平均耗时（ns/op）与每操作堆分配（allocs/op、B/op），环境为 2 vCPU Linux 容器；跨版本对比请以同环境测量为准，不同硬件的绝对值不可直接比较。",
+    fHome: "返回首页", fDl: "下载", fCode: "源码",
+    toast: "已刷新为最新数据",
+    kpiLatest: "最新版本", kpiMetrics: "采集指标数", kpiFast: "最快操作", kpiAvg: "核心平均耗时",
+    statusOk: "数据已更新 · 下次自动刷新 ", statusErr: "数据拉取失败，将自动重试 · ",
+    sec: " 秒后", ms: "毫秒", us: "微秒", ns: "纳秒",
+    envNote: "测量环境：", onePoint: "（当前 1 个数据点，趋势随版本发布自动累积）",
+    dimNames: { compute: "计算", network: "网络", storage: "存储", aggregate: "汇总" }
+  },
+  en: {
+    h1: "TarsSecureGuard Performance Monitoring",
+    tagline: "Compute / Network / Storage benchmarks — auto-measured per release, auto-refreshed here",
+    trendTitle: "Cross-version trends", curTitle: "All metrics of the latest release", msTitle: "Performance milestones",
+    howTitle: "Where the data comes from · how to maintain",
+    refresh: "Refresh now", loading: "Loading…",
+    catAll: "All", catCompute: "Compute", catNetwork: "Network", catStorage: "Storage", catAgg: "Aggregate",
+    thMetric: "Metric", thDim: "Dimension", thDesc: "Description", thPerOp: "Per-op latency", thRel: "Relative", thAlloc: "Allocs/op", thBytes: "Bytes/op",
+    how1T: "Auto-measured", how1P: "On every release, scripts/perf-site-update.sh runs the full benchmark suite (go test -bench + benchmem) in a pinned environment and commits the result to site/perf-data.json.",
+    how2T: "Auto-refresh", how2P: "This page re-fetches perf-data.json every 60 seconds (cache-busted); new data shows up automatically. You can also hit “Refresh now”.",
+    how3T: "Methodology", how3P: "All values are average per-op latency (ns/op) and per-op heap allocations (allocs/op, B/op), measured on a 2-vCPU Linux container. Compare across versions on the same hardware only.",
+    fHome: "Home", fDl: "Download", fCode: "Source",
+    toast: "Refreshed to latest data",
+    kpiLatest: "Latest release", kpiMetrics: "Metrics collected", kpiFast: "Fastest op", kpiAvg: "Core avg latency",
+    statusOk: "Data up to date · auto refresh in ", statusErr: "Fetch failed, will retry · ",
+    sec: "s", ms: "ms", us: "µs", ns: "ns",
+    envNote: "Measured on: ", onePoint: " (single data point so far — the trend accumulates automatically as releases ship)",
+    dimNames: { compute: "Compute", network: "Network", storage: "Storage", aggregate: "Aggregate" }
+  }
+};
+var LANG = "zh";
+var DATA = null;      // perf-data.json
+var CURCAT = "all";
+var REFRESH_MS = 60000;
+var countdown = REFRESH_MS / 1000;
+var fetchOK = false;
+
+function setLang(l) {
+  LANG = l;
+  document.getElementById("lang-zh").className = l === "zh" ? "on" : "";
+  document.getElementById("lang-en").className = l === "en" ? "on" : "";
+  var dict = I18N[l];
+  var els = document.querySelectorAll("[data-i18n]");
+  for (var i = 0; i < els.length; i++) {
+    var k = els[i].getAttribute("data-i18n");
+    if (dict[k] !== undefined) els[i].textContent = dict[k];
+  }
+  document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+  if (DATA) renderAll();
+}
+window.setLang = setLang;
+
+function fmtNs(ns) {
+  var d = I18N[LANG];
+  if (ns >= 1e6) return (ns / 1e6).toFixed(2) + " " + d.ms;
+  if (ns >= 1e3) return (ns / 1e3).toFixed(2) + " " + d.us;
+  return ns.toFixed(2) + " " + d.ns;
+}
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function latest() { return DATA.releases[DATA.releases.length - 1]; }
+
+function renderAll() {
+  if (!DATA) return;
+  var d = I18N[LANG];
+  var rel = latest();
+  // KPI
+  var core = rel.metrics.filter(function (m) { return m.category !== "aggregate"; });
+  var fastest = core[0], sum = 0;
+  core.forEach(function (m) { sum += m.per_op_ns; if (m.per_op_ns < fastest.per_op_ns) fastest = m; });
+  document.getElementById("kpis").innerHTML =
+    kpi(rel.version, d.kpiLatest) +
+    kpi(rel.metrics.length, d.kpiMetrics) +
+    kpi(fmtNs(fastest.per_op_ns) + " <span style='font-size:13px;color:var(--sub)'>" + esc(fastest.name) + "</span>", d.kpiFast) +
+    kpi(fmtNs(sum / core.length), d.kpiAvg);
+  // metric selector
+  var sel = document.getElementById("metric-sel");
+  var cur = sel.value;
+  sel.innerHTML = "";
+  rel.metrics.forEach(function (m) {
+    var o = document.createElement("option");
+    o.value = m.name;
+    o.textContent = m.name + " — " + (LANG === "zh" ? m.desc_zh : m.desc_en);
+    sel.appendChild(o);
+  });
+  if (cur && rel.metrics.some(function (m) { return m.name === cur; })) sel.value = cur;
+  drawTrend();
+  renderTable();
+  renderMilestones();
+  // status line
+  document.getElementById("statusline").textContent = d.statusOk + countdown + d.sec + (DATA.releases.length === 1 ? d.onePoint : "") + " · " + d.envNote + DATA.environment.cpu + " · " + DATA.environment.go;
+}
+function kpi(v, l) {
+  return "<div class='kpi'><div class='v'>" + v + "</div><div class='l'>" + l + "</div></div>";
+}
+
+function drawTrend() {
+  if (!DATA) return;
+  var d = I18N[LANG];
+  var rel = latest();
+  var name = document.getElementById("metric-sel").value;
+  var m = rel.metrics.filter(function (x) { return x.name === name; })[0];
+  if (!m) return;
+  document.getElementById("chart-desc").textContent = name + " · " + (LANG === "zh" ? m.desc_zh : m.desc_en);
+  document.getElementById("chart-unit").textContent = "ns/op";
+  // 收集该指标在各版本的数据点
+  var pts = [];
+  DATA.releases.forEach(function (r) {
+    r.metrics.forEach(function (x) { if (x.name === name) pts.push({ v: r.version, ns: x.per_op_ns }); });
+  });
+  var svg = document.getElementById("trend-svg");
+  var W = 960, H = 300, padL = 70, padR = 20, padT = 24, padB = 44;
+  var innerW = W - padL - padR, innerH = H - padT - padB;
+  var max = Math.max.apply(null, pts.map(function (p) { return p.ns; })) * 1.15;
+  var min = 0;
+  function X(i) { if (pts.length === 1) return padL + innerW / 2; return padL + (innerW * i) / (pts.length - 1); }
+  function Y(v) { return padT + innerH - (innerH * (v - min)) / (max - min || 1); }
+  var out = [];
+  // grid + Y labels
+  for (var g = 0; g <= 4; g++) {
+    var gv = min + ((max - min) * g) / 4;
+    var gy = Y(gv);
+    out.push("<line x1='" + padL + "' y1='" + gy + "' x2='" + (W - padR) + "' y2='" + gy + "' stroke='#232c48' stroke-width='1'/>");
+    out.push("<text x='" + (padL - 8) + "' y='" + (gy + 4) + "' fill='#9aa6c0' font-size='11' text-anchor='end'>" + fmtNs(gv) + "</text>");
+  }
+  // line + points + X labels
+  var path = pts.map(function (p, i) { return (i ? "L" : "M") + X(i) + " " + Y(p.ns); }).join(" ");
+  if (pts.length > 1) out.push("<path d='" + path + "' fill='none' stroke='#4f8cff' stroke-width='2.5'/>");
+  pts.forEach(function (p, i) {
+    out.push("<circle cx='" + X(i) + "' cy='" + Y(p.ns) + "' r='5' fill='#4f8cff' stroke='#0d1220' stroke-width='2'/>");
+    out.push("<text x='" + X(i) + "' y='" + (Y(p.ns) - 12) + "' fill='#e8ecf6' font-size='11.5' text-anchor='middle' font-family='ui-monospace,Consolas,monospace'>" + fmtNs(p.ns) + "</text>");
+    out.push("<text x='" + X(i) + "' y='" + (H - padB + 20) + "' fill='#9aa6c0' font-size='11.5' text-anchor='middle'>" + p.v + "</text>");
+  });
+  svg.innerHTML = out.join("");
+}
+
+function setCat(c, btn) {
+  CURCAT = c;
+  var btns = document.querySelectorAll(".controls button[data-cat]");
+  for (var i = 0; i < btns.length; i++) btns[i].style.borderColor = "";
+  if (btn) btn.style.borderColor = "var(--acc)";
+  renderTable();
+}
+window.setCat = setCat;
+
+function renderTable() {
+  if (!DATA) return;
+  var d = I18N[LANG];
+  var rel = latest();
+  var rows = rel.metrics.filter(function (m) { return CURCAT === "all" || m.category === CURCAT; });
+  var maxNs = Math.max.apply(null, rows.map(function (m) { return m.per_op_ns; }));
+  var html = "";
+  rows.forEach(function (m) {
+    var desc = LANG === "zh" ? m.desc_zh : m.desc_en;
+    var dim = d.dimNames[m.category] || m.category;
+    html += "<tr><td class='mono'>" + esc(m.name) + "</td>" +
+      "<td><span class='cat-chip cat-" + m.category + "'>" + dim + "</span></td>" +
+      "<td class='dim' style='white-space:normal;min-width:160px'>" + esc(desc) + "</td>" +
+      "<td class='mono'>" + fmtNs(m.per_op_ns) + "</td>" +
+      "<td><div class='bar'><i style='width:" + Math.max(3, (m.per_op_ns / maxNs) * 100) + "%'></i></div></td>" +
+      "<td class='mono dim'>" + m.allocs_per_op + "</td>" +
+      "<td class='mono dim'>" + m.bytes_per_op + "</td></tr>";
+  });
+  document.getElementById("metric-body").innerHTML = html;
+}
+
+function renderMilestones() {
+  var html = "";
+  DATA.milestones.forEach(function (ms) {
+    html += "<div class='mstone'><div class='ver'>" + esc(ms.version) + "</div><div class='txt'>" + esc(LANG === "zh" ? ms.desc_zh : ms.desc_en) + "</div></div>";
+  });
+  document.getElementById("milestones").innerHTML = html;
+}
+
+function refreshNow() {
+  document.getElementById("refresh-btn").innerHTML = "<span class='spin'></span>";
+  loadData(function (changed) {
+    document.getElementById("refresh-btn").innerHTML = "↻ " + I18N[LANG].refresh;
+    if (changed) {
+      var t = document.getElementById("toast");
+      t.classList.add("show");
+      setTimeout(function () { t.classList.remove("show"); }, 1800);
+    }
+  });
+}
+window.refreshNow = refreshNow;
+
+function loadData(cb) {
+  var url = "perf-data.json?t=" + Date.now();
+  fetch(url, { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+    .then(function (j) {
+      var changed = !DATA || JSON.stringify(DATA) !== JSON.stringify(j);
+      DATA = j;
+      fetchOK = true;
+      if (changed) renderAll(); else renderStatus();
+      if (cb) cb(changed);
+    })
+    .catch(function () {
+      fetchOK = false;
+      renderStatus();
+      if (cb) cb(false);
+    });
+}
+function renderStatus() {
+  if (DATA) renderAll();
+  else document.getElementById("statusline").textContent = I18N[LANG].loading;
+}
+
+setInterval(function () {
+  countdown--;
+  if (countdown <= 0) { countdown = REFRESH_MS / 1000; loadData(); }
+  if (fetchOK && DATA) document.getElementById("statusline").textContent = I18N[LANG].statusOk + countdown + I18N[LANG].sec + (DATA.releases.length === 1 ? I18N[LANG].onePoint : "") + " · " + I18N[LANG].envNote + DATA.environment.cpu + " · " + DATA.environment.go;
+}, 1000);
+
+loadData();
+</script>
+</body>
+</html>

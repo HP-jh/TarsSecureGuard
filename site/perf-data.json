@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "generated": "2026-10-12T07:55:38+08:00",
+  "environment": {
+    "os": "linux",
+    "arch": "amd64",
+    "cpu": "AMD EPYC 9Y24（2 vCPU 容器）",
+    "go": "go1.22.8",
+    "method": "go test -bench -benchtime=500x -benchmem（每项 500 次迭代取均值；汇总项为内置 1000 次迭代）"
+  },
+  "releases": [
+    {
+      "version": "v4.7.0",
+      "timestamp": "2026-10-12T07:55:38+08:00",
+      "metrics": [
+        { "name": "VaultDerive", "category": "compute", "desc_zh": "密钥派生（服务密钥缓存命中）", "desc_en": "Key derivation (cached service key)", "per_op_ns": 26.92, "allocs_per_op": 0, "bytes_per_op": 1 },
+        { "name": "VaultSealOpen", "category": "compute", "desc_zh": "AES-GCM 密封 + 解封一对", "desc_en": "AES-GCM seal + open pair", "per_op_ns": 1532, "allocs_per_op": 13, "bytes_per_op": 1968 },
+        { "name": "SecurityEvaluate", "category": "compute", "desc_zh": "安全评分引擎全量评估", "desc_en": "Security score engine full evaluate", "per_op_ns": 142.8, "allocs_per_op": 1, "bytes_per_op": 112 },
+        { "name": "SkylinkEncrypt", "category": "network", "desc_zh": "节点消息加密（AES-256-GCM + JSON）", "desc_en": "Peer message encrypt (AES-256-GCM + JSON)", "per_op_ns": 2013, "allocs_per_op": 14, "bytes_per_op": 1322 },
+        { "name": "SkylinkDecrypt", "category": "network", "desc_zh": "节点消息解密", "desc_en": "Peer message decrypt", "per_op_ns": 1461, "allocs_per_op": 14, "bytes_per_op": 1272 },
+        { "name": "AgentMeshRegisterLookup", "category": "network", "desc_zh": "Agent 网格注册 + 查找", "desc_en": "Agent mesh register + lookup", "per_op_ns": 24.72, "allocs_per_op": 0, "bytes_per_op": 0 },
+        { "name": "SecretStoreSet", "category": "storage", "desc_zh": "密钥库写入（密封后存储）", "desc_en": "Secret store set (sealed)", "per_op_ns": 956.0, "allocs_per_op": 9, "bytes_per_op": 1015 },
+        { "name": "SecretStoreGet", "category": "storage", "desc_zh": "密钥库读取（解密）", "desc_en": "Secret store get (decrypt)", "per_op_ns": 42.26, "allocs_per_op": 1, "bytes_per_op": 24 },
+        { "name": "HarnessCompute", "category": "aggregate", "desc_zh": "计算维度汇总（3 项 × 1000 次）", "desc_en": "Compute dimension aggregate (3 × 1000 ops)", "per_op_ns": 6003987, "allocs_per_op": 0, "bytes_per_op": 0 },
+        { "name": "HarnessNetwork", "category": "aggregate", "desc_zh": "网络维度汇总（3 项 × 1000 次）", "desc_en": "Network dimension aggregate (3 × 1000 ops)", "per_op_ns": 4499010, "allocs_per_op": 0, "bytes_per_op": 0 },
+        { "name": "HarnessStorage", "category": "aggregate", "desc_zh": "存储维度汇总（2 项 × 1000 次）", "desc_en": "Storage dimension aggregate (2 × 1000 ops)", "per_op_ns": 2127808, "allocs_per_op": 0, "bytes_per_op": 0 }
+      ]
+    }
+  ],
+  "milestones": [
+    { "version": "v3.2.2", "desc_zh": "日志常开句柄管线 4004ns → 832ns（-79%）", "desc_en": "Always-on log handle pipeline 4004ns → 832ns (-79%)", "source": "docs/v3.2.2-performance.md" },
+    { "version": "v3.2.3", "desc_zh": "WAF 纯中文规则 474µs → 0.99µs（-99.8%）；PII 四模式单遍化 -15%；响应缓存 16 分片锁 -10%", "desc_en": "WAF CJK-only rules 474µs → 0.99µs (-99.8%); PII single-pass -15%; sharded response cache -10%", "source": "docs/v3.2.3-performance.md" },
+    { "version": "v4.7.0", "desc_zh": "修复 B8 汇总基准在 go test -bench 下的死锁（嵌套 testing.Benchmark 全局锁），基准数据可自动采集", "desc_en": "Fixed B8 aggregate benchmark deadlock under go test -bench (nested testing.Benchmark global lock)", "source": "crownext/bench/harness.go" }
+  ]
+}

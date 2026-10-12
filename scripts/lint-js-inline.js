@@ -10,7 +10,8 @@ const acorn = require('acorn');
 const file = process.argv[2] || 'frontend/index.html';
 const src = fs.readFileSync(file, 'utf-8');
 
-const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+// 只匹配无 type 属性的 JS 脚本块；application/ld+json 等 JSON 块跳过（由调用方另行校验 JSON 合法性）
+const scriptRe = /<script(?![^>]*\btype=)([^>]*)>([\s\S]*?)<\/script>/gi;
 let m, idx = 0, errors = 0;
 
 while ((m = scriptRe.exec(src)) !== null) {

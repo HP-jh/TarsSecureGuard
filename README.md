@@ -1,3 +1,7 @@
+🌐 **多语言版本**：[🇨🇳 简体中文](README.md) · [🇺🇸 English](README.en.md) · [🇷🇺 Русский](README.ru.md) · [🇸🇦 العربية](README.ar.md) · [🇫🇷 Français](README.fr.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md)
+
+---
+
 <div align="center">
 
 # 🛡️ TarsSecureGuard

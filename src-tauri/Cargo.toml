@@ -1,6 +1,6 @@
 [package]
 name = "tsg-desktop"
-version = "4.6.0"
+version = "4.7.0"
 description = "TarsSecureGuard v4.6.0 桌面客户端（Tauri 壳，本地网关 sidecar 承载）"
 edition = "2021"
 rust-version = "1.90"

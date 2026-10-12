@@ -3,6 +3,7 @@ package bench
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -28,19 +29,33 @@ func NewHarness() *Harness {
 }
 
 // Run 执行单个 benchmark 并收集结果
+//
+// v4.7.0 修复：不再嵌套调用 testing.Benchmark——它内部会对全局 benchmarkLock
+// 加锁，而外层若也处于 go test -bench 的框架中（BenchmarkHarness* 系列），
+// 两层锁永远等不到对方，形成死锁（B8 v4.5.0 遗留问题：汇总基准在真实
+// `go test -bench` 下必挂）。改为固定迭代次数 + 手动计时 + runtime.MemStats
+// 采集内存分配，语义与原来等价（PerOp / AllocsPerOp / BytesPerOp），且
+// 在 Test 与 Benchmark 两种外层环境下行为一致。
 func (h *Harness) Run(name string, fn func(b *testing.B)) Result {
-	var r Result
-	r.Name = name
-	result := testing.Benchmark(func(b *testing.B) {
-		fn(b)
-	})
-	r.N = result.N
-	if result.N > 0 {
-		r.Duration = result.T
-		r.PerOp = result.T / time.Duration(result.N)
+	const iterations = 1000
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	t0 := time.Now()
+	fn(&testing.B{N: iterations})
+	elapsed := time.Since(t0)
+	runtime.ReadMemStats(&after)
+
+	r := Result{
+		Name:     name,
+		N:        iterations,
+		Duration: elapsed,
+		PerOp:    elapsed / iterations,
 	}
-	r.AllocsPerOp = result.AllocsPerOp()
-	r.BytesPerOp = result.AllocedBytesPerOp()
+	if iterations > 0 {
+		r.AllocsPerOp = int64(after.Mallocs-before.Mallocs) / iterations
+		r.BytesPerOp = int64(after.TotalAlloc-before.TotalAlloc) / iterations
+	}
 	h.results = append(h.results, r)
 	return r
 }
