@@ -1,4 +1,4 @@
-// v4.7.2 HTTP server 性能加固测试：ReadHeaderTimeout 防 Slowloris
+// v4.7.3 HTTP server 性能加固测试：ReadHeaderTimeout 防 Slowloris
 package main
 
 import (
@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// TestV472VersionBumped 版本号必须已升至 4.7.2
+// TestV472VersionBumped 版本号必须已升至 4.7.3
 func TestV472VersionBumped(t *testing.T) {
-	if version != "4.7.2" {
-		t.Fatalf("version expected 4.7.2, got %s", version)
+	if version != "4.7.3" {
+		t.Fatalf("version expected 4.7.3, got %s", version)
 	}
 }
 

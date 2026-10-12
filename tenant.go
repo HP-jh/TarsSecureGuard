@@ -770,6 +770,7 @@ func auditLogT(action, tenant, group, user, detail string) {
 	logMsg("[AUDIT] " + line)
 	// v3.2.2 审计升级：同步落结构化 JSONL 哈希链条目（哈希链防篡改，见 auditv2.go）
 	auditV2Write(action, tenant, group, user, "", detail, "")
+	syslogWrapAudit(action, user, detail)
 }
 
 

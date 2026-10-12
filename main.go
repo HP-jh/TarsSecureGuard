@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.7.2"
+var version = "4.7.3"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -178,6 +178,10 @@ func main() {
 		HoneypotDelay:  2 * time.Second,
 	})
 	initStability()
+	syslogInit()
+	initSelfProtect()
+	initAVCompat()
+	syslogWrapStartup()
 
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
 
@@ -291,6 +295,10 @@ func main() {
 	mux.HandleFunc("/api/admin/oauth/status", handleOAuthStatus)
 	// v4.6.0：客户端下载器——安装器元信息查询（供前端"打开本地客户端"按钮决策）
 	mux.HandleFunc("/api/admin/installer-info", handleInstallerInfo)
+	// v4.7.3 B15：客户端稳定性——防自关保护 / 安全软件兼容 / 系统日志
+	mux.HandleFunc("/api/admin/selfprotect/status", handleSelfProtectStatus)
+	mux.HandleFunc("/api/admin/av-compat/status", handleAVCompatStatus)
+	mux.HandleFunc("/api/admin/shutdown", handleShutdown)
 
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
@@ -404,6 +412,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			ipRepPenalty(ip, 30, "waf", reason)
 			markIPBanned(ip)
 			firewallBanIP(ip) // 按防火墙档位施加封禁副作用（passive 档为 no-op）
+			syslogWrapWAF(ip, reason)
 			blockRequest(w, r, reason)
 			return
 		}
@@ -789,6 +798,7 @@ func auditLog(action, user, detail string) {
 	logMsg("[AUDIT] " + line)
 	// v3.2.2 审计升级：同步落结构化 JSONL 哈希链条目（tenant 感知变体见 auditLogT）
 	auditV2Write(action, "*", "", user, "", detail, "")
+	syslogWrapAudit(action, user, detail)
 }
 
 func isHTTPURL(s string) bool {
