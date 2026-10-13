@@ -175,7 +175,8 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		var body map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+			// v4.7.4 小白化：错误走 i18n，中英文自动匹配
+			i18nErrorJSON(w, r, http.StatusBadRequest, "err.invalidrequest")
 			return
 		}
 		cfgMu.Lock()
@@ -208,7 +209,8 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			auditLog("CONFIG_REJECTED", "-", rj)
 		}
 		if err != nil {
-			writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid config value"})
+			// v4.7.4 小白化：错误走 i18n
+			i18nErrorJSON(w, r, http.StatusBadRequest, "err.invalidconfig")
 			return
 		}
 		if applied > 0 {
@@ -311,7 +313,8 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	var body map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		// v4.7.4 小白化：错误走 i18n
+		i18nErrorJSON(w, r, http.StatusBadRequest, "err.invalidrequest")
 		return
 	}
 	query := body["query"]

@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.7.3"
+var version = "4.7.4"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -440,7 +440,8 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			failReq++
 			mu.Unlock()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
-			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
+			// v4.7.4 小白化：401 走 i18n + hint 字段，告诉用户怎么填密钥
+			i18nErrorJSONWithHint(w, r, http.StatusUnauthorized, "err.unauthorized", "err.unauthorized.hint")
 			return
 		}
 		// v3.0.4 RBAC 矩阵（[RBAC_MATRIX]：角色×端点类逐格判定，替换 v3.0.0 的
@@ -743,7 +744,8 @@ func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 		name, role, ok := userFromRequest(r)
 		if !ok {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
-			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			// v4.7.4 小白化：401 走 i18n + hint 字段，告诉用户怎么填密钥
+			i18nErrorJSONWithHint(w, r, http.StatusUnauthorized, "err.unauthorized", "err.unauthorized.hint")
 			return
 		}
 		for _, allowed := range roles {
