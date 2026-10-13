@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -150,16 +151,33 @@ func isOwnAppRoute(p string) bool {
 }
 
 // scannerUAMatch 检测 User-Agent 是否命中扫描器黑名单，命中返回特征串
+// v4.7.6 性能优化：用预编译的合并正则替代 N 次 strings.Contains 子串循环
+// （一次 FindStringIndex ≈ 30 次 Contains，UA 是每个请求必走的热路径）
+var (
+	scannerUARe      = regexp.MustCompile(`(?i)(` + strings.Join(scannerUABlacklist, "|") + `)`)
+	scannerUACache   sync.Map // ua 小写 → 匹配特征串（命中即返回，省 regex 重跑）
+	scannerUACap     = 4096   // UA 长度上限；超过视为 DoS 攻击候选，直接 miss（不命中也不放入）
+)
+
+// scannerUAMatch 检测 User-Agent 是否命中扫描器黑名单，命中返回特征串
 func scannerUAMatch(ua string) string {
-	if ua == "" {
+	if ua == "" || len(ua) > scannerUACap {
 		return ""
 	}
-	lower := strings.ToLower(ua)
-	for _, s := range scannerUABlacklist {
-		if strings.Contains(lower, s) {
-			return s
-		}
+	// 快路径：缓存
+	if v, ok := scannerUACache.Load(ua); ok {
+		s, _ := v.(string)
+		return s
 	}
+	// 慢路径：合并正则一次匹配
+	m := scannerUARe.FindString(ua)
+	if m != "" {
+		// 正则匹配大小写不敏感，返回原始小写特征串供 UI/审计展示
+		scannerUACache.Store(ua, strings.ToLower(m))
+		return strings.ToLower(m)
+	}
+	// miss 也缓存一份空串，避免重复 UA 反复进 regex
+	scannerUACache.Store(ua, "")
 	return ""
 }
 
