@@ -214,6 +214,18 @@ func wafCheck(r *http.Request) string {
 	if host := r.Host; strings.ContainsAny(host, "\r\n\x00") {
 		return "Host 头注入"
 	}
+	// 4.55) 全请求头 CRLF/NULL 注入检测（v4.7.5）：v4.7.1 只检查了 Host，
+	// 但攻击者可通过 X-Forwarded-For / X-Real-IP / Authorization / Cookie 等
+	// 任意头注入 CRLF/NULL，造成响应分割、缓存投毒、日志注入。Go 标准库
+	// 已禁止 header value 含 \r\n，但仍有中间件层/反代层被攻击的可能；
+	// 在 WAF 兜底再检查一次，成本极低。
+	for k, vs := range r.Header {
+		for _, v := range vs {
+			if strings.ContainsAny(v, "\r\n\x00") {
+				return "请求头 CRLF/NULL 注入: " + k
+			}
+		}
+	}
 	// 4.6) HTTP 请求走私检测（v4.7.1）：同时存在 Content-Length 与
 	// Transfer-Encoding 头是经典走私攻击向量，前端可能按一个长度解析、
 	// 后端按另一个解析，导致绕过访问控制
