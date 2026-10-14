@@ -17,6 +17,8 @@
 右边把 <b>24 家云端模型商 + 8 种本地推理运行时</b>连出去（OpenAI / Anthropic / Gemini / DeepSeek / 通义 / 文心 / GLM / 豆包 / Kimi / MiniMax / 混元 / 星火 / Groq / Ollama / LM Studio / vLLM …），<br/>
 中间强制开启 WAF、语义防护、分层限流、IP 信誉、RBAC、审计与 PII 脱敏——<b>连得多，更要守得住</b>。
 
+> 📊 <b>和其他 AI 网关对比？</b> 见 [COMPARISON.md](COMPARISON.md) —— TSG vs Bifrost / LiteLLM / Portkey / promptward / ClawVault。
+
 > 🔐 <b>本地 AI 安全网关（LLM 代理）</b>：提示词注入防护、越狱检测、SSRF 五红线、PII 脱敏、hash-chain 审计。当企业 AI 网关还在围墙外，TSG 是你本机先跑起来的安全壳。
 </p>
 
