@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,32 +7,89 @@
 <meta name="description" content="TarsSecureGuard {{VERSION}} 全平台下载：Windows、macOS、Linux、Android，支持 amd64 与 arm64 架构。附带 SHA256 校验和。">
 <link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/download.html">
 <style>
-:root{--bg:#0d1220;--card:#151c30;--line:#232c48;--txt:#e8ecf6;--sub:#9aa6c0;--acc:#4f8cff;--ok:#3fd08c}
+:root{--bg:#0b0f1a;--bg-2:#0d1220;--surface:rgba(20,26,48,0.72);--surface-solid:#151c30;--border:rgba(120,140,200,0.14);--text:#e8ecf6;--text-2:#9aa6c0;--accent:#4f8cff;--accent-2:#6fa3ff;--ok:#3fd08c;--shadow:0 8px 32px rgba(0,0,0,0.35);--radius:14px;--max-w:1120px;--font:"Inter","Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace}
+[data-theme="light"]{--bg:#f6f8fc;--bg-2:#eef1f8;--surface:rgba(255,255,255,0.78);--surface-solid:#ffffff;--border:rgba(100,120,180,0.18);--text:#1a1f2e;--text-2:#5a6580;--accent:#2563eb;--accent-2:#3b82f6;--shadow:0 8px 32px rgba(30,50,100,0.12)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
-a{color:var(--acc);text-decoration:none}
-.wrap{max-width:980px;margin:0 auto;padding:0 24px}
-header{padding:48px 0 32px;text-align:center;background:linear-gradient(180deg,#101a33 0%,var(--bg) 100%)}
-h1{font-size:32px}
-.sub{color:var(--sub);margin-top:8px}
-section{padding:32px 0}
-h2{font-size:20px;margin-bottom:16px}
-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
-th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
-th{color:var(--sub);font-weight:600}
-.btn{display:inline-block;padding:8px 18px;border-radius:6px;background:var(--acc);color:#fff;font-size:13px;font-weight:600}
-.btn:hover{opacity:.9}
-.checksums{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-top:24px}
-.checksums h3{font-size:16px;margin-bottom:10px}
-.checksums pre{background:#0a0f1c;border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;font-size:12px;color:#c7d4f0;white-space:pre-wrap;word-break:break-all}
-footer{border-top:1px solid var(--line);padding:28px 0;color:var(--sub);font-size:13px;text-align:center;margin-top:32px}
-footer a{margin:0 10px}
-.back{margin-top:16px;display:inline-block;border:1px solid var(--line);padding:8px 18px;border-radius:6px;color:var(--txt)}
-.back:hover{border-color:var(--acc)}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+.wrap{max-width:var(--max-w);margin:0 auto;padding:0 24px}
+
+/* Nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:100;height:64px;backdrop-filter:saturate(140%) blur(16px);background:linear-gradient(180deg,var(--surface) 0%,rgba(0,0,0,0) 100%);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:100%}
+.nav-logo{font-weight:700;font-size:18px;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+.nav-logo svg{width:28px;height:28px}
+.nav-links{display:flex;gap:22px;align-items:center;font-size:14px}
+.nav-links a{color:var(--text-2);transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-ctrls{display:flex;gap:10px;align-items:center}
+.btn-icon{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s}
+.btn-icon:hover{border-color:var(--accent);color:var(--text)}
+.lang-select{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-2);padding:4px 8px;font-size:13px;cursor:pointer}
+.nav-toggle{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer}
+@media(max-width:860px){.nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:var(--surface-solid);border-bottom:1px solid var(--border);padding:12px 24px;flex-direction:column;align-items:flex-start;gap:12px}.nav-links.open{display:flex}.nav-toggle{display:block}}
+
+/* Hero */
+.hero{position:relative;padding:120px 24px 60px;text-align:center;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(79,140,255,0.14),transparent);pointer-events:none}
+.hero h1{font-size:clamp(28px,5vw,44px);font-weight:800;line-height:1.15;letter-spacing:-.02em;margin-bottom:10px;position:relative}
+.hero .sub{color:var(--text-2);font-size:17px;position:relative}
+.hero .back{margin-top:20px;display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border-radius:10px;border:1px solid var(--border);color:var(--text-2);font-size:14px;transition:all .2s;position:relative}
+.hero .back:hover{border-color:var(--accent);color:var(--text)}
+
+/* Sections */
+.section{padding:48px 24px}
+.section h2{font-size:22px;font-weight:700;margin-bottom:18px}
+
+/* Table */
+.compare-table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+.compare-table th,.compare-table td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--border)}
+.compare-table th{background:var(--surface-solid);font-weight:700;color:var(--text-2);font-size:13px}
+.compare-table tr:hover td{background:rgba(79,140,255,0.04)}
+.compare-table td{background:var(--surface)}
+.compare-table td:nth-child(4){text-align:center}
+.btn-sm{display:inline-flex;align-items:center;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;transition:opacity .2s}
+.btn-sm:hover{opacity:.9}
+
+/* Code block */
+pre{background:#0a0e1c;border:1px solid var(--border);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:12px 0;font-family:var(--mono)}
+
+/* Checksums */
+.checksums{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;backdrop-filter:blur(8px)}
+.checksums h3{font-size:16px;font-weight:700;margin-bottom:12px}
+.checksums pre{background:#0a0e1c;border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;font-size:12px;color:#c7d4f0;white-space:pre-wrap;word-break:break-all;font-family:var(--mono)}
+
+/* Footer */
+.footer{border-top:1px solid var(--border);padding:40px 24px 28px;background:var(--bg-2);margin-top:40px}
+.footer-inner{max-width:var(--max-w);margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.footer-links{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;font-size:14px}
+.footer-links a{color:var(--text-2);transition:color .2s}
+.footer-links a:hover{color:var(--text)}
+.footer-copy{color:var(--text-2);font-size:13px;opacity:.7}
 </style>
 </head>
 <body>
-<header>
+
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="./">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" rx="8" fill="url(#g)"/><path d="M8 16h6v-6H8v6zm10 0h6v-6h-6v6zM8 24h6v-6H8v6zm10 0h6v-6h-6v6z" fill="#fff" opacity=".9"/><defs><linearGradient id="g" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#4f8cff"/><stop offset="1" stop-color="#3fd08c"/></linearGradient></defs></svg>
+      TarsSecureGuard
+    </a>
+    <button class="nav-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')">☰</button>
+    <div class="nav-links" id="navLinks">
+      <a href="./">首页</a>
+      <a href="./#features">功能</a>
+      <a href="./#faq">FAQ</a>
+      <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">GitHub</a>
+    </div>
+    <div class="nav-ctrls">
+      <button class="btn-icon" id="themeBtn" onclick="toggleTheme()" title="Theme">🌙</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
   <div class="wrap">
     <h1>下载 TarsSecureGuard</h1>
     <p class="sub">最新版本 {{VERSION}} · 发布于 {{RELEASE_DATE}}</p>
@@ -40,19 +97,19 @@ footer a{margin:0 10px}
   </div>
 </header>
 
-<section>
+<section class="section">
   <div class="wrap">
     <h2>全平台二进制</h2>
-    <p style="color:var(--sub);font-size:14px">点击下方平台名称直接下载对应版本。所有文件均附带 SHA256 校验和，可在下方验证。</p>
+    <p style="color:var(--text-2);font-size:14px;margin-bottom:16px">点击下方平台名称直接下载对应版本。所有文件均附带 SHA256 校验和，可在下方验证。</p>
     {{ASSETS_TABLE}}
   </div>
 </section>
 
-<section>
+<section class="section">
   <div class="wrap">
     <h2>一键安装脚本</h2>
-    <p style="color:var(--sub);font-size:14px">适合新用户，自动识别系统与架构：</p>
-    <pre style="background:#0a0f1c;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:10px 0"><code># macOS / Linux
+    <p style="color:var(--text-2);font-size:14px;margin-bottom:12px">适合新用户，自动识别系统与架构：</p>
+    <pre><code># macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh
 
 # Windows PowerShell
@@ -60,7 +117,7 @@ irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | i
   </div>
 </section>
 
-<section>
+<section class="section">
   <div class="wrap">
     <div class="checksums">
       <h3>SHA256 校验和</h3>
@@ -69,13 +126,38 @@ irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | i
   </div>
 </section>
 
-<footer>
-  <div class="wrap">
-    <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">源码</a>
-    <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">所有发布版</a>
-    <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener">问题反馈</a>
-    <p style="margin-top:12px">© 2026 TarsSecureGuard</p>
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-links">
+      <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">源码</a>
+      <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">所有发布版</a>
+      <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener">问题反馈</a>
+    </div>
+    <p class="footer-copy">© 2026 TarsSecureGuard · The Router of the AI Era</p>
   </div>
 </footer>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'tsg-site-prefs';
+  function loadPrefs(){ try{ const r=localStorage.getItem(STORAGE_KEY); if(r) return JSON.parse(r); }catch(e){} return {}; }
+  function savePrefs(p){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(p)); }catch(e){} }
+  function setTheme(mode){
+    const html=document.documentElement;
+    if(mode==='auto'){ const dark=window.matchMedia('(prefers-color-scheme: dark)').matches; html.setAttribute('data-theme',dark?'dark':'light'); }
+    else html.setAttribute('data-theme',mode);
+    document.getElementById('themeBtn').textContent = mode==='light'?'☀️':'🌙';
+    const p=loadPrefs(); p.theme=mode; savePrefs(p);
+  }
+  window.toggleTheme=function(){
+    const cur=document.documentElement.getAttribute('data-theme');
+    const p=loadPrefs();
+    const mode=(p.theme==='light'||cur==='light')?'dark':'light';
+    setTheme(mode);
+  };
+  const prefs=loadPrefs();
+  if(prefs.theme) setTheme(prefs.theme); else setTheme('auto');
+})();
+</script>
 </body>
 </html>
