@@ -196,11 +196,11 @@ jobs:
           for f in artifacts/go-binary-*/tsg-*; do
             [ -f "$f" ] || continue
             target=$(basename "$f" | sed 's/tsg-//')
-            cp "$f" "release-assets/tsg-v${{ github.ref_name || inputs.tag }}-${target}"
+            cp "$f" "release-assets/tsg-${{ github.ref_name || inputs.tag }}-${target}"
           done
           # Android
           if [ -f artifacts/go-binary-android-arm64/tsg-android-arm64 ]; then
-            cp artifacts/go-binary-android-arm64/tsg-android-arm64 "release-assets/tsg-v${{ github.ref_name || inputs.tag }}-android-arm64"
+            cp artifacts/go-binary-android-arm64/tsg-android-arm64 "release-assets/tsg-${{ github.ref_name || inputs.tag }}-android-arm64"
           fi
           # Tauri 安装器
           for d in artifacts/tauri-*; do

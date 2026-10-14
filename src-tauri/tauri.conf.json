@@ -44,8 +44,7 @@
         "installerIcon": "icons/icon.ico",
         "sidebarImage": "icons/128x128.png",
         "headerImage": "icons/128x128.png"
-      },
-
+      }
     },
     "macOS": {
       "minimumSystemVersion": "10.13",
