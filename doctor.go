@@ -122,10 +122,6 @@ func runDoctor(args []string) {
 	dc.checkDeps(cfgRaw)
 	dc.checkResources()
 	dc.checkRuntime(cfgRaw)
-	// v4.8.0 LangProbe 系统语言探测
-	for _, c := range doctorLangProbeChecks() {
-		dc.add(c)
-	}
 
 	for _, c := range rep.Checks {
 		switch c.Status {

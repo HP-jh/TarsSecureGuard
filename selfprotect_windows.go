@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	procGetCurrentProcess    = modkernel32.NewProc("GetCurrentProcess")
-	procOpenProcessToken     = modkernel32.NewProc("OpenProcessToken")
-	procGetTokenInformation  = modkernel32.NewProc("GetTokenInformation")
-	modadvapi32              = syscall.NewLazyDLL("advapi32.dll")
+	modkernel32_sp         = syscall.NewLazyDLL("kernel32.dll")
+	procGetCurrentProcess = modkernel32_sp.NewProc("GetCurrentProcess")
+	procOpenProcessToken  = modkernel32_sp.NewProc("OpenProcessToken")
+	procGetTokenInformation = modkernel32_sp.NewProc("GetTokenInformation")
+	modadvapi32         = syscall.NewLazyDLL("advapi32.dll")
 	procCheckTokenMembership = modadvapi32.NewProc("CheckTokenMembership")
 )
 

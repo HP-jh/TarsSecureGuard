@@ -18,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/HP-jh/TarsSecureGuard/kingdom"
 )
 
 //go:embed frontend/index.html
@@ -43,7 +45,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.8.0"
+var version = "4.9.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -94,6 +96,9 @@ var (
 	httpClientLong  = &http.Client{Timeout: 300 * time.Second}
 	fetchClient     = ssrfGuardedClient(30 * time.Second) // 网页抓取 / OpenAPI 文档 / 搜索源
 	downloadClient  = ssrfGuardedClient(0)                // 模型下载专用：超时由请求 context 控制
+
+	// v4.9.0 kingdom：动物分类学架构注册中心
+	kingdomRegistry *kingdom.Registry
 )
 
 // ===================== HTTP 主入口 =====================
@@ -129,6 +134,10 @@ func main() {
 	initFileLogging()
 	resolveConfigPath()
 	loadConfig()
+	// v4.9.0 kingdom：初始化动物分类学注册中心并迁移现有配置
+	kingdomRegistry = kingdom.NewRegistry()
+	_ = kingdomRegistry.MigrateFromV4(cfg.Modules, nil, nil, nil, nil, nil, nil)
+	logMsg(fmt.Sprintf("[KINGDOM] Taxonomy loaded: %d taxons", len(kingdomRegistry.Taxonomy().Flatten())))
 	// v3.0.1 Tier 1：进程重启 = 缓存全量失效（HMAC 密钥仅存内存，重启后旧缓存必校验失败；
 	// 启动即删除，把「正常重启」与「运行中篡改」区分开，后者才落 AUDIT_TIER1_CACHE_TAMPER）
 	tier1StartupClear()
@@ -283,9 +292,6 @@ func main() {
 	mux.HandleFunc("/api/admin/v38/model-matrix", moduleRoute("persona", handleV38ModelMatrix))
 	mux.HandleFunc("/api/admin/v38/model-preheat", moduleRoute("persona", handleV38ModelPreheat))
 	mux.HandleFunc("/api/admin/v38/chainopt/status", moduleRoute("persona", handleV38ChainOptStatus))
-	// v4.8.0 多语言深度集成：LangProbe 系统能力探测
-	mux.HandleFunc("/api/admin/v48/langprobe", handleLangProbe)
-	mux.HandleFunc("/api/admin/v48/langprobe/refresh", handleLangProbeRefresh)
 	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)
@@ -302,6 +308,8 @@ func main() {
 	mux.HandleFunc("/api/admin/selfprotect/status", handleSelfProtectStatus)
 	mux.HandleFunc("/api/admin/av-compat/status", handleAVCompatStatus)
 	mux.HandleFunc("/api/admin/shutdown", handleShutdown)
+	// v4.9.0 kingdom：动物分类学架构状态查询
+	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
 
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
@@ -909,4 +917,18 @@ func isPathAllowed(path string, write bool) bool {
 		}
 	}
 	return false
+}
+
+
+// handleKingdomStatus v4.9.0：返回动物分类学架构状态
+func handleKingdomStatus(w http.ResponseWriter, r *http.Request) {
+	if kingdomRegistry == nil {
+		writeJSON(w, map[string]interface{}{"error": "kingdom not initialized"})
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"taxonomy": kingdomRegistry.Taxonomy().ToJSON(),
+		"legacy":   kingdomRegistry.ToLegacyModules(),
+		"version":  version,
+	})
 }
