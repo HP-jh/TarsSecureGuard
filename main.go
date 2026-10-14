@@ -43,7 +43,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.7.7"
+var version = "4.8.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -283,6 +283,9 @@ func main() {
 	mux.HandleFunc("/api/admin/v38/model-matrix", moduleRoute("persona", handleV38ModelMatrix))
 	mux.HandleFunc("/api/admin/v38/model-preheat", moduleRoute("persona", handleV38ModelPreheat))
 	mux.HandleFunc("/api/admin/v38/chainopt/status", moduleRoute("persona", handleV38ChainOptStatus))
+	// v4.8.0 多语言深度集成：LangProbe 系统能力探测
+	mux.HandleFunc("/api/admin/v48/langprobe", handleLangProbe)
+	mux.HandleFunc("/api/admin/v48/langprobe/refresh", handleLangProbeRefresh)
 	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)

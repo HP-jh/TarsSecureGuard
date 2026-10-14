@@ -11,11 +11,10 @@ import (
 )
 
 var (
-	modkernel32         = syscall.NewLazyDLL("kernel32.dll")
-	procGetCurrentProcess = modkernel32.NewProc("GetCurrentProcess")
-	procOpenProcessToken  = modkernel32.NewProc("OpenProcessToken")
-	procGetTokenInformation = modkernel32.NewProc("GetTokenInformation")
-	modadvapi32         = syscall.NewLazyDLL("advapi32.dll")
+	procGetCurrentProcess    = modkernel32.NewProc("GetCurrentProcess")
+	procOpenProcessToken     = modkernel32.NewProc("OpenProcessToken")
+	procGetTokenInformation  = modkernel32.NewProc("GetTokenInformation")
+	modadvapi32              = syscall.NewLazyDLL("advapi32.dll")
 	procCheckTokenMembership = modadvapi32.NewProc("CheckTokenMembership")
 )
 
@@ -50,7 +49,8 @@ func detectAdminPrivilegesPlatform() bool {
 	if ok == 0 {
 		// 回退：老系统没有 UAC，尝试 CheckTokenMembership 看是否在 Administrators 组
 		var adminSID *syscall.SID
-		_ = syscall.ConvertStringSidToSid("S-1-5-32-544", &adminSID)
+		sidStr, _ := syscall.UTF16PtrFromString("S-1-5-32-544")
+		_ = syscall.ConvertStringSidToSid(sidStr, &adminSID)
 		if adminSID == nil {
 			return false
 		}

@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestV390VersionBumped(t *testing.T) {
-	if version != "4.7.6" {
+	if version != "4.8.0" {
 		t.Fatalf("version = %q, want 4.7.6", version)
 	}
 }
@@ -244,7 +244,7 @@ func TestV390StatusAPI(t *testing.T) {
 		t.Fatalf("解析失败: %v", err)
 	}
 	v, ok := resp["version"].(string)
-	if !ok || v != "4.7.6" {
+	if !ok || v != "4.8.0" {
 		t.Fatalf("版本号不匹配: got %v", v)
 	}
 }

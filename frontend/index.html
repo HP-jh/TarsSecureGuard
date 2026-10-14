@@ -284,6 +284,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <symbol id="i-chain" viewBox="0 0 24 24"><path d="M9 15l6-6"/><path d="M11 17l-1.5 1.5a4 4 0 0 1-5.5-5.5L6 11"/><path d="M13 7l1.5-1.5a4 4 0 0 1 5.5 5.5L18 13"/></symbol>
 <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M17.94 17.94A10.5 10.5 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A9.9 9.9 0 0 1 12 5c7 0 11 7 11 7a21.8 21.8 0 0 1-3.22 4.19M9.88 9.88A3 3 0 1 0 14.12 14.12"/><path d="M1 1l22 22"/></symbol>
+<symbol id="i-langprobe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></symbol>
 </svg>
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
@@ -323,7 +324,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-item nav-adv" onclick="pg('device',this)"><span class="ic"><svg><use href="#i-device"/></svg></span> Device</div>
 <div class="nav-item nav-adv" onclick="pg('logs',this)"><span class="ic"><svg><use href="#i-logs"/></svg></span> Logs</div>
 <div class="nav-item" onclick="pg('settings',this)"><span class="ic"><svg><use href="#i-set"/></svg></span> Settings</div>
-<div class="nav-item" onclick="pg('about',this)"><span class="ic"><svg><use href="#i-about"/></svg></span> About</div></div>
+<div class="nav-item" onclick="pg('about',this)"><span class="ic"><svg><use href="#i-about"/></svg></span> About</div><div class="nav-item nav-adv" onclick="pg('langprobe',this)"><span class="ic"><svg><use href="#i-langprobe"/></svg></span> 系统能力</div></div>
 </div>
 <div class="main">
 <div class="topbar">
@@ -760,6 +761,8 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 </div>
 </div>
 </div>
+<div class="page" id="p-langprobe"><div style="padding:24px"><div class="page-header"><div class="page-title">系统能力</div><div class="page-desc">探测系统可用编程语言，为各模块选择最佳实现</div></div><div class="card" style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">&#128269; 语言探测结果</h3><button class="btn btn-primary" onclick="refreshLangProbe()">刷新探测</button></div><div id="langprobe-content"><div class="skeleton" style="height:120px"></div></div></div><div class="card" style="margin-top:16px"><h3 style="margin:0 0 12px">&#128161; 安装建议</h3><div id="langprobe-tips"><div class="skeleton" style="height:80px"></div></div></div></div></div>
+
 
 <script>
 /* ============ 前端运行时监控 ============ */
@@ -821,7 +824,7 @@ function closeSide(){$('sidebar').classList.remove('open');$('side-mask').classL
 /* ============ 页面路由 ============ */
 var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],meter:['Token 测量器','系统 / 成本实时反馈'],conn:['连接器','扩展 / 连接器生态'],ext:['扩展器','扩展 / 一键配置器'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息'],persona:['职业','工作区 / 角色与场景']};
 var curPage='dashboard';
-function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
+function pg(p,el){if(window._lpHook)window._lpHook(p);document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
   if(p==='dashboard'){updStats();loadHw();}if(p==='modules'){loadModules();loadAdapt();}if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='ext')loadExt();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings'){loadSettings();loadAVCompat();}if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();if(p==='persona')loadPersona();
   if(p==='kb'){loadKB();}if(p==='dynadef'){loadDynadef();}if(location.hash!=='#'+p)try{history.replaceState(null,'','#'+p)}catch(e2){}}
 function jump(p){var it=document.querySelectorAll('.nav-item');for(var i=0;i<it.length;i++){if((it[i].getAttribute('onclick')||'').indexOf("'"+p+"'")>-1){pg(p,it[i]);return;}}pg(p,null);}
@@ -1799,5 +1802,60 @@ document.addEventListener('DOMContentLoaded',function(){syncVerBadge();setTimeou
 // 监听 deep-link 事件（Tauri 壳内）
 if(window.__TAURI__&&window.__TAURI__.event){window.__TAURI__.event.listen('deeplink',function(e){console.log('deeplink',e);});}
 
+</script>
+<script>
+/* ============ v4.8.0 LangProbe ============ */
+function loadLangProbe(){
+  fetch('/api/admin/v48/langprobe').then(r=>r.json()).then(d=>{
+    var html='';
+    if(d.available && d.available.length){
+      html+='<div style="display:flex;flex-direction:column;gap:8px">';
+      d.available.forEach(function(c){
+        var feats=(c.features||[]).join(' / ');
+        var mods=(c.modules||[]).join(', ');
+        html+='<div style="padding:10px 12px;background:rgba(34,197,94,.08);border-radius:8px;border-left:3px solid #22c55e">';
+        html+='<div style="font-weight:600;color:#22c55e">&#9989; '+esc(c.lang)+' '+esc(c.version)+'</div>';
+        html+='<div style="font-size:12px;color:var(--muted);margin-top:4px">'+esc(c.path)+'</div>';
+        if(feats) html+='<div style="font-size:12px;margin-top:4px">&#35299;&#38145;: '+esc(feats)+'</div>';
+        if(mods) html+='<div style="font-size:11px;color:var(--cyan);margin-top:2px">&#27169;&#22359;: '+esc(mods)+'</div>';
+        html+='</div>';
+      });
+      html+='</div>';
+    } else {
+      html='<div style="padding:12px;background:rgba(239,68,68,.08);border-radius:8px;color:#ef4444">&#26410;&#25506;&#27979;&#21040;&#20219;&#20309;&#22686;&#24378;&#35821;&#35328;&#65292;&#25152;&#26377;&#27169;&#22359;&#20351;&#29992; Go &#21407;&#29983;&#23454;&#29616;</div>';
+    }
+    document.getElementById('langprobe-content').innerHTML=html;
+    var tipsHtml='';
+    if(d.recommend && d.recommend.length){
+      tipsHtml+='<div style="display:flex;flex-direction:column;gap:8px">';
+      d.recommend.forEach(function(t){
+        var ul=(t.unlocks||[]).join(' / ');
+        tipsHtml+='<div style="padding:10px 12px;background:rgba(88,166,255,.08);border-radius:8px;border-left:3px solid #58a6ff">';
+        tipsHtml+='<div style="font-weight:600;color:#58a6ff">'+esc(t.lang)+' <span style="font-size:11px">(P'+t.priority+')</span></div>';
+        tipsHtml+='<div style="font-size:12px;margin-top:4px;font-family:monospace;background:rgba(0,0,0,.2);padding:6px 8px;border-radius:4px">'+esc(t.command)+'</div>';
+        if(ul) tipsHtml+='<div style="font-size:12px;margin-top:4px">&#35299;&#38145;: '+esc(ul)+'</div>';
+        tipsHtml+='</div>';
+      });
+      tipsHtml+='</div>';
+    } else {
+      tipsHtml='<div style="padding:12px;background:rgba(34,197,94,.08);border-radius:8px;color:#22c55e">&#24050;&#23433;&#35013;&#25152;&#26377;&#25512;&#33616;&#35821;&#35328;&#65292;&#26080;&#38656;&#39069;&#22806;&#23433;&#35013;</div>';
+    }
+    document.getElementById('langprobe-tips').innerHTML=tipsHtml;
+  }).catch(function(e){
+    document.getElementById('langprobe-content').innerHTML='<div style="color:#ef4444">&#21152;&#36733;&#22833;&#36133;: '+esc(e.message)+'</div>';
+  });
+}
+function refreshLangProbe(){
+  document.getElementById('langprobe-content').innerHTML='<div class="skeleton" style="height:120px"></div>';
+  document.getElementById('langprobe-tips').innerHTML='<div class="skeleton" style="height:80px"></div>';
+  fetch('/api/admin/v48/langprobe/refresh',{method:'POST'}).then(r=>r.json()).then(d=>{
+    loadLangProbe();
+  }).catch(function(e){
+    document.getElementById('langprobe-content').innerHTML='<div style="color:#ef4444">&#21047;&#26032;&#22833;&#36133;: '+esc(e.message)+'</div>';
+  });
+}
+window._lpHook=function(page){
+  if(page==='langprobe') loadLangProbe();
+};
 </script>
 </body></html>
