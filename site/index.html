@@ -4,30 +4,55 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="meta.title">TarsSecureGuard — AI 时代的路由器与配置器</title>
-<meta name="description" content="TarsSecureGuard（TSG）是零依赖单文件的本地 AI 网关：左边接 13 种 AI 客户端，右边连 35 家模型商，中间强制 WAF / 语义防护 / 限流 / 审计。解压即用。" data-i18n="meta.description">
-<meta name="keywords" content="TarsSecureGuard,AI Gateway,LLM Gateway,OpenAI Compatible,Model Router,AI Security,MCP,Local LLM">
+<meta name="description" content="TarsSecureGuard（TSG）是零依赖单文件的本地 AI 安全网关与 LLM 代理：接 13 种 AI 客户端，连 35 家模型商，强制 WAF、提示词注入防护、限流、PII 脱敏与审计。解压即用，数据不出本机。" data-i18n="meta.description">
+<meta name="keywords" content="TarsSecureGuard,TSG,AI安全网关,LLM网关,大模型网关,LLM代理,OpenAI代理,AI Gateway,LLM Gateway,OpenAI Compatible,Model Router,AI Security,MCP安全,提示词注入防护,本地AI,Local LLM,API网关,AI代理">
 <link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/">
+<link rel="alternate" hreflang="zh-CN" href="https://hp-jh.github.io/TarsSecureGuard/">
+<link rel="alternate" hreflang="en" href="https://hp-jh.github.io/TarsSecureGuard/">
+<link rel="alternate" hreflang="x-default" href="https://hp-jh.github.io/TarsSecureGuard/">
+<meta name="robots" content="index,follow">
+<meta name="googlebot" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TarsSecureGuard">
-<meta property="og:title" content="TarsSecureGuard — AI 时代的路由器与配置器">
-<meta property="og:description" content="零依赖单文件本地 AI 网关。WAF 默认开启，13 客户端 × 35 provider，解压即用。">
+<meta property="og:title" content="TarsSecureGuard — AI 时代的路由器与配置器 · 本地 AI 安全网关">
+<meta property="og:description" content="零依赖单文件本地 AI 安全网关。WAF 默认开启，13 客户端 × 35 provider，MCP stdio 即插即护，解压即用。">
 <meta property="og:url" content="https://hp-jh.github.io/TarsSecureGuard/">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:image" content="https://hp-jh.github.io/TarsSecureGuard/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TarsSecureGuard — 本地 AI 安全网关">
+<meta name="twitter:description" content="零依赖单文件。WAF 默认开，35 provider，MCP 即插即护。">
+<meta name="twitter:image" content="https://hp-jh.github.io/TarsSecureGuard/og-image.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "TarsSecureGuard",
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Windows, macOS, Linux, Android",
-  "softwareVersion": "{{VERSION}}",
-  "description": "零依赖单文件本地 AI 安全网关与配置器。",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "author": { "@type": "Organization", "name": "TarsSecureGuard Team" },
-  "url": "https://hp-jh.github.io/TarsSecureGuard/",
-  "downloadUrl": "https://github.com/HP-jh/TarsSecureGuard/releases",
-  "codeRepository": "https://github.com/HP-jh/TarsSecureGuard"
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "name": "TarsSecureGuard",
+      "url": "https://hp-jh.github.io/TarsSecureGuard/",
+      "description": "零依赖单文件本地 AI 安全网关与 LLM 代理",
+      "inLanguage": ["zh-CN","en"],
+      "publisher": {"@type": "Organization","name": "TarsSecureGuard"}
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "TarsSecureGuard",
+      "alternateName": ["TSG","AI 安全网关","LLM Gateway"],
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Windows, macOS, Linux, Android",
+      "softwareVersion": "{{VERSION}}",
+      "description": "零依赖单文件本地 AI 安全网关：WAF、提示词注入防护、三维限流、PII 脱敏、hash-chain 审计、MCP stdio 即插即护。接 13 种客户端，连 35 家模型商。",
+      "keywords": "AI安全网关,LLM Gateway,OpenAI代理,MCP安全,提示词注入防护,本地AI,零依赖",
+      "license": "https://opensource.org/licenses/MIT",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Organization", "name": "TarsSecureGuard" },
+      "url": "https://hp-jh.github.io/TarsSecureGuard/",
+      "downloadUrl": "https://github.com/HP-jh/TarsSecureGuard/releases",
+      "codeRepository": "https://github.com/HP-jh/TarsSecureGuard"
+    }
+  ]
 }
 </script>
 <style>
@@ -243,7 +268,7 @@ code{font-family:var(--mono)}
 <header class="hero">
   <div class="hero-badge"><span class="dot"></span><span data-i18n="hero.badge">最新版 v{{VERSION}} · 发布于 {{RELEASE_DATE}}</span></div>
   <h1 data-i18n="hero.title">AI 时代的<br><span class="grad">路由器与配置器</span></h1>
-  <p data-i18n="hero.subtitle">零依赖单文件本地 AI 网关。左边接 13 种 AI 客户端，右边连 35 家模型商，中间强制 WAF / 语义防护 / 限流 / 审计。解压即用，不需要容器。</p>
+  <p data-i18n="hero.subtitle">零依赖单文件的本地 AI 安全网关（LLM 代理）。左边接 13 种 AI 客户端，右边连 35 家模型商，中间强制 WAF、提示词注入防护、三维限流、PII 脱敏与 hash-chain 审计。解压即用，数据不出本机。</p>
   <div class="hero-btns">
     <a class="btn btn-primary" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="hero.cta_primary">Star on GitHub</a>
     <a class="btn btn-ghost" href="#install" data-i18n="hero.cta_secondary">一键安装</a>
