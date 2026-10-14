@@ -1,3 +1,28 @@
+# TarsSecureGuard v4.9.0 · Kingdom 动物分类学架构
+
+> 对应项：按「界→门→纲→目→科→属→种」分层重组代码库，引入 Protectiva / Functionalis / Frontend / Backend 四层，LangBridge 与 MCPScan 落地，零破坏兼容层 MigrateFromV4 / ToLegacyModules。
+
+## 一、Kingdom 分类学模块组织（kingdom/）
+
+- 新建 `kingdom/` 目录：`taxonomy.go`（分类树）、`registry.go`（模块注册）、`migrate.go`（v4 兼容层）、`langbridge.go`（多语言桥接）、`phylum/`（各 phylum 子包）
+- **Protectiva（防护层）**：WAF、外网防护、MCP 扫描、传输加密、动态防御、实时监控
+- **Functionalis（功能层）**：聊天 / 模型 / 工具 / 连接器协调引擎
+- **Frontend（前端层）**：UI 框架与仪表盘统一入口
+- **Backend（后端层）**：API 网关与存储抽象
+
+## 二、新能力
+
+- **LangBridge**：多语言探测与桥接（Go / Python / PowerShell / Node.js / eBPF）
+- **MCPScan**：静态规则 7 条 + 动态规则 5 条 + 自动分类 + 任务匹配
+- **零破坏兼容层**：`MigrateFromV4` / `ToLegacyModules`，老配置与老调用路径不中断
+- **v4.9.0 API**：`GET /api/admin/kingdom/status` 查看分类树
+
+## 三、质量
+
+- `kingdom/` 全包 `-race` 测试通过（10 个测试文件，无竞态）
+
+---
+
 # TarsSecureGuard v4.8.0 · LangProbe 多语言深度集成框架
 
 > 对应项：启动期并发脚本语言探测、模块-语言自动映射、脚本沙箱执行驱动、管理面板「系统能力」页、`tsg doctor` 语言探测报告、Windows 构建修复。
