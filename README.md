@@ -24,8 +24,8 @@
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-4.9.0-success">
-<img alt="Go" src="https://img.shields.io/badge/Go-1.22-00ADD8?logo=go&logoColor=white">
+<img alt="Version" src="https://img.shields.io/badge/version-4.7.7-success">
+<img alt="Go" src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
 <img alt="Platforms" src="https://img.shields.io/badge/platform-6%20targets-blueviolet">

@@ -292,6 +292,13 @@ func main() {
 	mux.HandleFunc("/api/admin/v38/model-matrix", moduleRoute("persona", handleV38ModelMatrix))
 	mux.HandleFunc("/api/admin/v38/model-preheat", moduleRoute("persona", handleV38ModelPreheat))
 	mux.HandleFunc("/api/admin/v38/chainopt/status", moduleRoute("persona", handleV38ChainOptStatus))
+	// v4.9.0 六国语言 i18n 全栈引擎
+	mux.HandleFunc("/api/i18n/bundle", handleI18nBundle)
+	mux.HandleFunc("/api/i18n/t", handleI18nTranslate)
+	mux.HandleFunc("/api/i18n/languages", handleI18nLanguages)
+	mux.HandleFunc("/api/i18n/dashboard", handleI18nDashboard)
+	mux.HandleFunc("/api/admin/i18n/reload", handleAdminI18nReload)
+	mux.HandleFunc("/api/i18n/stream", handleI18nSSE)
 	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)

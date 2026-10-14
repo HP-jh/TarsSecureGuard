@@ -257,6 +257,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 .download-btn:hover{background:rgba(63,185,80,.2)}
 .download-btn.hidden{display:none}
 </style>
+<script src="i18n.js"></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -1799,5 +1800,11 @@ document.addEventListener('DOMContentLoaded',function(){syncVerBadge();setTimeou
 // 监听 deep-link 事件（Tauri 壳内）
 if(window.__TAURI__&&window.__TAURI__.event){window.__TAURI__.event.listen('deeplink',function(e){console.log('deeplink',e);});}
 
+</script>
+
+<script>
+/* v4.9.0 i18n */
+function changeLang(code){ if(window.i18n){window.i18n.switchLang(code);} localStorage.setItem('tsg_lang',code); }
+(function(){ var saved=localStorage.getItem('tsg_lang')||''; if(saved&&window.i18n){window.i18n.switchLang(saved);} })();
 </script>
 </body></html>
