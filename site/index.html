@@ -3,20 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title data-i18n="meta.title">TarsSecureGuard — AI 时代的路由器与配置器，自带安全带</title>
-<meta name="description" content="TarsSecureGuard（TSG）是 AI 工具的左邻右舍：开箱即用的本地安全网关 + 一键配置器——统一 OpenAI 兼容协议、智能模型路由，单文件解压即用。" data-i18n="meta.description">
-<meta name="keywords" content="TarsSecureGuard,AI Gateway,LLM Gateway,OpenAI Compatible,Model Router,AI Security,Security Gateway,Configurator,One-Click Config,AI Tool Config,Local LLM">
-<meta name="author" content="TarsSecureGuard Team">
+<title data-i18n="meta.title">TarsSecureGuard — AI 时代的路由器与配置器</title>
+<meta name="description" content="TarsSecureGuard（TSG）是零依赖单文件的本地 AI 网关：左边接 13 种 AI 客户端，右边连 35 家模型商，中间强制 WAF / 语义防护 / 限流 / 审计。解压即用。" data-i18n="meta.description">
+<meta name="keywords" content="TarsSecureGuard,AI Gateway,LLM Gateway,OpenAI Compatible,Model Router,AI Security,MCP,Local LLM">
 <link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TarsSecureGuard">
 <meta property="og:title" content="TarsSecureGuard — AI 时代的路由器与配置器">
-<meta property="og:description" content="统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化、Kingdom 架构。解压即用，无需容器与数据库。">
+<meta property="og:description" content="零依赖单文件本地 AI 网关。WAF 默认开启，13 客户端 × 35 provider，解压即用。">
 <meta property="og:url" content="https://hp-jh.github.io/TarsSecureGuard/">
 <meta property="og:locale" content="zh_CN">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="TarsSecureGuard — AI 时代的路由器与配置器">
-<meta name="twitter:description" content="统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化、Kingdom 架构。">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -25,762 +22,466 @@
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux, Android",
   "softwareVersion": "{{VERSION}}",
-  "description": "开箱即用的本地 AI 安全网关与一键配置器：统一 OpenAI 兼容协议、智能模型路由、Kingdom 架构、Extender 一键配置已装 AI 工具。",
+  "description": "零依赖单文件本地 AI 安全网关与配置器。",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "author": { "@type": "Organization", "name": "TarsSecureGuard Team" },
   "url": "https://hp-jh.github.io/TarsSecureGuard/",
   "downloadUrl": "https://github.com/HP-jh/TarsSecureGuard/releases",
-  "codeRepository": "https://github.com/HP-jh/TarsSecureGuard",
-  "inLanguage": "zh-CN"
+  "codeRepository": "https://github.com/HP-jh/TarsSecureGuard"
 }
 </script>
 <style>
-:root {
-  --bg: #08090c;
-  --bg-2: #0c0e14;
-  --surface: rgba(18,20,28,0.72);
-  --surface-solid: #11131a;
-  --border: rgba(255,255,255,0.08);
-  --border-strong: rgba(255,255,255,0.14);
-  --text: #f5f7fa;
-  --text-2: #9aa3b5;
-  --text-3: #6b7385;
-  --accent: #6366f1;
-  --accent-2: #8b5cf6;
-  --accent-3: #22d3ee;
-  --ok: #34d399;
-  --warn: #fbbf24;
-  --danger: #f87171;
-  --shadow: 0 8px 32px rgba(0,0,0,0.4);
-  --shadow-glow: 0 4px 24px rgba(99,102,241,0.35);
-  --radius: 14px;
-  --radius-sm: 10px;
-  --nav-h: 64px;
-  --max-w: 1120px;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+:root{
+  --bg:#08090c;--bg-2:#0c0e14;
+  --surface:rgba(18,20,28,.72);--surface-solid:#11131a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.14);
+  --text:#f5f7fa;--text-2:#9aa3b5;--text-3:#6b7385;
+  --accent:#6366f1;--accent-2:#8b5cf6;--accent-3:#22d3ee;
+  --ok:#34d399;--warn:#fbbf24;--danger:#f87171;
+  --shadow:0 8px 32px rgba(0,0,0,.4);
+  --radius:16px;--radius-sm:12px;
+  --nav-h:60px;--max-w:1180px;
+  --font:-apple-system,BlinkMacSystemFont,"Inter","SF Pro Display","Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
 }
-[data-theme="light"] {
-  --bg: #fafbfd;
-  --bg-2: #f1f3f9;
-  --surface: rgba(255,255,255,0.8);
-  --surface-solid: #ffffff;
-  --border: rgba(20,30,60,0.1);
-  --border-strong: rgba(20,30,60,0.18);
-  --text: #11151c;
-  --text-2: #4a5468;
-  --text-3: #8b95a8;
-  --accent: #4f46e5;
-  --accent-2: #7c3aed;
-  --shadow: 0 8px 32px rgba(30,50,100,0.1);
-  --shadow-glow: 0 4px 24px rgba(79,70,229,0.2);
+[data-theme="light"]{
+  --bg:#fafbfd;--bg-2:#f1f3f9;
+  --surface:rgba(255,255,255,.8);--surface-solid:#fff;
+  --border:rgba(20,30,60,.1);--border-strong:rgba(20,30,60,.18);
+  --text:#11151c;--text-2:#4a5468;--text-3:#8b95a8;
+  --accent:#4f46e5;--accent-2:#7c3aed;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  background:var(--bg);color:var(--text);font-family:var(--font);
-  line-height:1.6;-webkit-font-smoothing:antialiased;
-  font-feature-settings:"cv11","ss01";
-  overflow-x:hidden;
-}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
-::selection{background:rgba(99,102,241,0.3);color:#fff}
+::selection{background:rgba(99,102,241,.3);color:#fff}
 
-/* ambient background drift */
-body::before{
-  content:"";position:fixed;top:-20%;left:50%;transform:translateX(-50%);
-  width:900px;height:600px;z-index:-1;pointer-events:none;
-  background:radial-gradient(ellipse at center, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.06) 40%, transparent 70%);
-  filter:blur(40px);
-  animation:drift 14s ease-in-out infinite alternate;
-}
-[data-theme="light"] body::before{opacity:0.6}
-@keyframes drift{
-  from{transform:translateX(-50%) translateY(0)}
-  to{transform:translateX(-48%) translateY(30px)}
-}
+/* particle canvas */
+#particles{position:fixed;inset:0;z-index:0;pointer-events:none}
 
-/* Nav */
-.nav{
-  position:fixed;inset:0 0 auto 0;z-index:100;height:var(--nav-h);
-  backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
-  background:rgba(8,9,12,0.7);
-  border-bottom:1px solid var(--border);
-  transition:background .3s, box-shadow .3s;
+/* nav — floating pill */
+.nav{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:100;
+  background:rgba(14,16,22,.7);backdrop-filter:saturate(180%) blur(16px);
+  -webkit-backdrop-filter:saturate(180%) blur(16px);
+  border:1px solid var(--border);border-radius:999px;
+  padding:0 8px;display:flex;align-items:center;gap:4px;
+  max-width:calc(100vw - 32px);
 }
-[data-theme="light"] .nav{background:rgba(250,251,253,0.75)}
-.nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:100%}
-.nav-logo{font-weight:600;font-size:16px;letter-spacing:-0.01em;display:flex;align-items:center;gap:10px}
-.nav-logo svg{width:28px;height:28px;transition:transform .3s var(--ease-spring)}
-.nav-logo:hover svg{transform:scale(1.08) rotate(-3deg)}
-.nav-links{display:flex;gap:26px;align-items:center;font-size:14px}
-.nav-links a{color:var(--text-2);transition:color .2s;position:relative}
-.nav-links a::after{
-  content:"";position:absolute;left:0;right:0;bottom:-4px;height:1.5px;
-  background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .25s var(--ease-out);
-}
-.nav-links a:hover{color:var(--text)}
-.nav-links a:hover::after{transform:scaleX(1)}
-.nav-ctrls{display:flex;gap:10px;align-items:center}
-.btn-icon{
-  width:34px;height:34px;border-radius:10px;border:1px solid var(--border);
-  background:var(--surface);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:all .2s;
-}
-.btn-icon:hover{border-color:var(--border-strong);color:var(--text);transform:translateY(-1px)}
-.lang-select{background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--text-2);padding:5px 10px;font-size:13px;cursor:pointer;transition:border-color .2s}
-.lang-select:hover{border-color:var(--border-strong)}
+[data-theme="light"] .nav{background:rgba(255,255,255,.75)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:0 12px;height:40px}
+.nav-logo svg{width:22px;height:22px}
+.nav-links{display:flex;gap:2px;align-items:center}
+.nav-links a{color:var(--text-2);font-size:13.5px;padding:8px 14px;border-radius:999px;transition:all .2s}
+.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.nav-cta{background:var(--text);color:var(--bg);font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;margin-left:8px;transition:opacity .2s}
+.nav-cta:hover{opacity:.85}
+.nav-toggle{display:none;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:8px 12px}
+.lang-select{background:transparent;border:none;color:var(--text-2);font-size:12px;cursor:pointer;padding:6px 4px}
 .lang-select option{background:var(--surface-solid);color:var(--text)}
-
-/* Mobile nav */
-.nav-toggle{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer}
-@media(max-width:860px){
-  .nav-links{display:none;position:absolute;top:var(--nav-h);left:0;right:0;background:var(--surface-solid);border-bottom:1px solid var(--border);padding:16px 24px;flex-direction:column;align-items:flex-start;gap:14px}
-  .nav-links.open{display:flex}
+@media(max-width:900px){
+  .nav-links,.nav-cta{display:none}
   .nav-toggle{display:block}
+  .nav-links.open{display:flex;position:fixed;top:68px;left:16px;right:16px;flex-direction:column;background:var(--surface-solid);border:1px solid var(--border);border-radius:16px;padding:8px;align-items:stretch}
 }
 
-/* Hero */
-.hero{position:relative;padding:150px 24px 90px;text-align:center;overflow:hidden}
-.hero-inner{position:relative;max-width:var(--max-w);margin:0 auto}
-.hero-badge{
-  display:inline-flex;align-items:center;gap:8px;
-  background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);
-  color:#c7d2fe;padding:6px 16px;border-radius:999px;font-size:13px;font-weight:500;
-  margin-bottom:28px;
-  animation:fadeUp .8s var(--ease-out) both;
-}
+/* hero — left-aligned Linear style */
+.hero{position:relative;z-index:1;padding:160px 24px 80px;max-width:var(--max-w);margin:0 auto}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);color:#c7d2fe;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:500;margin-bottom:28px;animation:fadeUp .8s var(--ease) both}
 [data-theme="light"] .hero-badge{color:var(--accent)}
 .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-.hero h1{
-  font-size:clamp(40px,7vw,72px);font-weight:700;line-height:1.05;
-  letter-spacing:-0.035em;margin-bottom:24px;
-  animation:fadeUp .8s var(--ease-out) .1s both;
-}
-.hero h1 span{
-  background:linear-gradient(135deg,#fff 0%,#c7d2fe 50%,#22d3ee 100%);
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-}
-[data-theme="light"] .hero h1 span{
-  background:linear-gradient(135deg,#11151c 0%,#4f46e5 60%,#0891b2 100%);
-  -webkit-background-clip:text;background-clip:text;
-}
-.hero p{
-  color:var(--text-2);font-size:clamp(16px,2vw,19px);
-  max-width:680px;margin:0 auto 36px;line-height:1.65;
-  animation:fadeUp .8s var(--ease-out) .2s both;
-}
-.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;animation:fadeUp .8s var(--ease-out) .3s both}
-@keyframes fadeUp{
-  from{opacity:0;transform:translateY(20px)}
-  to{opacity:1;transform:translateY(0)}
-}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero h1{font-size:clamp(44px,8vw,84px);font-weight:700;line-height:1.02;letter-spacing:-.04em;margin-bottom:24px;max-width:900px;animation:fadeUp .8s var(--ease) .1s both}
+.hero h1 .grad{background:linear-gradient(135deg,#fff 0%,#c7d2fe 50%,#22d3ee 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+[data-theme="light"] .hero h1 .grad{background:linear-gradient(135deg,#111 0%,#4f46e5 60%,#0891b2 100%);-webkit-background-clip:text;background-clip:text}
+.hero p{color:var(--text-2);font-size:clamp(17px,2vw,20px);max-width:620px;margin-bottom:36px;line-height:1.6;animation:fadeUp .8s var(--ease) .2s both}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap;animation:fadeUp .8s var(--ease) .3s both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
-/* Buttons */
-.btn{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:13px 28px;border-radius:12px;
-  font-size:15px;font-weight:600;letter-spacing:-0.01em;
-  transition:transform .2s var(--ease-out), box-shadow .25s, background .2s, border-color .2s;
-  cursor:pointer;
-}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:-.01em;transition:transform .2s var(--ease),box-shadow .25s,background .2s}
 .btn:hover{transform:translateY(-2px)}
-.btn:active{transform:translateY(0)}
-.btn-primary{
-  background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  color:#fff;box-shadow:var(--shadow-glow);
-}
-.btn-primary:hover{box-shadow:0 8px 32px rgba(99,102,241,0.5);filter:brightness(1.05)}
-.btn-ghost{
-  background:rgba(255,255,255,0.04);border:1px solid var(--border);
-  color:var(--text);backdrop-filter:blur(8px);
-}
-.btn-ghost:hover{background:rgba(255,255,255,0.08);border-color:var(--border-strong)}
-[data-theme="light"] .btn-ghost{background:rgba(20,30,60,0.04)}
-[data-theme="light"] .btn-ghost:hover{background:rgba(20,30,60,0.08)}
-.btn-sm{padding:8px 18px;font-size:13px;border-radius:10px}
+.btn-primary{background:var(--text);color:var(--bg)}
+.btn-primary:hover{box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.btn-ghost{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);backdrop-filter:blur(8px)}
+.btn-ghost:hover{background:rgba(255,255,255,.08);border-color:var(--border-strong)}
+[data-theme="light"] .btn-ghost{background:rgba(20,30,60,.04)}
+.btn-sm{padding:8px 16px;font-size:13px;border-radius:999px}
 
-/* Sections */
-.section{padding:100px 24px;position:relative}
-.section-alt{background:var(--bg-2)}
-.section-inner{max-width:var(--max-w);margin:0 auto}
-.section-head{text-align:center;margin-bottom:60px}
-.section-head h2{
-  font-size:clamp(28px,4vw,42px);font-weight:700;
-  letter-spacing:-0.025em;line-height:1.15;margin-bottom:14px;
-}
-.section-head p{color:var(--text-2);font-size:16px;max-width:600px;margin:0 auto;line-height:1.65}
+/* product window mock */
+.hero-window{margin-top:80px;position:relative;animation:fadeUp 1s var(--ease) .4s both}
+.hero-window::after{content:"";position:absolute;inset:auto 0 -1px 0;height:120px;background:linear-gradient(180deg,transparent,var(--bg));z-index:2}
+.window{background:#0a0c12;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.win-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.win-dot{width:11px;height:11px;border-radius:50%}
+.win-dot.r{background:#ff5f57}.win-dot.y{background:#febc2e}.win-dot.g{background:#28c840}
+.win-title{flex:1;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.win-body{padding:28px;display:grid;grid-template-columns:200px 1fr;gap:24px;min-height:340px}
+.win-side{border-right:1px solid var(--border);padding-right:20px}
+.win-side .item{padding:8px 10px;border-radius:8px;font-size:13px;color:var(--text-2);margin-bottom:2px}
+.win-side .item.active{background:rgba(99,102,241,.15);color:var(--text)}
+.win-main h4{font-size:15px;font-weight:600;margin-bottom:16px}
+.win-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.win-stat{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px}
+.win-stat .n{font-size:22px;font-weight:700}
+.win-stat .l{font-size:11px;color:var(--text-3);margin-top:2px}
+.win-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.win-row .k{color:var(--text-2)}
+.win-row .v{color:var(--ok);font-family:var(--mono)}
+@media(max-width:700px){.win-body{grid-template-columns:1fr}.win-side{display:none}}
 
-/* Cards */
-.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
-.card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:28px;
-  backdrop-filter:blur(10px);
-  transition:transform .3s var(--ease-out), border-color .3s, background .3s;
-  position:relative;overflow:hidden;
-}
-.card::before{
-  content:"";position:absolute;inset:0;
-  background:radial-gradient(400px circle at var(--mx,50%) var(--my,0%), rgba(99,102,241,0.08), transparent 40%);
-  opacity:0;transition:opacity .3s;pointer-events:none;
-}
-.card:hover{transform:translateY(-4px);border-color:var(--border-strong)}
-.card:hover::before{opacity:1}
-.card-icon{
-  width:42px;height:42px;border-radius:12px;
-  display:inline-flex;align-items:center;justify-content:center;
-  margin-bottom:18px;font-size:19px;
-  background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12));
-}
-.card h3{font-size:17px;font-weight:600;margin-bottom:8px;letter-spacing:-0.01em}
-.card p{color:var(--text-2);font-size:14px;line-height:1.65}
-.card-tag{display:inline-block;font-size:11px;font-weight:500;color:var(--ok);background:rgba(52,211,153,0.1);padding:3px 10px;border-radius:999px;margin-top:14px}
+/* sections */
+.section{padding:120px 24px;position:relative;z-index:1;max-width:var(--max-w);margin:0 auto}
+.section-head{margin-bottom:64px;max-width:680px}
+.section-head.centered{text-align:center;margin-left:auto;margin-right:auto}
+.section-tag{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-3);margin-bottom:16px}
+.section-head h2{font-size:clamp(30px,4.5vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
+.section-head p{color:var(--text-2);font-size:17px;line-height:1.65}
 
-/* Architecture */
-.arch-flow{display:flex;flex-direction:column;gap:10px;max-width:800px;margin:0 auto}
-.arch-layer{
-  display:flex;align-items:center;gap:16px;padding:18px 22px;
-  background:var(--surface);border:1px solid var(--border);border-radius:12px;
-  backdrop-filter:blur(8px);
-  transition:all .25s var(--ease-out);
+/* bento grid */
+.bento{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;grid-auto-rows:220px}
+.bento .card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;backdrop-filter:blur(10px);overflow:hidden;transition:transform .3s var(--ease),border-color .3s}
+.bento .card::before{content:"";position:absolute;inset:0;background:radial-gradient(500px circle at var(--mx,50%) var(--my,0%),rgba(99,102,241,.08),transparent 45%);opacity:0;transition:opacity .3s;pointer-events:none}
+.bento .card:hover{transform:translateY(-4px);border-color:var(--border-strong)}
+.bento .card:hover::before{opacity:1}
+.bento .card-icon{width:42px;height:42px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(139,92,246,.15))}
+.bento .card h3{font-size:18px;font-weight:600;margin-bottom:8px;letter-spacing:-.01em}
+.bento .card p{color:var(--text-2);font-size:14px;line-height:1.6}
+.bento .card-tag{display:inline-block;font-size:11px;font-weight:500;color:var(--ok);background:rgba(52,211,153,.1);padding:3px 10px;border-radius:999px;margin-top:12px}
+/* spans — this is where the offset/masonry feel comes from */
+.bento .span-2{grid-column:span 2}
+.bento .tall{grid-row:span 2}
+@media(max-width:860px){
+  .bento{grid-template-columns:1fr;grid-auto-rows:auto}
+  .bento .span-2,.bento .tall{grid-column:span 1;grid-row:span 1}
+  .bento .card{min-height:180px}
 }
-.arch-layer:hover{border-color:rgba(99,102,241,0.3);transform:translateX(6px)}
-.arch-num{
-  width:32px;height:32px;border-radius:9px;
-  background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  color:#fff;display:inline-flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:13px;flex-shrink:0;
-}
-.arch-body h4{font-size:15px;font-weight:600;margin-bottom:2px;letter-spacing:-0.01em}
-.arch-body p{color:var(--text-2);font-size:13.5px;line-height:1.6}
-.arch-conn{text-align:center;color:var(--text-3);font-size:12px;opacity:.6}
 
-/* Scenarios */
-.scenario-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
-.scenario-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:28px;backdrop-filter:blur(8px);
-  transition:transform .3s var(--ease-out), border-color .3s;
-}
-.scenario-card:hover{transform:translateY(-3px);border-color:var(--border-strong)}
-.scenario-card h3{font-size:17px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:10px;letter-spacing:-0.01em}
-.scenario-card ul{list-style:none}
-.scenario-card li{position:relative;padding-left:20px;color:var(--text-2);font-size:14px;margin-bottom:10px;line-height:1.65}
-.scenario-card li::before{content:"";position:absolute;left:0;top:9px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+/* terminal */
+.terminal{background:#0a0c12;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;max-width:760px;margin:0 auto;box-shadow:var(--shadow)}
+.term-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.term-dot{width:11px;height:11px;border-radius:50%}
+.term-dot.r{background:#ff5f57}.term-dot.y{background:#febc2e}.term-dot.g{background:#28c840}
+.term-title{flex:1;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.term-body{padding:24px;font-family:var(--mono);font-size:13.5px;line-height:1.8;overflow-x:auto}
+.term-body .p{color:var(--ok)}
+.term-body .c{color:var(--text-3)}
+.term-body .o{color:var(--text-2)}
 
-/* Screenshots */
-.ss-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
-.ss-item{
-  position:relative;border-radius:var(--radius);overflow:hidden;
-  border:1px solid var(--border);background:var(--surface-solid);
-  transition:transform .3s var(--ease-out), box-shadow .3s;
-}
-.ss-item:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
-.ss-item img{width:100%;height:auto;aspect-ratio:16/10;object-fit:cover}
-.ss-cap{padding:14px 16px;font-size:14px;font-weight:500;color:var(--text-2)}
-.ss-placeholder{display:flex;align-items:center;justify-content:center;aspect-ratio:16/10;color:var(--text-3);font-size:13px;background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(120,140,200,0.05) 10px,rgba(120,140,200,0.05) 20px)}
-
-/* Compare */
-.compare-table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
-.compare-table th,.compare-table td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--border)}
-.compare-table th{background:var(--surface-solid);font-weight:600;color:var(--text-2);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
-.compare-table th:first-child{border-radius:10px 0 0 0}
-.compare-table th:last-child{border-radius:0 10px 0 0}
-.compare-table tr:hover td{background:rgba(99,102,241,0.04)}
-.compare-table td:first-child{font-weight:600;color:var(--text-2);width:140px}
-.compare-table td:nth-child(2){color:var(--ok);font-weight:600}
-.compare-table td{background:var(--surface)}
-
-/* FAQ */
-.faq-list{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-.faq-item{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:12px;overflow:hidden;backdrop-filter:blur(8px);
-  transition:border-color .2s;
-}
-.faq-item.open{border-color:var(--border-strong)}
-.faq-q{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:18px 22px;cursor:pointer;font-weight:500;font-size:15px;
-  transition:background .2s;letter-spacing:-0.01em;
-}
-.faq-q:hover{background:rgba(99,102,241,0.05)}
-.faq-q::after{content:"+";font-size:20px;color:var(--text-3);transition:transform .3s var(--ease-spring)}
-.faq-item.open .faq-q::after{transform:rotate(45deg);color:var(--accent)}
-.faq-a{max-height:0;overflow:hidden;transition:max-height .35s var(--ease-out)}
-.faq-item.open .faq-a{max-height:400px}
-.faq-a-inner{padding:0 22px 18px;color:var(--text-2);font-size:14px;line-height:1.7}
-
-/* Timeline */
+/* timeline */
 .timeline{position:relative;max-width:780px;margin:0 auto;padding-left:32px}
-.timeline::before{
-  content:"";position:absolute;left:8px;top:8px;bottom:8px;
-  width:2px;background:linear-gradient(180deg,var(--accent),var(--accent-2),var(--accent-3));
-  border-radius:2px;
-}
-.timeline-item{position:relative;margin-bottom:32px;padding-left:20px}
-.timeline-item::before{
-  content:"";position:absolute;left:-31px;top:6px;
-  width:14px;height:14px;border-radius:50%;
-  background:var(--bg);border:2px solid var(--accent);
-  transition:all .2s;
-}
-.timeline-item:hover::before{background:var(--accent);box-shadow:0 0 0 4px rgba(99,102,241,0.15)}
-.timeline-item h4{font-size:15px;font-weight:600;margin-bottom:4px;letter-spacing:-0.01em}
-.timeline-item p{color:var(--text-2);font-size:13.5px;line-height:1.6}
-.timeline-item .tag{
-  font-size:11px;font-weight:500;color:var(--accent);
-  background:rgba(99,102,241,0.1);padding:2px 9px;border-radius:999px;margin-left:8px;
-}
+.timeline::before{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--accent),var(--accent-2),var(--accent-3));border-radius:2px}
+.tl-item{position:relative;margin-bottom:32px;padding-left:20px}
+.tl-item::before{content:"";position:absolute;left:-31px;top:6px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);transition:all .2s}
+.tl-item:hover::before{background:var(--accent);box-shadow:0 0 0 4px rgba(99,102,241,.15)}
+.tl-item .v{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-3);margin-bottom:4px}
+.tl-item h4{font-size:16px;font-weight:600;margin-bottom:6px;letter-spacing:-.01em}
+.tl-item p{color:var(--text-2);font-size:14px;line-height:1.65;max-width:600px}
+.tl-item .tag{font-size:11px;font-weight:500;color:var(--accent);background:rgba(99,102,241,.1);padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:middle}
 
-/* Team */
-.team-text{max-width:760px;margin:0 auto;text-align:center;color:var(--text-2);font-size:16px;line-height:1.8}
-.team-text p{margin-bottom:16px}
+/* faq */
+.faq{max-width:780px;margin:0 auto}
+.faq details{border:1px solid var(--border);border-radius:var(--radius-sm);padding:18px 22px;margin-bottom:10px;background:var(--surface);transition:border-color .2s}
+.faq details[open]{border-color:var(--border-strong)}
+.faq summary{cursor:pointer;font-weight:500;font-size:15px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-size:20px;color:var(--text-3);transition:transform .3s var(--ease)}
+.faq details[open] summary::after{transform:rotate(45deg);color:var(--accent)}
+.faq dd{color:var(--text-2);font-size:14px;margin-top:12px;line-height:1.7}
 
-/* Footer */
-.footer{border-top:1px solid var(--border);padding:50px 24px 30px;background:var(--bg-2)}
-.footer-inner{max-width:var(--max-w);margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:18px}
-.footer-links{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;font-size:14px}
-.footer-links a{color:var(--text-3);transition:color .2s}
-.footer-links a:hover{color:var(--text-2)}
-.footer-copy{color:var(--text-3);font-size:13px;opacity:.8}
+/* cta */
+.cta{text-align:center;padding:120px 24px;position:relative;z-index:1;background:radial-gradient(ellipse at bottom,rgba(99,102,241,.12),transparent 60%)}
 
-/* Scroll reveal */
-.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease-out), transform .7s var(--ease-out)}
+/* footer */
+footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relative;z-index:1}
+.foot-inner{max-width:var(--max-w);margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.foot-links{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;font-size:14px}
+.foot-links a{color:var(--text-3);transition:color .2s}
+.foot-links a:hover{color:var(--text-2)}
+.foot-copy{color:var(--text-3);font-size:13px;opacity:.8}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
 .reveal.visible{opacity:1;transform:translateY(0)}
 
-/* Pre / Code */
-pre{
-  background:#0a0c12;border:1px solid var(--border);border-radius:10px;
-  padding:16px 18px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;
-  margin:12px 0;font-family:var(--mono);line-height:1.7;
-}
+pre{background:#0a0c12;border:1px solid var(--border);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:12px 0;font-family:var(--mono);line-height:1.7}
 code{font-family:var(--mono)}
 
-/* Utilities */
-.text-center{text-align:center}
-.mt-8{margin-top:8px}
-.mt-16{margin-top:16px}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
 
-<nav class="nav" id="nav">
-  <div class="nav-inner">
-    <a class="nav-logo" href="./">
-      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" rx="8" fill="url(#g)"/><path d="M8 16h6v-6H8v6zm10 0h6v-6h-6v6zM8 24h6v-6H8v6zm10 0h6v-6h-6v6z" fill="#fff" opacity=".9"/><defs><linearGradient id="g" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#4f8cff"/><stop offset="1" stop-color="#3fd08c"/></linearGradient></defs></svg>
-      TarsSecureGuard
-    </a>
-    <button class="nav-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')">☰</button>
-    <div class="nav-links" id="navLinks">
-      <a href="#features" data-i18n="nav.features">功能</a>
-      <a href="#architecture" data-i18n="nav.architecture">架构</a>
-      <a href="#scenarios" data-i18n="nav.scenarios">场景</a>
-      <a href="#screenshots" data-i18n="nav.screenshots">截图</a>
-      <a href="#compare" data-i18n="nav.compare">对比</a>
-      <a href="#faq" data-i18n="nav.faq">FAQ</a>
-      <a href="#changelog" data-i18n="nav.changelog">版本</a>
-      <a href="./download.html" data-i18n="nav.download">下载</a>
-      <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="nav.github">GitHub</a>
-    </div>
-    <div class="nav-ctrls">
-      <select class="lang-select" id="langSelect" onchange="setLang(this.value)">
-        <option value="zh-CN">中文</option>
-        <option value="en">English</option>
-      </select>
-      <button class="btn-icon" id="themeBtn" onclick="toggleTheme()" title="Theme">🌙</button>
-    </div>
+<canvas id="particles"></canvas>
+
+<nav class="nav">
+  <a class="nav-logo" href="/">
+    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="url(#g)"/><path d="M8 16h6v-6H8v6zm10 0h6v-6h-6v6zM8 24h6v-6H8v6zm10 0h6v-6h-6v6z" fill="#fff" opacity=".9"/><defs><linearGradient id="g" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+    TarsSecureGuard
+  </a>
+  <div class="nav-links" id="navLinks">
+    <a href="#features" data-i18n="nav.features">特性</a>
+    <a href="#install" data-i18n="nav.install">安装</a>
+    <a href="#milestones" data-i18n="nav.milestones">里程碑</a>
+    <a href="#faq" data-i18n="nav.faq">FAQ</a>
   </div>
+  <select class="lang-select" onchange="setLang(this.value)">
+    <option value="zh-CN">中文</option>
+    <option value="en">EN</option>
+  </select>
+  <a class="nav-cta" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="nav.github">GitHub</a>
+  <button class="nav-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')">☰</button>
 </nav>
 
-<header class="hero" id="home">
-  <div class="hero-inner">
-    <div class="hero-badge"><span class="dot"></span><span data-i18n="hero.badge">最新版 {{VERSION}}</span></div>
-    <h1 data-i18n="hero.title">AI 时代的<span>路由器与配置器</span></h1>
-    <p data-i18n="hero.subtitle">左边把 13 种 AI 客户端接进来，右边把 32+ 家模型连出去——中间强制系好安全带。单文件，零依赖，解压即用。</p>
-    <div class="hero-btns">
-      <a class="btn btn-primary" href="./download.html" data-i18n="hero.cta_primary">立即下载</a>
-      <a class="btn btn-ghost" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="hero.cta_secondary">GitHub 仓库</a>
+<header class="hero">
+  <div class="hero-badge"><span class="dot"></span><span data-i18n="hero.badge">最新版 v{{VERSION}} · 发布于 {{RELEASE_DATE}}</span></div>
+  <h1 data-i18n="hero.title">AI 时代的<br><span class="grad">路由器与配置器</span></h1>
+  <p data-i18n="hero.subtitle">零依赖单文件本地 AI 网关。左边接 13 种 AI 客户端，右边连 35 家模型商，中间强制 WAF / 语义防护 / 限流 / 审计。解压即用，不需要容器。</p>
+  <div class="hero-btns">
+    <a class="btn btn-primary" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="hero.cta_primary">Star on GitHub</a>
+    <a class="btn btn-ghost" href="#install" data-i18n="hero.cta_secondary">一键安装</a>
+  </div>
+  <div class="hero-window">
+    <div class="window">
+      <div class="win-bar">
+        <span class="win-dot r"></span><span class="win-dot y"></span><span class="win-dot g"></span>
+        <span class="win-title">tsg — dashboard</span>
+      </div>
+      <div class="win-body">
+        <div class="win-side">
+          <div class="item active">📊 仪表盘</div>
+          <div class="item">🛡️ WAF 日志</div>
+          <div class="item">🔀 路由</div>
+          <div class="item">🔑 Provider</div>
+          <div class="item">👤 治理</div>
+          <div class="item">📝 审计</div>
+        </div>
+        <div class="win-main">
+          <h4 data-i18n="hero.window.title">网关状态</h4>
+          <div class="win-stats">
+            <div class="win-stat"><div class="n">128</div><div class="l" data-i18n="hero.window.s1">今日请求</div></div>
+            <div class="win-stat"><div class="n" style="color:var(--ok)">0</div><div class="l" data-i18n="hero.window.s2">拦截</div></div>
+            <div class="win-stat"><div class="n">42ms</div><div class="l" data-i18n="hero.window.s3">P99 延迟</div></div>
+          </div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r1">Security Core</span><span class="v">ON · 不可关闭</span></div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r2">Active Providers</span><span class="v">8 / 35</span></div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r3">MCP stdio</span><span class="v">connected</span></div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r4">Audit chain</span><span class="v">sha256 ✓</span></div>
+        </div>
+      </div>
     </div>
   </div>
 </header>
 
 <section class="section" id="features">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="features.title">核心功能</h2>
-      <p data-i18n="features.subtitle">从 v3.3.0 到 v4.9.0，每一版都在拓宽 AI 网关的边界</p>
+  <div class="section-head reveal">
+    <div class="section-tag">Why TSG</div>
+    <h2 data-i18n="features.title">不只是网关，<br>还是替你配好 AI 工具的人</h2>
+    <p data-i18n="features.subtitle">当每个 AI 客户端都自带一套私有模型生态时，TSG 让你只需一个 OpenAI 兼容端点。</p>
+  </div>
+  <div class="bento reveal">
+    <div class="card span-2 tall">
+      <div class="card-icon">🛡️</div>
+      <h3 data-i18n="features.c1.title">Security Core 不可关闭</h3>
+      <p data-i18n="features.c1.desc">WAF、Prompt 注入特征、语义灰区 fail-close、三维限流、本地 IP 信誉、RBAC、hash-chain 审计、PII 脱敏、SSRF 五红线——连接再广，安全链一行不削。「AI 只能加严」单向合并铁律。</p>
+      <span class="card-tag">始终开启</span>
     </div>
-    <div class="card-grid">
-      <div class="card reveal">
-        <div class="card-icon">🏰</div>
-        <h3 data-i18n="features.v49.title">Kingdom 架构</h3>
-        <p data-i18n="features.v49.desc">动物分类学启发的新架构：12 节点 × 26 职业 × Token 策略，职责清晰、扩展无界。</p>
-        <span class="card-tag">v4.9.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">🌐</div>
-        <h3 data-i18n="features.v47.title">LangProbe 多语言</h3>
-        <p data-i18n="features.v47.desc">并发语言探测引擎 + 语法树解析 + 语义评分，6 国语言实时切换。</p>
-        <span class="card-tag">v4.7.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">📦</div>
-        <h3 data-i18n="features.v46.title">跨平台全覆盖</h3>
-        <p data-i18n="features.v46.desc">7 平台二进制（Linux/Darwin/Windows × amd64/arm64 + Android arm64），统一交付。</p>
-        <span class="card-tag">v4.6.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">📊</div>
-        <h3 data-i18n="features.v45.title">性能评价体系</h3>
-        <p data-i18n="features.v45.desc">基准 harness + 回归基线 + 趋势看板：吞吐、延迟、资源占用、退化曲线一目了然。</p>
-        <span class="card-tag">v4.5.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">🔐</div>
-        <h3 data-i18n="features.v44.title">最坏情况加密兜底</h3>
-        <p data-i18n="features.v44.desc">分层加密 + 启动验证哨兵 + 透明加密 + 防内存转储，即使主机被控也有最后防线。</p>
-        <span class="card-tag">v4.4.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">🛡️</div>
-        <h3 data-i18n="features.v43.title">安全性能评价</h3>
-        <p data-i18n="features.v43.desc">动态防护 + 静态防护双维度评分，安全水位可量化、可追踪、可告警。</p>
-        <span class="card-tag">v4.3.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">📱</div>
-        <h3 data-i18n="features.v42.title">Android MVP</h3>
-        <p data-i18n="features.v42.desc">纯 Go 交叉编译 arm64 + Kotlin 壳子 App，移动端也能跑本地网关。</p>
-        <span class="card-tag">v4.2.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">⚡</div>
-        <h3 data-i18n="features.v41.title">系统原生判定</h3>
-        <p data-i18n="features.v41.desc">Provider 多凭据故障转移 + 系统原生集成，连接更稳、切换更无感。</p>
-        <span class="card-tag">v4.1.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">👑</div>
-        <h3 data-i18n="features.v40.title">王冠架构重写</h3>
-        <p data-i18n="features.v40.desc">Crown Bus 总线 + 12 处理节点 + 26 职业角色，网关即微内核。</p>
-        <span class="card-tag">v4.0.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">🔧</div>
-        <h3 data-i18n="features.v37.title">一键配置器 Extender</h3>
-        <p data-i18n="features.v37.desc">探测本机已装 AI 工具，一键生成接入配置，复制粘贴即完成。</p>
-        <span class="card-tag">v3.7.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">🧩</div>
-        <h3 data-i18n="features.v35.title">极致模块化</h3>
-        <p data-i18n="features.v35.desc">5 档裁剪档案一键切换，按需裁剪不背包袱；自适应建议引擎懂你习惯。</p>
-        <span class="card-tag">v3.5.0</span>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">🔄</div>
-        <h3 data-i18n="features.v33.title">转换中枢与模型库</h3>
-        <p data-i18n="features.v33.desc">任意后端接入，统一 OpenAI 兼容格式；能力感知路由自动改道到适配模型。</p>
-        <span class="card-tag">v3.3.0</span>
-      </div>
+    <div class="card">
+      <div class="card-icon">🔌</div>
+      <h3 data-i18n="features.c2.title">Universal Connector</h3>
+      <p data-i18n="features.c2.desc">13 客户端 × 35 provider，新增 provider 只写 JSON。</p>
+      <span class="card-tag">v3.2.0</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚙️</div>
+      <h3 data-i18n="features.c3.title">Extender 配置器</h3>
+      <p data-i18n="features.c3.desc">自动探测本机 OpenClaw / Continue / Aider / Cline / Codex，一键生成接入配置。</p>
+      <span class="card-tag">v3.7.0</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🧠</div>
+      <h3 data-i18n="features.c4.title">能力感知路由</h3>
+      <p data-i18n="features.c4.desc">按 vision / tools / longContext 自动改道换模型。</p>
+      <span class="card-tag">v3.3.0</span>
+    </div>
+    <div class="card span-2">
+      <div class="card-icon">🌐</div>
+      <h3 data-i18n="features.c5.title">Kingdom 分类学架构</h3>
+      <p data-i18n="features.c5.desc">按界门纲目科属种分层：Protectiva 防护 / Functionalis 功能 / Frontend / Backend。零破坏兼容层，老配置不中断。</p>
+      <span class="card-tag">v4.9.0</span>
     </div>
   </div>
 </section>
 
-<section class="section section-alt" id="architecture">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="architecture.title">架构一览</h2>
-      <p data-i18n="architecture.subtitle">Kingdom 7 层分类：从接入到守护，每一层都是可独立演进的防线</p>
+<section class="section" id="install">
+  <div class="section-head centered reveal">
+    <div class="section-tag">Quick Start</div>
+    <h2 data-i18n="install.title">一条命令，解压即用</h2>
+    <p data-i18n="install.subtitle">不需要 Docker，不需要 Postgres，拷到 U 盘里都能跑。</p>
+  </div>
+  <div class="terminal reveal">
+    <div class="term-bar">
+      <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+      <span class="term-title">terminal</span>
     </div>
-    <div class="arch-flow reveal">
-      <div class="arch-layer"><span class="arch-num">1</span><div class="arch-body"><h4 data-i18n="architecture.layers.0.name">接入层</h4><p data-i18n="architecture.layers.0.desc">HTTP / stdio / MCP 三通道统一入口，OpenAI 兼容协议透传</p></div></div>
-      <div class="arch-conn">▼</div>
-      <div class="arch-layer"><span class="arch-num">2</span><div class="arch-body"><h4 data-i18n="architecture.layers.1.name">WAF 层</h4><p data-i18n="architecture.layers.1.desc">路径穿越 / 命令注入 / SQLi / XSS / Prompt 注入 / PII 检测，合并正则 + 字节预筛</p></div></div>
-      <div class="arch-conn">▼</div>
-      <div class="arch-layer"><span class="arch-num">3</span><div class="arch-body"><h4 data-i18n="architecture.layers.2.name">语义层</h4><p data-i18n="architecture.layers.2.desc">静态规则先行，灰区送本地小模型判定；fail-close 铁律——引擎不可用直接 503</p></div></div>
-      <div class="arch-conn">▼</div>
-      <div class="arch-layer"><span class="arch-num">4</span><div class="arch-body"><h4 data-i18n="architecture.layers.3.name">治理层</h4><p data-i18n="architecture.layers.3.desc">限流 / IP 信誉 / RBAC / 守门人 / 审计哈希链 / PII 脱敏，动作级防线</p></div></div>
-      <div class="arch-conn">▼</div>
-      <div class="arch-layer"><span class="arch-num">5</span><div class="arch-body"><h4 data-i18n="architecture.layers.4.name">路由层</h4><p data-i18n="architecture.layers.4.desc">静态规则兜底 + ε-greedy bandit 自动优选；成功率×时延融合 lm-eval 离线评测</p></div></div>
-      <div class="arch-conn">▼</div>
-      <div class="arch-layer"><span class="arch-num">6</span><div class="arch-body"><h4 data-i18n="architecture.layers.5.name">转换层</h4><p data-i18n="architecture.layers.5.desc">OpenAI / Anthropic / Gemini / Ollama 四协议重建，多模态全链路适配</p></div></div>
-      <div class="arch-conn">▼</div>
-      <div class="arch-layer"><span class="arch-num">7</span><div class="arch-body"><h4 data-i18n="architecture.layers.6.name">连接层</h4><p data-i18n="architecture.layers.6.desc">24 云端 + 8 本地运行时注册表，共享连接池复用率 98.5%，熔断降级自动恢复</p></div></div>
-      <div class="arch-conn">▼</div>
-      <div class="arch-layer"><span class="arch-num">8</span><div class="arch-body"><h4 data-i18n="architecture.layers.7.name">守护层</h4><p data-i18n="architecture.layers.7.desc">L0-L3 分级响应：降级→熔断→优雅停机；RSS 口径捕捉内存泄漏，eco 省资源档自动套用</p></div></div>
+    <div class="term-body">
+<span class="p">$</span> <span>curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh</span>
+<span class="o">→ 检测系统：macOS arm64</span>
+<span class="o">→ SHA256 校验通过 · 安装完成</span>
+<span class="p">$</span> <span>tsg</span>
+<span class="c"># 启动网关，面板自动打开 http://127.0.0.1:18889</span>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:20px;color:var(--text-3);font-size:13px" data-i18n="install.windows">Windows PowerShell：irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex</p>
+</section>
+
+<section class="section" id="milestones">
+  <div class="section-head reveal">
+    <div class="section-tag">Milestones</div>
+    <h2 data-i18n="milestones.title">15 天，从安全壳到<br>AI 路由器</h2>
+    <p data-i18n="milestones.subtitle">不是每个版本都是里程碑——这些是定位与架构真正跃迁的时刻。</p>
+  </div>
+  <div class="timeline reveal">
+    <div class="tl-item"><div class="v">v3.0.0 · 2026-09-30</div><h4 data-i18n="milestones.m1.title">Your AI's Safety Belt<span class="tag">起点</span></h4><p data-i18n="milestones.m1.desc">Security Core 强制加载：WAF / Prompt 注入 / PII / 限流 / IP 信誉 / RBAC / 审计，默认开启不可关闭。</p></div>
+    <div class="tl-item"><div class="v">v3.2.0 · 2026-10-04</div><h4 data-i18n="milestones.m2.title">The Router of the AI Era<span class="tag">定位跃迁</span></h4><p data-i18n="milestones.m2.desc">从安全壳变成路由器：13 客户端 × 24 provider，新增 provider 只写配置不改代码；--mcp-stdio 即插即护。</p></div>
+    <div class="tl-item"><div class="v">v3.2.2 · 2026-10-06</div><h4 data-i18n="milestones.m3.title">治理层</h4><p data-i18n="milestones.m3.desc">共享记忆 / OAuth-IdP / 守门人 / hash-chain 审计 v2——从反向代理抬到企业级治理面。</p></div>
+    <div class="tl-item"><div class="v">v3.7.0 · 2026-10-06</div><h4 data-i18n="milestones.m4.title">Extender 配置器</h4><p data-i18n="milestones.m4.desc">替用户探测并配置好 OpenClaw / Continue / Aider / Cline 等已装工具，定位升级"路由器+配置器"。</p></div>
+    <div class="tl-item"><div class="v">v3.8.0 · 2026-10-07</div><h4 data-i18n="milestones.m5.title">Persona 职业系统</h4><p data-i18n="milestones.m5.desc">5 种职业模板自适应模块、链路与模型匹配，全年龄段可用。</p></div>
+    <div class="tl-item"><div class="v">v4.1.0 · 2026-10-08</div><h4 data-i18n="milestones.m6.title">Multi-agent + 设备网</h4><p data-i18n="milestones.m6.desc">multi-agent collaboration、MCP、distributed device mesh——从单机网关走向多 agent 协同。</p></div>
+    <div class="tl-item"><div class="v">v4.7.0 · 2026-10-12</div><h4 data-i18n="milestones.m7.title">对外发布</h4><p data-i18n="milestones.m7.desc">GitHub Pages 三站 + 7 语言 README + 红蓝对抗报告 i18n + SHA256 安装器。</p></div>
+    <div class="tl-item"><div class="v">v4.9.0 · 2026-10-14</div><h4 data-i18n="milestones.m8.title">Kingdom 分类学架构<span class="tag">当前</span></h4><p data-i18n="milestones.m8.desc">界门纲目科属种分层：Protectiva / Functionalis / Frontend / Backend。零破坏兼容层。</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head centered reveal">
+    <div class="section-tag">Release</div>
+    <h2 data-i18n="release.title">v{{VERSION}} 更新内容</h2>
+  </div>
+  <div class="reveal" style="max-width:780px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px">
+    <pre style="background:transparent;border:none;padding:0;margin:0">{{RELEASE_NOTES}}</pre>
+    <div style="margin-top:20px;text-align:center">
+      <a class="btn btn-ghost btn-sm" href="https://github.com/HP-jh/TarsSecureGuard/releases/tag/v{{VERSION}}" rel="noopener" data-i18n="release.view">查看完整 Release</a>
     </div>
   </div>
 </section>
 
-<section class="section" id="scenarios">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="scenarios.title">使用场景</h2>
-      <p data-i18n="scenarios.subtitle">无论你是个人开发者、小团队还是企业，TSG 都能适配你的 AI 接入方式</p>
-    </div>
-    <div class="scenario-grid">
-      <div class="scenario-card reveal">
-        <h3>👤 <span data-i18n="scenarios.personal.title">个人开发者</span></h3>
-        <ul>
-          <li data-i18n="scenarios.personal.items.0">本地 Ollama + 云端 DeepSeek 双后端，Token 测量器实时对比成本</li>
-          <li data-i18n="scenarios.personal.items.1">一键配置 Cursor / Cline / Continue 指向 TSG，无需逐个改 API Key</li>
-        </ul>
-      </div>
-      <div class="scenario-card reveal">
-        <h3>👥 <span data-i18n="scenarios.team.title">技术团队</span></h3>
-        <ul>
-          <li data-i18n="scenarios.team.items.0">共享记忆与共享信息跨租户隔离，团队知识库即插即用</li>
-          <li data-i18n="scenarios.team.items.1">审计哈希链 v2 按日切文件，全链重算防篡改，合规审计一键导出</li>
-        </ul>
-      </div>
-      <div class="scenario-card reveal">
-        <h3>🏢 <span data-i18n="scenarios.enterprise.title">企业部署</span></h3>
-        <ul>
-          <li data-i18n="scenarios.enterprise.items.0">OAuth/OIDC PKCE 接入企业 IdP，角色映射走相同 RBAC 矩阵</li>
-          <li data-i18n="scenarios.enterprise.items.1">裁剪档案一键切换「纯本地」模式，内网零外联也能跑满安全链</li>
-        </ul>
-      </div>
+<section class="section" id="faq">
+  <div class="section-head centered reveal">
+    <div class="section-tag">FAQ</div>
+    <h2 data-i18n="faq.title">常见问题</h2>
+  </div>
+  <div class="faq reveal">
+    <details><summary data-i18n="faq.q1">支持哪些操作系统？</summary><dd data-i18n="faq.a1">Windows、macOS、Linux、Android 的 amd64 / arm64；安装器自动识别。</dd></details>
+    <details><summary data-i18n="faq.q2">需要安装运行环境吗？</summary><dd data-i18n="faq.a2">不需要。TSG 是单文件原生二进制，go.mod 零第三方依赖，无容器、无数据库。</dd></details>
+    <details><summary data-i18n="faq.q3">支持本地大模型吗？</summary><dd data-i18n="faq.a3">支持。自动发现 Ollama / LM Studio / vLLM，配合 Token 测量器做云端/本地成本对比。</dd></details>
+    <details><summary data-i18n="faq.q4">和 LiteLLM 有什么区别？</summary><dd data-i18n="faq.a4">LiteLLM 是 Python 栈，需要 Postgres+Redis，镜像近 1GB。TSG 是零依赖单文件，Security Core 强制开启，--mcp-stdio 即插即护，服务于"今天就想安全地把本地 AI 用起来"的个人与隔离内网。</dd></details>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="reveal">
+    <h2 style="font-size:clamp(28px,4vw,42px);font-weight:700;letter-spacing:-.02em;margin-bottom:16px" data-i18n="cta.title">准备好给 AI 系好安全带？</h2>
+    <p style="color:var(--text-2);margin-bottom:32px" data-i18n="cta.subtitle">MIT 开源，社区版永久免费。</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a class="btn btn-primary" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="cta.primary">Star on GitHub</a>
+      <a class="btn btn-ghost" href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener" data-i18n="cta.secondary">参与讨论</a>
     </div>
   </div>
 </section>
 
-<section class="section section-alt" id="screenshots">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="screenshots.title">管理面板一览</h2>
-      <p data-i18n="screenshots.subtitle">中文界面、暗色主题、玻璃拟态——从仪表盘到治理页，开箱即优雅</p>
-    </div>
-    <div class="ss-grid">
-      <div class="ss-item reveal">
-        <img src="./assets/ss-dashboard.png" alt="管理仪表盘" loading="lazy">
-        <div class="ss-cap">管理仪表盘</div>
-      </div>
-      <div class="ss-item reveal">
-        <img src="./assets/ss-governance.png" alt="治理总览" loading="lazy">
-        <div class="ss-cap">治理总览</div>
-      </div>
-      <div class="ss-item reveal">
-        <img src="./assets/ss-waflogs.png" alt="WAF 日志" loading="lazy">
-        <div class="ss-cap">WAF 安全防护</div>
-      </div>
-      <div class="ss-item reveal">
-        <img src="./assets/ss-mcp.png" alt="MCP 工具" loading="lazy">
-        <div class="ss-cap">MCP 防护</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="compare">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="compare.title">与同类产品对比</h2>
-      <p data-i18n="compare.subtitle">不是「又一个网关」，是「AI 时代的路由器」</p>
-    </div>
-    <div style="overflow-x:auto" class="reveal">
-      <table class="compare-table">
-        <thead>
-          <tr>
-            <th data-i18n="compare.headers.0">维度</th>
-            <th data-i18n="compare.headers.1">TSG</th>
-            <th data-i18n="compare.headers.2">LiteLLM</th>
-            <th data-i18n="compare.headers.3">Kong + AI 插件</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td data-i18n="compare.rows.0.0">部署成本</td><td data-i18n="compare.rows.0.1">单文件零依赖</td><td data-i18n="compare.rows.0.2">Python 依赖栈</td><td data-i18n="compare.rows.0.3">PostgreSQL + 容器集群</td></tr>
-          <tr><td data-i18n="compare.rows.1.0">安全链</td><td data-i18n="compare.rows.1.1">8 层强制不可关闭</td><td data-i18n="compare.rows.1.2">基础限速</td><td data-i18n="compare.rows.1.3">需额外配置 WAF</td></tr>
-          <tr><td data-i18n="compare.rows.2.0">客户端配置</td><td data-i18n="compare.rows.2.1">Extender 一键配置</td><td data-i18n="compare.rows.2.2">手动改 base_url</td><td data-i18n="compare.rows.2.3">手动改 base_url</td></tr>
-          <tr><td data-i18n="compare.rows.3.0">本地模型</td><td data-i18n="compare.rows.3.1">8 运行时内置注册</td><td data-i18n="compare.rows.3.2">Ollama 为主</td><td data-i18n="compare.rows.3.3">需自建适配</td></tr>
-          <tr><td data-i18n="compare.rows.4.0">审计合规</td><td data-i18n="compare.rows.4.1">hash-chain 审计 v2</td><td data-i18n="compare.rows.4.2">基础日志</td><td data-i18n="compare.rows.4.3">需插件扩展</td></tr>
-          <tr><td data-i18n="compare.rows.5.0">性能优化</td><td data-i18n="compare.rows.5.1">连接池 98.5% 复用 + 缓存</td><td data-i18n="compare.rows.5.2">基础连接复用</td><td data-i18n="compare.rows.5.3">依赖上游</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<section class="section section-alt" id="faq">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="faq.title">常见问题</h2>
-      <p data-i18n="faq.subtitle">安装、升级、迁移、兼容性、安全——你关心的问题，这里都有答案</p>
-    </div>
-    <div class="faq-list" id="faqList">
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.0.q">支持哪些操作系统？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.0.a">Windows、macOS、Linux、Android 的 amd64 / arm64 架构；安装器自动识别。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.1.q">需要安装运行环境吗？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.1.a">不需要。TSG 是单文件原生二进制，无容器、无数据库、无运行时依赖。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.2.q">支持本地大模型吗？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.2.a">支持。自动发现 Ollama / LM Studio / llama.cpp 等本地推理服务，Token 测量器实时对比云端成本。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.3.q">数据会上传吗？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.3.a">不会。默认零外联可裁剪，「纯本地」档案一键关闭全部对外网络模块，审计与密钥均在本机。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.4.q">如何卸载？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.4.a">删除安装目录（默认 ~/.tsg/bin 或 %LOCALAPPDATA%\TarsSecureGuard）即可，不残留系统组件。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.5.q">如何升级？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.5.a">订阅版支持一键更新包；社区版下载新版二进制覆盖即可，config.json 与数据自动保留。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.6.q">从 LiteLLM / 其他网关迁移难吗？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.6.a">简单。TSG 暴露标准 OpenAI 兼容端点，把 base_url 和 api_key 指向 TSG 即可，客户端零改动。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.7.q">安全策略可以放宽吗？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.7.a">不能。Security Core 强制加载且不可关闭，「AI 只能加严」单向合并铁律，100% 单测 + 运行时审计锁定。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.8.q">企业 IdP 怎么接？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.8.a">配置 OAuth/OIDC Authorization Code + PKCE，支持 RS256/ES256 验签，角色映射自动校验进 RBAC 矩阵。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.9.q">性能瓶颈在哪？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.9.a">v3.2.3 起 WAF 合并正则 + 字节预筛已解决主要瓶颈（strict -99.8%）；连接池复用率 98.5%，P99 -27%~-40%。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.10.q">API Key 怎么管理？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.10.a">默认密钥启动时随机生成，建议通过 TSG_ADMIN_KEY 环境变量注入；管理端操作全程审计。</div></div></div>
-      <div class="faq-item"><div class="faq-q" data-i18n="faq.items.11.q">为什么叫「路由器」？</div><div class="faq-a"><div class="faq-a-inner" data-i18n="faq.items.11.a">路由器不生产网线，也不生产网站——它让每一台设备安全上网。TSG 不生产模型，它让每个 AI 客户端安全地用上每个模型。</div></div></div>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="changelog">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="changelog.title">版本时间线</h2>
-      <p data-i18n="changelog.subtitle">从 v3.2.0 到 v4.9.0，每一步都有迹可循</p>
-    </div>
-    <div class="timeline reveal">
-      <div class="timeline-item"><h4>v4.9.0 <span class="tag">Kingdom</span></h4><p>动物分类学架构：12 节点 × 26 职业 × Token 策略</p></div>
-      <div class="timeline-item"><h4>v4.7.0 <span class="tag">LangProbe</span></h4><p>并发语言探测引擎 + 语法树解析 + 语义评分，6 国语言</p></div>
-      <div class="timeline-item"><h4>v4.6.0 <span class="tag">兼容补齐</span></h4><p>7 平台二进制全覆盖，统一交付</p></div>
-      <div class="timeline-item"><h4>v4.5.0 <span class="tag">性能评价</span></h4><p>基准 harness + 回归基线 + 趋势看板</p></div>
-      <div class="timeline-item"><h4>v4.4.0 <span class="tag">加密兜底</span></h4><p>分层加密 + 启动验证哨兵 + 防内存转储</p></div>
-      <div class="timeline-item"><h4>v4.3.0 <span class="tag">安全评分</span></h4><p>动态 + 静态双维度安全性能评价系统</p></div>
-      <div class="timeline-item"><h4>v4.2.0 <span class="tag">Android</span></h4><p>纯 Go 交叉编译 arm64 + Kotlin 壳子 App</p></div>
-      <div class="timeline-item"><h4>v4.1.0 <span class="tag">系统原生</span></h4><p>Provider 多凭据故障转移 + 系统原生集成</p></div>
-      <div class="timeline-item"><h4>v4.0.0 <span class="tag">王冠架构</span></h4><p>Crown Bus + 12 节点 + 26 职业 + Token 策略</p></div>
-      <div class="timeline-item"><h4>v3.7.0 <span class="tag">扩展器</span></h4><p>AI 工具探测 + 接入片段生成，定位「路由器与配置器」</p></div>
-      <div class="timeline-item"><h4>v3.2.x <span class="tag">治理与性能</span></h4><p>共享记忆 / 审计哈希链 / WAF 预筛 / 治理可视化</p></div>
-    </div>
-    <p class="text-center mt-16 reveal"><a class="btn btn-primary btn-sm" href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener" data-i18n="changelog.view_all">查看全部 Release</a></p>
-  </div>
-</section>
-
-<section class="section section-alt" id="team">
-  <div class="section-inner">
-    <div class="section-head reveal">
-      <h2 data-i18n="team.title">关于项目</h2>
-      <p data-i18n="team.subtitle">从「安全网关」到「AI 时代的路由器」，TSG 的进化从未停止</p>
-    </div>
-    <div class="team-text reveal">
-      <p data-i18n="team.origin">项目初衷：让每一次 AI 调用都自带安全带，让每一款 AI 工具都能零配置接入。</p>
-      <p data-i18n="team.scale">当前规模：v4.9.0 覆盖 32+ 模型提供商、13 种 AI 客户端、7 平台二进制、8 层安全链、0 第三方依赖。</p>
-      <p data-i18n="team.roadmap">路线图：持续深耕「连接 + 安全 + 性能」三角，下一里程碑聚焦智能化治理与开箱即用体验。</p>
-    </div>
-  </div>
-</section>
-
-<footer class="footer">
-  <div class="footer-inner">
-    <div class="footer-links">
-      <a href="https://github.com/HP-jh/TarsSecureGuard/blob/main/LICENSE" rel="noopener" data-i18n="footer.license">MIT 许可证</a>
-      <a href="https://github.com/HP-jh/TarsSecureGuard/blob/main/CONTRIBUTING.md" rel="noopener" data-i18n="footer.contribute">贡献指南</a>
+<footer>
+  <div class="foot-inner">
+    <div class="foot-links">
+      <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="footer.source">源码</a>
+      <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener" data-i18n="footer.releases">发布版</a>
       <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener" data-i18n="footer.issues">问题反馈</a>
-      <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener" data-i18n="footer.releases">所有发布版</a>
+      <a href="./download.html" rel="noopener" data-i18n="footer.download">下载页</a>
     </div>
-    <p class="footer-copy" data-i18n="footer.copyright">© 2026 TarsSecureGuard · The Router of the AI Era</p>
+    <p class="foot-copy" data-i18n="footer.copy">© 2026 TarsSecureGuard · The Router of the AI Era · MIT</p>
   </div>
 </footer>
 
 <script>
 (function(){
-  const STORAGE_KEY = 'tsg-site-prefs';
-  let i18nData = {};
-  let currentLang = 'zh-CN';
-
-  function loadPrefs() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch(e) {}
-    return {};
-  }
-  function savePrefs(p) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch(e) {}
-  }
-
-  function setTheme(mode) {
-    const html = document.documentElement;
-    if (mode === 'auto') {
-      const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      html.setAttribute('data-theme', dark ? 'dark' : 'light');
-    } else {
-      html.setAttribute('data-theme', mode);
-    }
-    document.getElementById('themeBtn').textContent = mode === 'light' ? '☀️' : '🌙';
-    const p = loadPrefs(); p.theme = mode; savePrefs(p);
-  }
-  window.toggleTheme = function() {
-    const cur = document.documentElement.getAttribute('data-theme');
-    const p = loadPrefs();
-    const mode = (p.theme === 'light' || cur === 'light') ? 'dark' : 'light';
-    setTheme(mode);
-  };
-
-  function resolve(obj, path) {
-    return path.split('.').reduce((o,k)=>o&&o[k], obj) || '';
-  }
-  function applyI18n(data) {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
-      const val = resolve(data, key);
-      if (val) {
-        if (el.tagName === 'TITLE') el.textContent = val;
-        else if (el.tagName === 'META') el.setAttribute('content', val);
-        else el.textContent = val;
-      }
+  // ===== particle background =====
+  var canvas=document.getElementById('particles');
+  var ctx=canvas.getContext('2d');
+  var particles=[],W,H;
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+  var N=Math.min(70,Math.floor(window.innerWidth/20));
+  for(var i=0;i<N;i++){
+    particles.push({
+      x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
+      r:Math.random()*1.5+.5
     });
   }
-
-  window.setLang = async function(lang) {
-    currentLang = lang;
-    document.documentElement.lang = lang === 'zh-CN' ? 'zh-CN' : 'en';
-    try {
-      const res = await fetch('./i18n/' + lang + '.json');
-      i18nData = await res.json();
-      applyI18n(i18nData);
-    } catch(e) {
-      console.warn('i18n load failed', e);
+  function tick(){
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<particles.length;i++){
+      var p=particles[i];
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(99,102,241,.4)';
+      ctx.fill();
+      // connect nearby
+      for(var j=i+1;j<particles.length;j++){
+        var q=particles[j];
+        var dx=p.x-q.x,dy=p.y-q.y;
+        var d=dx*dx+dy*dy;
+        if(d<120*120){
+          ctx.beginPath();
+          ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+          ctx.strokeStyle='rgba(99,102,241,'+(0.15*(1-Math.sqrt(d)/120))+')';
+          ctx.lineWidth=.5;ctx.stroke();
+        }
+      }
     }
-    const p = loadPrefs(); p.lang = lang; savePrefs(p);
-    document.getElementById('langSelect').value = lang;
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  // ===== i18n + theme =====
+  var STORAGE='tsg-site-prefs';
+  function load(){try{return JSON.parse(localStorage.getItem(STORAGE)||'{}')}catch(e){return{}}}
+  function save(p){try{localStorage.setItem(STORAGE,JSON.stringify(p))}catch(e){}}
+  function setTheme(mode){
+    var dark=mode==='dark'||(mode==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+  }
+  window.toggleTheme=function(){var p=load();p.theme=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';save(p);setTheme(p.theme)};
+  function resolve(o,k){return k.split('.').reduce(function(a,k){return a&&a[k]},o)||''}
+  function applyI18n(d){
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var v=resolve(d,el.getAttribute('data-i18n'));
+      if(v){if(el.tagName==='TITLE')el.textContent=v;else if(el.tagName==='META')el.setAttribute('content',v);else el.textContent=v}
+    });
+  }
+  window.setLang=function(lang){
+    document.documentElement.lang=lang==='zh-CN'?'zh-CN':'en';
+    fetch('./i18n/'+lang+'.json').then(function(r){return r.json()}).then(function(d){applyI18n(d)}).catch(function(){});
+    var p=load();p.lang=lang;save(p);
   };
+  var prefs=load();
+  setTheme(prefs.theme||'auto');
+  if(prefs.lang){window.setLang(prefs.lang)}
 
-  // Init
-  const prefs = loadPrefs();
-  if (prefs.theme) setTheme(prefs.theme); else setTheme('auto');
-  if (prefs.lang) { currentLang = prefs.lang; document.getElementById('langSelect').value = currentLang; }
-  setLang(currentLang);
+  // ===== reveal =====
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target)}})},{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
 
-  // Scroll reveal
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-  }, { threshold: 0.1 });
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
-  // FAQ accordion
-  document.getElementById('faqList').addEventListener('click', function(e) {
-    const q = e.target.closest('.faq-q');
-    if (!q) return;
-    const item = q.parentElement;
-    const wasOpen = item.classList.contains('open');
-    document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
-    if (!wasOpen) item.classList.add('open');
-  });
-
-  // Nav scroll shadow
-  const nav = document.getElementById('nav');
-  window.addEventListener('scroll', () => {
-    nav.style.boxShadow = window.scrollY > 10 ? '0 4px 20px rgba(0,0,0,0.25)' : 'none';
-  });
-
-  // Card spotlight follow
-  document.querySelectorAll('.card').forEach(function(c){
-    c.addEventListener('mousemove', function(ev){
-      const r = c.getBoundingClientRect();
-      c.style.setProperty('--mx', (ev.clientX - r.left) + 'px');
-      c.style.setProperty('--my', (ev.clientY - r.top) + 'px');
+  // ===== card spotlight =====
+  document.querySelectorAll('.bento .card').forEach(function(c){
+    c.addEventListener('mousemove',function(ev){
+      var r=c.getBoundingClientRect();
+      c.style.setProperty('--mx',(ev.clientX-r.left)+'px');
+      c.style.setProperty('--my',(ev.clientY-r.top)+'px');
     });
   });
 })();
