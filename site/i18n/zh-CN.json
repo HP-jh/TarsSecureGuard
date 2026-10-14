@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "title": "TarsSecureGuard — AI 时代的路由器与配置器，自带安全带",
+    "description": "TarsSecureGuard（TSG）是 AI 工具的左邻右舍：开箱即用的本地安全网关 + 一键配置器——统一 OpenAI 兼容协议、智能模型路由，单文件解压即用。"
+  },
+  "nav": {
+    "features": "功能",
+    "architecture": "架构",
+    "scenarios": "场景",
+    "screenshots": "截图",
+    "compare": "对比",
+    "faq": "FAQ",
+    "changelog": "版本",
+    "download": "下载",
+    "github": "GitHub"
+  },
+  "hero": {
+    "badge": "最新版 {{VERSION}}",
+    "title": "AI 时代的路由器与配置器",
+    "subtitle": "左边把 13 种 AI 客户端接进来，右边把 32+ 家模型连出去——中间强制系好安全带。单文件，零依赖，解压即用。",
+    "cta_primary": "立即下载",
+    "cta_secondary": "GitHub 仓库"
+  },
+  "features": {
+    "title": "核心功能",
+    "subtitle": "从 v3.3.0 到 v4.9.0，每一版都在拓宽 AI 网关的边界",
+    "v49": {
+      "title": "Kingdom 架构",
+      "desc": "动物分类学启发的新架构：12 节点 × 26 职业 × Token 策略，职责清晰、扩展无界。"
+    },
+    "v47": {
+      "title": "LangProbe 多语言",
+      "desc": "并发语言探测引擎 + 语法树解析 + 语义评分，6 国语言实时切换。"
+    },
+    "v46": {
+      "title": "跨平台全覆盖",
+      "desc": "7 平台二进制（Linux/Darwin/Windows × amd64/arm64 + Android arm64），统一交付。"
+    },
+    "v45": {
+      "title": "性能评价体系",
+      "desc": "基准 harness + 回归基线 + 趋势看板：吞吐、延迟、资源占用、退化曲线一目了然。"
+    },
+    "v44": {
+      "title": "最坏情况加密兜底",
+      "desc": "分层加密 + 启动验证哨兵 + 透明加密 + 防内存转储，即使主机被控也有最后防线。"
+    },
+    "v43": {
+      "title": "安全性能评价",
+      "desc": "动态防护 + 静态防护双维度评分，安全水位可量化、可追踪、可告警。"
+    },
+    "v42": {
+      "title": "Android MVP",
+      "desc": "纯 Go 交叉编译 arm64 + Kotlin 壳子 App，移动端也能跑本地网关。"
+    },
+    "v41": {
+      "title": "系统原生判定",
+      "desc": "Provider 多凭据故障转移 + 系统原生集成，连接更稳、切换更无感。"
+    },
+    "v40": {
+      "title": "王冠架构重写",
+      "desc": "Crown Bus 总线 + 12 处理节点 + 26 职业角色，网关即微内核。"
+    },
+    "v37": {
+      "title": "一键配置器 Extender",
+      "desc": "探测本机已装 AI 工具，一键生成接入配置，复制粘贴即完成。"
+    },
+    "v35": {
+      "title": "极致模块化",
+      "desc": "5 档裁剪档案一键切换，按需裁剪不背包袱；自适应建议引擎懂你习惯。"
+    },
+    "v33": {
+      "title": "转换中枢与模型库",
+      "desc": "任意后端接入，统一 OpenAI 兼容格式；能力感知路由自动改道到适配模型。"
+    }
+  },
+  "architecture": {
+    "title": "架构一览",
+    "subtitle": "Kingdom 7 层分类：从接入到守护，每一层都是可独立演进的防线",
+    "layers": [
+      { "name": "接入层", "desc": "HTTP / stdio / MCP 三通道统一入口，OpenAI 兼容协议透传" },
+      { "name": "WAF 层", "desc": "路径穿越 / 命令注入 / SQLi / XSS / Prompt 注入 / PII 检测，合并正则 + 字节预筛" },
+      { "name": "语义层", "desc": "静态规则先行，灰区送本地小模型判定；fail-close 铁律——引擎不可用直接 503" },
+      { "name": "治理层", "desc": "限流 / IP 信誉 / RBAC / 守门人 / 审计哈希链 / PII 脱敏，动作级防线" },
+      { "name": "路由层", "desc": "静态规则兜底 + ε-greedy bandit 自动优选；成功率×时延融合 lm-eval 离线评测" },
+      { "name": "转换层", "desc": "OpenAI / Anthropic / Gemini / Ollama 四协议重建，多模态全链路适配" },
+      { "name": "连接层", "desc": "24 云端 + 8 本地运行时注册表，共享连接池复用率 98.5%，熔断降级自动恢复" },
+      { "name": "守护层", "desc": "L0-L3 分级响应：降级→熔断→优雅停机；RSS 口径捕捉内存泄漏，eco 省资源档自动套用" }
+    ]
+  },
+  "scenarios": {
+    "title": "使用场景",
+    "subtitle": "无论你是个人开发者、小团队还是企业，TSG 都能适配你的 AI 接入方式",
+    "personal": {
+      "title": "个人开发者",
+      "items": [
+        "本地 Ollama + 云端 DeepSeek 双后端，Token 测量器实时对比成本",
+        "一键配置 Cursor / Cline / Continue 指向 TSG，无需逐个改 API Key"
+      ]
+    },
+    "team": {
+      "title": "技术团队",
+      "items": [
+        "共享记忆与共享信息跨租户隔离，团队知识库即插即用",
+        "审计哈希链 v2 按日切文件，全链重算防篡改，合规审计一键导出"
+      ]
+    },
+    "enterprise": {
+      "title": "企业部署",
+      "items": [
+        "OAuth/OIDC PKCE 接入企业 IdP，角色映射走相同 RBAC 矩阵",
+        "裁剪档案一键切换「纯本地」模式，内网零外联也能跑满安全链"
+      ]
+    }
+  },
+  "screenshots": {
+    "title": "管理面板一览",
+    "subtitle": "中文界面、暗色主题、玻璃拟态——从仪表盘到治理页，开箱即优雅"
+  },
+  "compare": {
+    "title": "与同类产品对比",
+    "subtitle": "不是「又一个网关」，是「AI 时代的路由器」",
+    "headers": ["维度", "TSG", "LiteLLM", "Kong + AI 插件"],
+    "rows": [
+      ["部署成本", "单文件零依赖", "Python 依赖栈", "PostgreSQL + 容器集群"],
+      ["安全链", "8 层强制不可关闭", "基础限速", "需额外配置 WAF"],
+      ["客户端配置", "Extender 一键配置", "手动改 base_url", "手动改 base_url"],
+      ["本地模型", "8 运行时内置注册", "Ollama 为主", "需自建适配"],
+      ["审计合规", "hash-chain 审计 v2", "基础日志", "需插件扩展"],
+      ["性能优化", "连接池 98.5% 复用 + 缓存", "基础连接复用", "依赖上游"]
+    ]
+  },
+  "faq": {
+    "title": "常见问题",
+    "subtitle": "安装、升级、迁移、兼容性、安全——你关心的问题，这里都有答案",
+    "items": [
+      { "q": "支持哪些操作系统？", "a": "Windows、macOS、Linux、Android 的 amd64 / arm64 架构；安装器自动识别。" },
+      { "q": "需要安装运行环境吗？", "a": "不需要。TSG 是单文件原生二进制，无容器、无数据库、无运行时依赖。" },
+      { "q": "支持本地大模型吗？", "a": "支持。自动发现 Ollama / LM Studio / llama.cpp 等本地推理服务，Token 测量器实时对比云端成本。" },
+      { "q": "数据会上传吗？", "a": "不会。默认零外联可裁剪，「纯本地」档案一键关闭全部对外网络模块，审计与密钥均在本机。" },
+      { "q": "如何卸载？", "a": "删除安装目录（默认 ~/.tsg/bin 或 %LOCALAPPDATA%\\TarsSecureGuard）即可，不残留系统组件。" },
+      { "q": "如何升级？", "a": "订阅版支持一键更新包；社区版下载新版二进制覆盖即可，config.json 与数据自动保留。" },
+      { "q": "从 LiteLLM / 其他网关迁移难吗？", "a": "简单。TSG 暴露标准 OpenAI 兼容端点，把 base_url 和 api_key 指向 TSG 即可，客户端零改动。" },
+      { "q": "安全策略可以放宽吗？", "a": "不能。Security Core 强制加载且不可关闭，「AI 只能加严」单向合并铁律，100% 单测 + 运行时审计锁定。" },
+      { "q": "企业 IdP 怎么接？", "a": "配置 OAuth/OIDC Authorization Code + PKCE，支持 RS256/ES256 验签，角色映射自动校验进 RBAC 矩阵。" },
+      { "q": "性能瓶颈在哪？", "a": "v3.2.3 起 WAF 合并正则 + 字节预筛已解决主要瓶颈（strict -99.8%）；连接池复用率 98.5%，P99 -27%~-40%。" },
+      { "q": "API Key 怎么管理？", "a": "默认密钥启动时随机生成，建议通过 TSG_ADMIN_KEY 环境变量注入；管理端操作全程审计。" },
+      { "q": "为什么叫「路由器」？", "a": "路由器不生产网线，也不生产网站——它让每一台设备安全上网。TSG 不生产模型，它让每个 AI 客户端安全地用上每个模型。" }
+    ]
+  },
+  "changelog": {
+    "title": "版本时间线",
+    "subtitle": "从 v3.2.0 到 v4.9.0，每一步都有迹可循",
+    "view_all": "查看全部 Release"
+  },
+  "team": {
+    "title": "关于项目",
+    "subtitle": "从「安全网关」到「AI 时代的路由器」，TSG 的进化从未停止",
+    "origin": "项目初衷：让每一次 AI 调用都自带安全带，让每一款 AI 工具都能零配置接入。",
+    "scale": "当前规模：v4.9.0 覆盖 32+ 模型提供商、13 种 AI 客户端、7 平台二进制、8 层安全链、0 第三方依赖。",
+    "roadmap": "路线图：持续深耕「连接 + 安全 + 性能」三角，下一里程碑聚焦智能化治理与开箱即用体验。"
+  },
+  "footer": {
+    "license": "MIT 许可证",
+    "contribute": "贡献指南",
+    "issues": "问题反馈",
+    "releases": "所有发布版",
+    "copyright": "© 2026 TarsSecureGuard · The Router of the AI Era"
+  },
+  "theme": {
+    "dark": "暗色",
+    "light": "亮色",
+    "auto": "跟随系统"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  }
+}
