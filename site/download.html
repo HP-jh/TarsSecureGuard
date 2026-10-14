@@ -3,359 +3,79 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>下载 TarsSecureGuard — 全平台安装器与二进制</title>
-<meta name="description" content="TarsSecureGuard（TSG）下载页：自动识别你的操作系统与 CPU 架构，一键下载对应二进制或使用统一安装器。Windows / macOS / Linux / Android 全平台覆盖，附 SHA256 校验与快捷方式创建说明。">
-<meta name="keywords" content="TarsSecureGuard下载,TSG下载,AI网关下载,安装器,Linux,macOS,Windows,Android,二进制,SHA256">
-<meta name="referrer" content="no-referrer">
-<meta name="robots" content="index,follow">
+<title>下载 TarsSecureGuard {{VERSION}}</title>
+<meta name="description" content="TarsSecureGuard {{VERSION}} 全平台下载：Windows、macOS、Linux、Android，支持 amd64 与 arm64 架构。附带 SHA256 校验和。">
 <link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/download.html">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="TarsSecureGuard">
-<meta property="og:title" content="下载 TarsSecureGuard — 全平台安装器与二进制">
-<meta property="og:description" content="自动识别系统与架构，一键下载；Windows / macOS / Linux / Android 全平台。">
-<meta property="og:url" content="https://hp-jh.github.io/TarsSecureGuard/download.html">
 <style>
-:root{--bg:#0d1220;--card:#151c30;--line:#232c48;--txt:#e8ecf6;--sub:#9aa6c0;--acc:#4f8cff;--ok:#3fd08c;--warn:#ffb454}
+:root{--bg:#0d1220;--card:#151c30;--line:#232c48;--txt:#e8ecf6;--sub:#9aa6c0;--acc:#4f8cff;--ok:#3fd08c}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
 a{color:var(--acc);text-decoration:none}
-.wrap{max-width:920px;margin:0 auto;padding:0 24px}
-header{padding:56px 0 36px;text-align:center;background:linear-gradient(180deg,#101a33 0%,var(--bg) 100%)}
-h1{font-size:34px}
-.tagline{color:var(--sub);font-size:17px;margin-top:10px}
-.langbar{margin-top:14px;font-size:14px}
-.langbar button{background:none;border:1px solid var(--line);color:var(--sub);border-radius:6px;padding:4px 14px;cursor:pointer;font-size:14px;margin:0 4px}
-.langbar button.on{border-color:var(--acc);color:var(--txt)}
-section{padding:36px 0}
-h2{font-size:22px;margin-bottom:18px}
-h2 .num{color:var(--acc);margin-right:8px}
-.big-dl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;text-align:center}
-.detected{color:var(--sub);font-size:14px;margin-bottom:14px}
-.detected b{color:var(--ok);font-weight:600}
-.btn-dl{display:inline-block;background:var(--acc);color:#fff;font-size:17px;font-weight:700;padding:14px 44px;border-radius:10px;cursor:pointer;border:none}
-.btn-dl:hover{opacity:.92}
-.btn-dl[disabled]{opacity:.45;cursor:wait}
-.hint{color:var(--sub);font-size:13px;margin-top:12px}
-.alt{margin-top:16px}
-.alt a{display:inline-block;border:1px solid var(--line);border-radius:8px;padding:8px 18px;margin:4px;font-size:14px;color:var(--txt)}
-.alt a:hover{border-color:var(--acc)}
-.os{color:var(--sub);font-size:13px;margin:14px 0 6px}
-pre{background:#0a0f1c;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:6px 0 4px}
-code{font-family:ui-monospace,Consolas,monospace}
-table{width:100%;border-collapse:collapse;font-size:13.5px}
-th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.wrap{max-width:980px;margin:0 auto;padding:0 24px}
+header{padding:48px 0 32px;text-align:center;background:linear-gradient(180deg,#101a33 0%,var(--bg) 100%)}
+h1{font-size:32px}
+.sub{color:var(--sub);margin-top:8px}
+section{padding:32px 0}
+h2{font-size:20px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
 th{color:var(--sub);font-weight:600}
-td.dim{color:var(--sub)}
-.warnbox{background:#241d10;border:1px solid #4a3a1a;border-radius:10px;padding:14px 18px;font-size:14px;color:#ffd9a0;margin-top:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:14px}
-.card h3{font-size:15px;margin-bottom:8px}
-.card p,.card li{color:var(--sub);font-size:14px}
-.card ul{margin-left:18px}
-footer{border-top:1px solid var(--line);padding:26px 0;color:var(--sub);font-size:13px;text-align:center}
+.btn{display:inline-block;padding:8px 18px;border-radius:6px;background:var(--acc);color:#fff;font-size:13px;font-weight:600}
+.btn:hover{opacity:.9}
+.checksums{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-top:24px}
+.checksums h3{font-size:16px;margin-bottom:10px}
+.checksums pre{background:#0a0f1c;border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;font-size:12px;color:#c7d4f0;white-space:pre-wrap;word-break:break-all}
+footer{border-top:1px solid var(--line);padding:28px 0;color:var(--sub);font-size:13px;text-align:center;margin-top:32px}
 footer a{margin:0 10px}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:8px}
-@keyframes sp{to{transform:rotate(360deg)}}
-@media (max-width:640px){table{font-size:12px}th,td{padding:6px 8px}}
+.back{margin-top:16px;display:inline-block;border:1px solid var(--line);padding:8px 18px;border-radius:6px;color:var(--txt)}
+.back:hover{border-color:var(--acc)}
 </style>
 </head>
 <body>
 <header>
   <div class="wrap">
-    <h1 data-i18n="h1">下载 TarsSecureGuard</h1>
-    <p class="tagline" data-i18n="tagline">自动识别你的系统与架构 —— 点一个按钮就够了</p>
-    <div class="langbar">
-      <button id="lang-zh" class="on" onclick="setLang('zh')">🇨🇳 简体中文</button>
-      <button id="lang-en" onclick="setLang('en')">🇺🇸 English</button>
-    </div>
+    <h1>下载 TarsSecureGuard</h1>
+    <p class="sub">最新版本 {{VERSION}} · 发布于 {{RELEASE_DATE}}</p>
+    <a class="back" href="./">← 返回首页</a>
   </div>
 </header>
 
-<section id="auto">
+<section>
   <div class="wrap">
-    <div class="big-dl">
-      <p class="detected"><span data-i18n="det1">检测到你的系统：</span> <b id="plat">…</b> · <span data-i18n="det2">最新版本：</span> <b id="ver">…</b></p>
-      <button class="btn-dl" id="mainbtn" disabled><span class="spin" id="spin"></span><span data-i18n="dlbtn" id="dlbtn">下载最新版</span></button>
-      <p class="hint" data-i18n="hint">不知道选哪个？直接点上面的大按钮 —— 我们已经替你选好了对应版本。</p>
-      <div class="alt" id="altdl"></div>
-      <p class="hint" id="srcline">…</p>
-    </div>
-    <div class="warnbox" id="jsfail" style="display:none"><span data-i18n="jsfail1">自动识别失败？没关系，手动下载一样简单：</span> <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener" data-i18n="jsfail2">打开 GitHub Releases 列表</a><span data-i18n="jsfail3">，选择最近一个版本，下载文件名里带你的系统和 CPU 的那一个。</span></div>
+    <h2>全平台二进制</h2>
+    <p style="color:var(--sub);font-size:14px">点击下方平台名称直接下载对应版本。所有文件均附带 SHA256 校验和，可在下方验证。</p>
+    {{ASSETS_TABLE}}
   </div>
 </section>
 
-<section id="installer">
+<section>
   <div class="wrap">
-    <h2><span class="num">01</span><span data-i18n="qsTitle">更省事：一键安装器</span></h2>
-    <p class="os" data-i18n="qsOs">macOS / Linux —— 自动识别系统与 CPU 架构，自动校验 SHA256，并创建桌面快捷方式：</p>
-    <pre><code>curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh</code></pre>
-    <p class="os" data-i18n="qsWin">Windows PowerShell：</p>
-    <pre><code>irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex</code></pre>
-    <p class="os" data-i18n="qsAfter">安装完成后启动（首次运行自动生成配置与随机密钥）：</p>
-    <pre><code>tsg          # 启动网关，面板自动打开 http://127.0.0.1:18889
-tsg doctor   # 环境自检</code></pre>
+    <h2>一键安装脚本</h2>
+    <p style="color:var(--sub);font-size:14px">适合新用户，自动识别系统与架构：</p>
+    <pre style="background:#0a0f1c;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:10px 0"><code># macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex</code></pre>
   </div>
 </section>
 
-<section id="manual">
+<section>
   <div class="wrap">
-    <h2><span class="num">02</span><span data-i18n="manTitle">手动下载：全平台二进制</span></h2>
-    <p class="os" data-i18n="manSub">文件名规则：tsg-版本-系统-CPU。Windows 选 .exe；Apple 电脑 M 系列芯片选 darwin-arm64，Intel 芯片选 darwin-amd64。</p>
-    <table id="asset-table">
-      <thead><tr><th data-i18n="thAsset">文件</th><th data-i18n="thPlat">平台</th><th data-i18n="thSize">大小</th><th data-i18n="thDl">下载</th></tr></thead>
-      <tbody id="asset-body">
-        <tr><td colspan="4" class="dim"><span class="spin"></span><span data-i18n="loading">正在从 GitHub 获取最新版本…</span></td></tr>
-      </tbody>
-    </table>
-    <p class="os" data-i18n="sumNote">校验文件：同目录下的 SHA256SUMS.txt 包含以上全部文件的 SHA256 哈希。</p>
-  </div>
-</section>
-
-<section id="verify">
-  <div class="wrap">
-    <h2><span class="num">03</span><span data-i18n="verTitle">下载后如何校验（推荐）</span></h2>
-    <p class="os" data-i18n="verWhy">确认下载没有损坏或被篡改。先下载 SHA256SUMS.txt，与二进制放同一目录：</p>
-    <pre><code data-i18n="verLin"># macOS / Linux
-shasum -a 256 -c --ignore-missing SHA256SUMS.txt
-
-# Windows (PowerShell)
-Get-FileHash .\tsg-v*-windows-amd64.exe -Algorithm SHA256</code></pre>
-    <p class="os" data-i18n="verOk">输出的哈希值与 SHA256SUMS.txt 里对应行一致，就说明文件完好。</p>
-  </div>
-</section>
-
-<section id="shortcut">
-  <div class="wrap">
-    <h2><span class="num">04</span><span data-i18n="scTitle">快捷方式与启动</span></h2>
-    <div class="card">
-      <h3 data-i18n="sc1T">安装器会自动做什么</h3>
-      <ul>
-        <li data-i18n="sc1a">Linux：创建桌面快捷方式（.desktop）并写入开始菜单</li>
-        <li data-i18n="sc1b">Windows：创建桌面快捷方式 + 开始菜单快捷方式（.lnk）</li>
-        <li data-i18n="sc1c">macOS：把命令行入口装到 ~/.tsg/bin，并生成可双击的「TSG 控制台」命令</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3 data-i18n="sc2T">双击快捷方式会发生什么</h3>
-      <p data-i18n="sc2a">快捷方式启动本地网关，面板自动打开；已安装桌面客户端（v4.6.0+）时会优先调起客户端窗口，而不是浏览器标签页。重复点击不会启动第二个实例。</p>
-    </div>
-    <div class="card">
-      <h3 data-i18n="sc3T">桌面客户端（可选进阶）</h3>
-      <p data-i18n="sc3a">想要像 VS Code 一样的独立窗口体验？从源码构建 Tauri 桌面壳（src-tauri/），支持 tsg:// 协议调起、单实例锁与系统托盘。</p>
+    <div class="checksums">
+      <h3>SHA256 校验和</h3>
+      <pre>{{CHECKSUMS}}</pre>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <a href="./index.html" data-i18n="fHome">返回首页</a>
-    <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="fCode">源码</a>
-    <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener" data-i18n="fRel">全部版本</a>
-    <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener" data-i18n="fIssue">问题反馈</a>
-    <p style="margin-top:12px">© 2026 TarsSecureGuard · The Router of the AI Era</p>
+    <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">源码</a>
+    <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">所有发布版</a>
+    <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener">问题反馈</a>
+    <p style="margin-top:12px">© 2026 TarsSecureGuard</p>
   </div>
 </footer>
-
-<script>
-"use strict";
-// ============ i18n 文案表（zh 默认 / en 切换） ============
-var I18N = {
-  zh: {
-    h1: "下载 TarsSecureGuard",
-    tagline: "自动识别你的系统与架构 —— 点一个按钮就够了",
-    det1: "检测到你的系统：", det2: "最新版本：",
-    dlbtn: "下载最新版", dlbtnArch: "下载 ",
-    hint: "不知道选哪个？直接点上面的大按钮 —— 我们已经替你选好了对应版本。",
-    jsfail1: "自动识别失败？没关系，手动下载一样简单：",
-    jsfail2: "打开 GitHub Releases 列表",
-    jsfail3: "，选择最近一个版本，下载文件名里带你的系统和 CPU 的那一个。",
-    qsTitle: "更省事：一键安装器",
-    qsOs: "macOS / Linux —— 自动识别系统与 CPU 架构，自动校验 SHA256，并创建桌面快捷方式：",
-    qsWin: "Windows PowerShell：",
-    qsAfter: "安装完成后启动（首次运行自动生成配置与随机密钥）：",
-    manTitle: "手动下载：全平台二进制",
-    manSub: "文件名规则：tsg-版本-系统-CPU。Windows 选 .exe；Apple 电脑 M 系列芯片选 darwin-arm64，Intel 芯片选 darwin-amd64。",
-    thAsset: "文件", thPlat: "平台", thSize: "大小", thDl: "下载",
-    loading: "正在从 GitHub 获取最新版本…",
-    sumNote: "校验文件：同目录下的 SHA256SUMS.txt 包含以上全部文件的 SHA256 哈希。",
-    verTitle: "下载后如何校验（推荐）",
-    verWhy: "确认下载没有损坏或被篡改。先下载 SHA256SUMS.txt，与二进制放同一目录：",
-    verOk: "输出的哈希值与 SHA256SUMS.txt 里对应行一致，就说明文件完好。",
-    scTitle: "快捷方式与启动",
-    sc1T: "安装器会自动做什么",
-    sc1a: "Linux：创建桌面快捷方式（.desktop）并写入开始菜单",
-    sc1b: "Windows：创建桌面快捷方式 + 开始菜单快捷方式（.lnk）",
-    sc1c: "macOS：把命令行入口装到 ~/.tsg/bin，并生成可双击的「TSG 控制台」命令",
-    sc2T: "双击快捷方式会发生什么",
-    sc2a: "快捷方式启动本地网关，面板自动打开；已安装桌面客户端（v4.6.0+）时会优先调起客户端窗口，而不是浏览器标签页。重复点击不会启动第二个实例。",
-    sc3T: "桌面客户端（可选进阶）",
-    sc3a: "想要像 VS Code 一样的独立窗口体验？从源码构建 Tauri 桌面壳（src-tauri/），支持 tsg:// 协议调起、单实例锁与系统托盘。",
-    fHome: "返回首页", fCode: "源码", fRel: "全部版本", fIssue: "问题反馈",
-    from: "下载自 GitHub Releases · 直链，无需登录",
-    fetchFail: "GitHub 信息获取失败（可能是网络原因），请直接打开 Releases 列表手动下载：",
-    mb: " MB"
-  },
-  en: {
-    h1: "Download TarsSecureGuard",
-    tagline: "We detect your OS and CPU — one button is all you need",
-    det1: "Detected system: ", det2: "Latest version: ",
-    dlbtn: "Download Latest", dlbtnArch: "Download ",
-    hint: "Not sure which file? Just click the big button — the right build has already been picked for you.",
-    jsfail1: "Auto-detection failed? Manual download is just as easy:",
-    jsfail2: "Open the GitHub Releases list",
-    jsfail3: ", pick the most recent version, and grab the file whose name matches your OS and CPU.",
-    qsTitle: "Even easier: one-line installer",
-    qsOs: "macOS / Linux — auto-detects OS & CPU arch, verifies SHA256, and creates a desktop shortcut:",
-    qsWin: "Windows PowerShell:",
-    qsAfter: "After install (config & random key generated on first run):",
-    manTitle: "Manual download: binaries for every platform",
-    manSub: "File naming: tsg-version-os-cpu. Windows uses .exe; Apple Silicon Macs pick darwin-arm64, Intel Macs pick darwin-amd64.",
-    thAsset: "File", thPlat: "Platform", thSize: "Size", thDl: "Download",
-    loading: "Fetching the latest release from GitHub…",
-    sumNote: "Checksums: SHA256SUMS.txt in the same release contains SHA256 hashes for all files above.",
-    verTitle: "How to verify after download (recommended)",
-    verWhy: "Make sure the download is intact and untampered. Download SHA256SUMS.txt next to the binary:",
-    verOk: "If the printed hash matches the line in SHA256SUMS.txt, the file is good.",
-    scTitle: "Shortcuts & launching",
-    sc1T: "What the installer does for you",
-    sc1a: "Linux: creates a desktop shortcut (.desktop) and start-menu entry",
-    sc1b: "Windows: creates Desktop + Start Menu shortcuts (.lnk)",
-    sc1c: "macOS: installs the CLI into ~/.tsg/bin with a double-clickable “TSG Console” command",
-    sc2T: "What happens when you double-click the shortcut",
-    sc2a: "The shortcut starts the local gateway and opens the dashboard; if the desktop client (v4.6.0+) is installed, its window is brought up instead of a browser tab. Clicking twice never starts a second instance.",
-    sc3T: "Desktop client (optional, advanced)",
-    sc3a: "Want a standalone window like VS Code? Build the Tauri shell from source (src-tauri/) — tsg:// deep links, single-instance lock, and system tray.",
-    fHome: "Home", fCode: "Source", fRel: "All releases", fIssue: "Issues",
-    from: "Direct link from GitHub Releases · no sign-in required",
-    fetchFail: "Could not reach GitHub (likely a network issue). Please open the Releases list and download manually:",
-    mb: " MB"
-  }
-};
-var LANG = "zh";
-function setLang(l) {
-  LANG = l;
-  document.getElementById("lang-zh").className = l === "zh" ? "on" : "";
-  document.getElementById("lang-en").className = l === "en" ? "on" : "";
-  var dict = I18N[l];
-  var els = document.querySelectorAll("[data-i18n]");
-  for (var i = 0; i < els.length; i++) {
-    var k = els[i].getAttribute("data-i18n");
-    if (dict[k] !== undefined) els[i].textContent = dict[k];
-  }
-  document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
-  if (window.__detected) renderAssets();
-}
-window.setLang = setLang;
-
-// ============ 平台识别（保守：识别不出来一律给 windows-amd64 提示兜底） ============
-function detectPlatform() {
-  var ua = navigator.userAgent || "";
-  var plat = "";
-  try { plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || ""; } catch (e) { plat = navigator.platform || ""; }
-  var os = "windows";
-  if (/mac/i.test(plat) || /Macintosh/i.test(ua)) os = "darwin";
-  else if (/linux/i.test(plat) || /Linux|X11/i.test(ua)) { os = /Android/i.test(ua) ? "android" : "linux"; }
-  else if (/win/i.test(plat) || /Windows/i.test(ua)) os = "windows";
-  var arch = "amd64";
-  if (/arm64|aarch64|ARM64/i.test(ua + " " + plat)) arch = "arm64";
-  else if (os === "darwin" && /arm/i.test(plat)) arch = "arm64";
-  return { os: os, arch: arch };
-}
-
-// ============ GitHub Releases 数据拉取（直链下载，不经过第三方） ============
-var REL = null;      // {tag, assets:[{name,size,url}]}
-var DET = null;      // 检测结果
-var MB = 1024 * 1024;
-
-function assetUrl(name) {
-  return "https://github.com/HP-jh/TarsSecureGuard/releases/download/" + REL.tag + "/" + name;
-}
-function pickAsset() {
-  if (!REL) return null;
-  var want = "-" + DET.os + "-" + DET.arch + (DET.os === "windows" ? ".exe" : "");
-  var match = REL.assets.filter(function (a) { return a.name.indexOf(want) !== -1; });
-  return match.length ? match[0] : null;
-}
-function fmtSize(n) { return (n / MB).toFixed(1) + I18N[LANG].mb; }
-
-function renderAssets() {
-  var d = I18N[LANG];
-  if (!REL) return;
-  document.getElementById("ver").textContent = REL.tag;
-  // 主按钮
-  var btn = document.getElementById("mainbtn");
-  var spin = document.getElementById("spin");
-  var dlbtn = document.getElementById("dlbtn");
-  spin.style.display = "none";
-  btn.disabled = false;
-  var pick = pickAsset();
-  var platTxt = { windows: "Windows", darwin: "macOS", linux: "Linux", android: "Android" }[DET.os] + " · " + DET.arch;
-  document.getElementById("plat").textContent = platTxt;
-  if (pick) {
-    btn.onclick = function () { location.href = pick.browser_download_url || assetUrl(pick.name); };
-    dlbtn.textContent = d.dlbtnArch + pick.name.replace(/^tsg-/, "") + "（" + fmtSize(pick.size) + "）";
-  } else {
-    btn.onclick = function () { location.href = "https://github.com/HP-jh/TarsSecureGuard/releases/latest"; };
-    dlbtn.textContent = d.dlbtn;
-  }
-  document.getElementById("srcline").textContent = d.from;
-  // 备选（其它架构/系统）
-  var alt = document.getElementById("altdl");
-  alt.innerHTML = "";
-  var alts = REL.assets.filter(function (a) { return a !== pick && /^tsg-v/.test(a.name); });
-  alts.forEach(function (a) {
-    var el = document.createElement("a");
-    el.href = a.browser_download_url || assetUrl(a.name);
-    el.textContent = a.name;
-    el.rel = "noopener";
-    alt.appendChild(el);
-  });
-  // 手动表格
-  var labels = {
-    "linux-amd64": "Linux x86_64", "linux-arm64": "Linux ARM64",
-    "darwin-amd64": "macOS Intel", "darwin-arm64": "macOS Apple Silicon",
-    "windows-amd64.exe": "Windows x64", "windows-arm64.exe": "Windows ARM64",
-    "android-arm64": "Android ARM64"
-  };
-  var body = document.getElementById("asset-body");
-  body.innerHTML = "";
-  REL.assets.forEach(function (a) {
-    if (!/^tsg-v/.test(a.name)) return;
-    var tr = document.createElement("tr");
-    var label = "";
-    Object.keys(labels).forEach(function (k) { if (a.name.indexOf(k) !== -1) label = labels[k]; });
-    tr.innerHTML = "<td>" + a.name + "</td><td class='dim'>" + (label || "—") + "</td><td class='dim'>" + fmtSize(a.size) + "</td><td><a href='" + (a.browser_download_url || assetUrl(a.name)) + "' rel='noopener'>⬇</a></td>";
-    body.appendChild(tr);
-  });
-  // 无 tsg- 前缀资产（如仅校验文件）时提示
-  if (!body.children.length) {
-    body.innerHTML = "<tr><td colspan='4' class='dim'>" + d.fetchFail + " <a href='https://github.com/HP-jh/TarsSecureGuard/releases' rel='noopener'>Releases</a></td></tr>";
-  }
-}
-
-function fetchLatest() {
-  fetch("https://api.github.com/repos/HP-jh/TarsSecureGuard/releases/latest", { headers: { "Accept": "application/vnd.github+json" } })
-    .then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
-    .then(function (j) {
-      REL = { tag: j.tag_name, assets: (j.assets || []).map(function (a) { return { name: a.name, size: a.size, browser_download_url: a.browser_download_url }; }) };
-      renderAssets();
-    })
-    .catch(function () {
-      // 拉不到 API（网络/限流）也要能用：给 Releases 页兜底
-      var btn = document.getElementById("mainbtn");
-      document.getElementById("spin").style.display = "none";
-      btn.disabled = false;
-      btn.onclick = function () { location.href = "https://github.com/HP-jh/TarsSecureGuard/releases/latest"; };
-      document.getElementById("dlbtn").textContent = I18N[LANG].dlbtn;
-      document.getElementById("srcline").textContent = I18N[LANG].fetchFail;
-      document.getElementById("jsfail").style.display = "block";
-      var body = document.getElementById("asset-body");
-      body.innerHTML = "<tr><td colspan='4' class='dim'>" + I18N[LANG].fetchFail + " <a href='https://github.com/HP-jh/TarsSecureGuard/releases' rel='noopener'>Releases</a></td></tr>";
-    });
-}
-
-DET = detectPlatform();
-window.__detected = true;
-fetchLatest();
-</script>
 </body>
 </html>
