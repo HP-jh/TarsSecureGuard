@@ -176,6 +176,7 @@ jobs:
   # ===================== 发布：汇总所有资产到 GitHub Release =====================
   release:
     needs: [build-go-binaries, build-tauri, build-android]
+    if: always() && needs.build-go-binaries.result == 'success' && needs.build-android.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write

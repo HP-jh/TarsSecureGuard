@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "dmg", "deb", "rpm", "appimage"],
+    "targets": ["nsis", "dmg", "deb", "rpm", "appimage"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -45,9 +45,7 @@
         "sidebarImage": "icons/128x128.png",
         "headerImage": "icons/128x128.png"
       },
-      "msi": {
-        "upgradeCode": "c0a8b7d6-e5f4-4a3b-9c2d-1e0f8a7b6c5d"
-      }
+
     },
     "macOS": {
       "minimumSystemVersion": "10.13",
