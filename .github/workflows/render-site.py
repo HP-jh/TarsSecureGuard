@@ -3,6 +3,7 @@
 import argparse, json, os, re, shutil, sys, urllib.request
 
 GITHUB_API = "https://api.github.com/repos/HP-jh/TarsSecureGuard"
+TEXT_EXTS = {".html", ".htm", ".css", ".js", ".json", ".xml", ".txt", ".md", ".py", ".yml", ".yaml"}
 
 def api_get(url):
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
@@ -24,7 +25,6 @@ def build_assets_table(release):
         name = asset["name"]
         if name == "SHA256SUMS.txt":
             continue
-        # parse platform from filename like tsg-v4.7.8-linux-amd64
         m = re.search(r'tsg-v[\d.]+-(.+?)(?:\.exe)?$', name)
         platform = m.group(1).replace('-', ' ') if m else name
         size = human_size(asset["size"])
@@ -56,7 +56,6 @@ def main():
     if not notes:
         notes = f"Release {release['tag_name']}"
 
-    # Fetch SHA256SUMS content
     checksums = ""
     for asset in release.get("assets", []):
         if asset["name"] == "SHA256SUMS.txt":
@@ -69,7 +68,6 @@ def main():
 
     assets_table = build_assets_table(release)
 
-    # Render templates
     if os.path.exists(args.output):
         shutil.rmtree(args.output)
     os.makedirs(args.output, exist_ok=True)
@@ -81,17 +79,21 @@ def main():
         for fname in files:
             src = os.path.join(root, fname)
             dst = os.path.join(out_dir, fname)
-            with open(src, "r", encoding="utf-8") as f:
-                content = f.read()
-            content = content.replace("{{VERSION}}", version)
-            content = content.replace("{{RELEASE_DATE}}", date)
-            content = content.replace("{{RELEASE_NOTES}}", notes)
-            content = content.replace("{{ASSETS_TABLE}}", assets_table)
-            content = content.replace("{{CHECKSUMS}}", checksums)
-            with open(dst, "w", encoding="utf-8") as f:
-                f.write(content)
-            print(f"Rendered {dst}")
-
+            ext = os.path.splitext(fname)[1].lower()
+            if ext in TEXT_EXTS:
+                with open(src, "r", encoding="utf-8") as f:
+                    content = f.read()
+                content = content.replace("{{VERSION}}", version)
+                content = content.replace("{{RELEASE_DATE}}", date)
+                content = content.replace("{{RELEASE_NOTES}}", notes)
+                content = content.replace("{{ASSETS_TABLE}}", assets_table)
+                content = content.replace("{{CHECKSUMS}}", checksums)
+                with open(dst, "w", encoding="utf-8") as f:
+                    f.write(content)
+                print(f"Rendered {dst}")
+            else:
+                shutil.copy2(src, dst)
+                print(f"Copied   {dst}")
     print(f"Done. Version={version} Date={date}")
 
 if __name__ == "__main__":
