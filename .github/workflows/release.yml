@@ -1,4 +1,4 @@
-# v4.6.0 客户端下载器主线：多平台构建 + Release 资产自动发布
+# v4.6.0+ 客户端下载器主线：多平台构建 + Release 资产自动发布 + CHANGELOG 自动更新
 # 触发：推送 v* 标签 或 手动 workflow_dispatch
 name: Release v4.6.0+
 
