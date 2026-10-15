@@ -1,5 +1,4 @@
 package main
-
 import (
 	"context"
 	"crypto/subtle"
@@ -18,13 +17,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/HP-jh/TarsSecureGuard/kingdom"
 )
-
 //go:embed frontend/index.html
 var frontendFS embed.FS
-
 // ===================== 常量 =====================
 const (
 	port          = 18889
@@ -32,7 +28,6 @@ const (
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
 	apiKeyDefault = "tars-gateway-key"
-
 	// 安全边界常量
 	maxBodyBytes          = 5 << 20  // 单个 API 请求体上限 5MB
 	maxFetchBytes         = 2 << 20  // 网页抓取/搜索单次读取上限 2MB
@@ -43,20 +38,16 @@ const (
 	wafLogLimit           = 500
 	memoryLimit           = 1024
 )
-
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
 var version = "4.11.0"
-
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
 	llamaDir   string
 	configPath string
 )
-
 // 授权读写根（文件工具安全边界，由 resolvePaths 依据配置与默认布局填充）
 var allowedRoots []string
-
 // ===================== 全局状态 =====================
 var (
 	mu           sync.Mutex
@@ -76,14 +67,11 @@ var (
 	cfgMu        sync.RWMutex
 	memory       = map[string]string{}
 	memoryMu     sync.Mutex
-
 	// 本地模型启动互斥（防止并发重复拉起 llama-server）
 	starting bool
-
 	// WAF 速率限制状态
 	rlMu   sync.Mutex
 	rlHits = map[string]*rlEntry{}
-
 	// 可复用的 HTTP 客户端（避免每次请求新建连接）
 	// v4.6.3 SSRF 统一防护：出站按「目标是否用户/模型可控」分两池——
 	//   fetchClient / downloadClient：目标 URL 来自工具参数 / API 请求体，
@@ -96,11 +84,9 @@ var (
 	httpClientLong  = &http.Client{Timeout: 300 * time.Second}
 	fetchClient     = ssrfGuardedClient(30 * time.Second) // 网页抓取 / OpenAPI 文档 / 搜索源
 	downloadClient  = ssrfGuardedClient(0)                // 模型下载专用：超时由请求 context 控制
-
 	// v4.9.0 kingdom：动物分类学架构注册中心
 	kingdomRegistry *kingdom.Registry
 )
-
 // ===================== HTTP 主入口 =====================
 func main() {
 	// v3.0.5：self-diagnostic 子命令（tsg doctor）——不启动网关，检查后退出
@@ -170,7 +156,6 @@ func main() {
 	loadSharedInfo()   // v3.2.2 共享信息恢复
 	firewallReconcile() // 防火墙策略档位（passive/dynamic-ban/os-link，默认 passive）
 	quotaLoad()         // v3.0.4 [MT_QUOTA]：恢复上一次运行的日配额用量（data/quota-usage.json）
-
 	// v3.9.0 初始化：知识库 + 动态防护 + 稳定性增强
 	if err := initKnowledgeBase(filepath.Join(filepath.Dir(configPath), "knowledge")); err != nil {
 		logMsg(fmt.Sprintf("知识库初始化失败: %v", err))
@@ -191,9 +176,7 @@ func main() {
 	initSelfProtect()
 	initAVCompat()
 	syslogWrapStartup()
-
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
-
 	// v2.0.0 模块化路由：路由启动时注册一次，经 moduleRoute 包装——
 	// 模块关闭时该路由返回 503 + 开启提示（2 秒热重载生效），无需重启服务。
 	// security-core 的中间件链（WAF/鉴权/RBAC/审计）硬编码在 gatewayMiddleware，不在此列。
@@ -260,7 +243,6 @@ func main() {
 	mux.HandleFunc("/v1beta/models/", moduleRoute("chatApi", handleV1BetaGeminiGenerate))
 	mux.HandleFunc("/metrics", handleMetrics)
 	mux.HandleFunc("/api/admin/traces", handleTraces)
-
 	// v3.2.0 连接性管理端点（admin.read 类，RBAC 沿用 /api/admin 前缀矩阵）：
 	//   /api/admin/v32/providers         —— provider 注册表（keySet 布尔，永不回显密钥）
 	//   /api/admin/v32/providers/probe   —— 主动健康探测（POST，admin.write 类）
@@ -270,7 +252,6 @@ func main() {
 	mux.HandleFunc("/api/admin/v32/providers/probe", moduleRoute("cloudModels", handleV32ProvidersProbe))
 	mux.HandleFunc("/api/admin/v32/pool", moduleRoute("stats", handleV32Pool))
 	mux.HandleFunc("/api/admin/v32/cache", moduleRoute("stats", handleV32Cache))
-
 	// v3.2.2 治理层：共享记忆 / 共享信息 / 上下文组装（contextGov 模块，
 	// 业务面端点——租户用户经 API Key / OAuth 会话均可访问，隔离在 handler 内）
 	mux.HandleFunc("/api/context/memory", moduleRoute("contextGov", handleSharedMemoryREST))
@@ -319,9 +300,10 @@ func main() {
 	mux.HandleFunc("/api/admin/selfprotect/status", handleSelfProtectStatus)
 	mux.HandleFunc("/api/admin/av-compat/status", handleAVCompatStatus)
 	mux.HandleFunc("/api/admin/shutdown", handleShutdown)
-	// v4.9.0 kingdom：动物分类学架构状态查询
-	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
+	// v4.9.0 kingdom：
 
+动物分类学架构状态查询
+	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
 	server := &http.Server{
@@ -336,9 +318,7 @@ func main() {
 		MaxHeaderBytes:    1 << 20,
 	}
 	registerServer(server) // v3.0.0 A 线：L3 drain 时关闭 listener 用
-
 	logMsg(fmt.Sprintf("Listening on http://127.0.0.1:%d", port))
-
 	// v2.0.0 模块后台工作者：随模块开关启停（context 取消即停，热重载切换无泄漏）
 	moduleWorkerFns["autoStartModel"] = func(ctx context.Context) {
 		select {
@@ -375,10 +355,8 @@ func main() {
 		providerHealthWorker(ctx.Done())
 	}
 	reconcileModuleWorkers()
-
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
 	go watchConfig()
-
 	// v4.6.0：智能打开——优先本地客户端 → 回退浏览器（--no-browser 桌面客户端模式下仍抑制）
 	if !noBrowser && !isDesktopClientMode() {
 		go func() {
@@ -386,14 +364,23 @@ func main() {
 			openBrowserOrClient(fmt.Sprintf("http://127.0.0.1:%d", port))
 		}()
 	}
-
 	log.Printf("TarsSecureGuard v%s running at http://127.0.0.1:%d", version, port)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
-
 // ===================== 中间件：WAF / 鉴权 / CORS / 统计 =====================
+// v4.11.0：判定是否首次运行（config.json 不存在，或 cloud providers 全部未填 key）
+func isFirstRun() bool {
+	if _, err := os.Stat(configPath); err != nil {
+		return true
+	}
+	cfgMu.RLock()
+	defer cfgMu.RUnlock()
+	noKey := cfg.Cloud.OpenAI.APIKey == "" && cfg.Cloud.DeepSeek.APIKey == ""
+	return noKey
+}
+
 func gatewayMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// v3.0.0 E 线：panic recovery 全覆盖（handler panic 不再拖垮进程）
@@ -424,8 +411,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		}
 		// 0) dynamic-ban / os-link 档位：处于封禁期的 IP 直接拒绝
 		if isBanned(clientIP(r)) {
-			ip := clientIP(r)
-			sseEmitIntercept("block", "IP封禁拦截", "IP处于动态封禁期（security.firewall.policy）", ip, r.URL.Path)
+			sseEmitIntercept("block", "IP封禁拦截", "IP处于动态封禁期（security.firewall.policy）", clientIP(r), r.URL.Path)
 			blockRequest(w, r, "IP 处于动态封禁期（security.firewall.policy）")
 			return
 		}
@@ -433,11 +419,11 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// v3.0.0 B 线：WAF 命中联动 IP 信誉扣分（-30，锦衣卫裁定 6）
 		if reason := wafCheck(r); reason != "" {
 			ip := clientIP(r)
-			sseEmitIntercept("block", "WAF拦截", reason, ip, r.URL.Path)
 			ipRepPenalty(ip, 30, "waf", reason)
 			markIPBanned(ip)
 			firewallBanIP(ip) // 按防火墙档位施加封禁副作用（passive 档为 no-op）
 			syslogWrapWAF(ip, reason)
+			sseEmitIntercept("block", "WAF拦截", reason, ip, r.URL.Path)
 			blockRequest(w, r, reason)
 			return
 		}
@@ -505,18 +491,15 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		})
 	})
 }
-
 // statusWriter v3.0.0：记录下游 handler 状态码（404 扫描检测用）
 type statusWriter struct {
 	http.ResponseWriter
 	status int
 }
-
 func (s *statusWriter) WriteHeader(code int) {
 	s.status = code
 	s.ResponseWriter.WriteHeader(code)
 }
-
 // recordResponseTime（新增）：包裹业务处理并累计耗时，供 /api/stats 计算平均响应时间
 func recordResponseTime(start time.Time, serve func()) {
 	serve()
@@ -525,7 +508,6 @@ func recordResponseTime(start time.Time, serve func()) {
 	respSamples++
 	mu.Unlock()
 }
-
 func isPublicRoute(p string) bool {
 	// /health 为健康检查端点（新增），与前端页面一样免鉴权
 	// v3.2.2：OAuth 登录回调为浏览器跳转入口，登录前必然没有凭据——
@@ -533,9 +515,8 @@ func isPublicRoute(p string) bool {
 	if p == "/oauth/login" || p == "/oauth/callback" {
 		return true
 	}
-	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health"
+	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health" || p == "/ws/events"
 }
-
 func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	// CORS：只对受信任同源回显，绝不使用 *
 	if o := r.Header.Get("Origin"); isTrustedOrigin(o) {
@@ -557,7 +538,6 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	// v4.6.4 权限策略：管理界面声明不需要摄像头/麦克风/定位/USB 等敏感能力
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
 }
-
 func isTrustedOrigin(o string) bool {
 	if o == "" {
 		return false
@@ -584,7 +564,6 @@ func isTrustedOrigin(o string) bool {
 	}
 	return false
 }
-
 func gatewayAPIKey() string {
 	cfgMu.RLock()
 	defer cfgMu.RUnlock()
@@ -593,7 +572,6 @@ func gatewayAPIKey() string {
 	}
 	return cfg.Security.APIKey
 }
-
 func validKey(r *http.Request) bool {
 	key := r.Header.Get("X-API-Key")
 	if key == "" {
@@ -607,7 +585,6 @@ func validKey(r *http.Request) bool {
 	}
 	return subtle.ConstantTimeCompare([]byte(key), []byte(want)) == 1
 }
-
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -615,12 +592,10 @@ func clientIP(r *http.Request) string {
 	}
 	return host
 }
-
 type rlEntry struct {
 	count    int
 	winStart time.Time
 }
-
 // rateLimitWindowDynamic / rateLimitMaxDynamic 从配置读取全局滑窗参数（热重载生效）
 func rateLimitWindowDynamic() time.Duration {
 	cfgMu.RLock()
@@ -640,7 +615,6 @@ func rateLimitMaxDynamic() int {
 	}
 	return m
 }
-
 func allowRequest(ip string) bool {
 	now := time.Now()
 	win := rateLimitWindowDynamic()
@@ -666,16 +640,13 @@ func allowRequest(ip string) bool {
 	}
 	return true
 }
-
 // ===================== 通用工具 =====================
-
 // modelState 返回本地模型运行状态与当前模型 id（并发安全快照）
 func modelState() (bool, string) {
 	mu.Lock()
 	defer mu.Unlock()
 	return modelRunning, currentModel
 }
-
 // sanitizedConfig 返回脱敏后的配置（所有 API Key 一律 ***）
 func sanitizedConfig() map[string]interface{} {
 	b, _ := json.Marshal(cfg)
@@ -704,7 +675,6 @@ func sanitizedConfig() map[string]interface{} {
 	}
 	return m
 }
-
 // 允许通过 API 修改的配置白名单（防止结构破坏与任意配置注入）
 func isConfigPathAllowed(path string) bool {
 	allowed := []string{
@@ -727,9 +697,7 @@ func isConfigPathAllowed(path string) bool {
 	}
 	return false
 }
-
 // ===================== RBAC 与审计日志 =====================
-
 // userFromRequest 从请求中提取用户身份（多用户模式优先，否则回退单管理员）
 func userFromRequest(r *http.Request) (name string, role string, ok bool) {
 	key := extractAPIKey(r)
@@ -751,7 +719,6 @@ func userFromRequest(r *http.Request) (name string, role string, ok bool) {
 	}
 	return "", "", false
 }
-
 // extractAPIKey 从请求头提取 API Key（与 validKey 逻辑一致，但返回 key 本身）
 func extractAPIKey(r *http.Request) string {
 	key := r.Header.Get("X-API-Key")
@@ -762,7 +729,6 @@ func extractAPIKey(r *http.Request) string {
 	}
 	return key
 }
-
 // requireRole 中间件：拒绝无所需角色的请求
 func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -783,14 +749,12 @@ func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: 需要 " + strings.Join(roles, "/")})
 	}
 }
-
 // sanitizeAuditField v4.6.3：审计字段防注入清洗——剔除 CR/LF/TAB（防止外部输入
 // 伪造审计行），保证「一条记录一行」的日志格式不变量。
 func sanitizeAuditField(s string) string {
 	s = strings.NewReplacer("\n", " ", "\r", " ", "\t", " ").Replace(s)
 	return strings.TrimSpace(s)
 }
-
 // isAdminRoute 判断是否为仅 admin 可访问的管理端点
 func isAdminRoute(path string) bool {
 	adminPaths := []string{
@@ -808,8 +772,8 @@ func isAdminRoute(path string) bool {
 	}
 	return false
 }
-
 // auditLog 写入审计日志：audit-YYYY-MM-DD.log + 内存日志
+
 func auditLog(action, user, detail string) {
 	cfgMu.RLock()
 	enabled := cfg.Security.AuditLogEnabled
@@ -827,12 +791,10 @@ func auditLog(action, user, detail string) {
 	auditV2Write(action, "*", "", user, "", detail, "")
 	syslogWrapAudit(action, user, detail)
 }
-
 func isHTTPURL(s string) bool {
 	u, err := url.Parse(s)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
-
 func logMsg(s string) {
 	line := fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), s)
 	mu.Lock()
@@ -844,20 +806,16 @@ func logMsg(s string) {
 	// 运行日志同步落盘：logs/tars-YYYY-MM-DD.log（新增，内存仍保留最近 500 条）
 	fileLog("tars", line)
 }
-
 func writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(data)
 }
-
 func writeJSONStatus(w http.ResponseWriter, code int, data interface{}) {
 	w.WriteHeader(code)
 	writeJSON(w, data)
 }
-
 // v3.2.1：桌面客户端模式标记——true 时不自动打开浏览器（Tauri 壳以 sidecar 拉起网关并传 --no-browser）
 var noBrowser = false
-
 // scanNoBrowserFlag 扫描参数中的 --no-browser / -no-browser 标记（布尔开关，无值）
 func scanNoBrowserFlag(args []string) bool {
 	for _, a := range args {
@@ -867,7 +825,6 @@ func scanNoBrowserFlag(args []string) bool {
 	}
 	return false
 }
-
 func openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -880,14 +837,12 @@ func openBrowser(url string) {
 	}
 	cmd.Start()
 }
-
 // sensitiveGatewayFiles v4.6.3（锦衣卫红线）：网关自身安全资产 denylist。
 // tars_file_read/write、OpenAPI 本地文档等模型可控路径即使落在 allowedRoots
 // 内也不得触及这些文件——否则「写 config.json → watchConfig 2s 热重载」即构成
 // 提权/RCE 链路（可打开 defaultKeyAllowed、注入 customTools 端点、关 WAF），
 // 读取则泄露 gateway-key.txt 中的轮换密钥。判定基于 Clean 后的绝对路径尾段。
 var sensitiveGatewayFiles = []string{"config.json", "gateway-key.txt"}
-
 func isSensitiveGatewayPath(abs string) bool {
 	// 统一处理 Windows 路径分隔符（测试用例含 C:\Tars\gateway-key.txt）
 	normalized := strings.ReplaceAll(abs, "\\", "/")
@@ -905,7 +860,6 @@ func isSensitiveGatewayPath(abs string) bool {
 	}
 	return false
 }
-
 func isPathAllowed(path string, write bool) bool {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -932,20 +886,6 @@ func isPathAllowed(path string, write bool) bool {
 	}
 	return false
 }
-
-
-
-
-// isFirstRun 判定是否首次运行：config.json 不存在，或 cloud providers 全部未填 key
-func isFirstRun() bool {
-	if _, err := os.Stat(configPath); err != nil {
-		return true
-	}
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	noKey := cfg.Cloud.OpenAI.APIKey == "" && cfg.Cloud.DeepSeek.APIKey == ""
-	return noKey
-}
 // handleKingdomStatus v4.9.0：返回动物分类学架构状态
 func handleKingdomStatus(w http.ResponseWriter, r *http.Request) {
 	if kingdomRegistry == nil {
@@ -958,4 +898,3 @@ func handleKingdomStatus(w http.ResponseWriter, r *http.Request) {
 		"version":  version,
 	})
 }
-
