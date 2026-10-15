@@ -14,8 +14,8 @@ var (
 	modkernel32_sp         = syscall.NewLazyDLL("kernel32.dll")
 	procGetCurrentProcess = modkernel32_sp.NewProc("GetCurrentProcess")
 	procOpenProcessToken  = modkernel32_sp.NewProc("OpenProcessToken")
-	procGetTokenInformation = modkernel32_sp.NewProc("GetTokenInformation")
 	modadvapi32         = syscall.NewLazyDLL("advapi32.dll")
+	procGetTokenInformation = modadvapi32.NewProc("GetTokenInformation")
 	procCheckTokenMembership = modadvapi32.NewProc("CheckTokenMembership")
 )
 
