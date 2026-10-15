@@ -13,6 +13,16 @@ import (
 )
 
 // ===================== 配置 =====================
+// V4101Config v4.10.1 Surpass 扩展段（顶层键：modelAliases / stickyRouter）
+type V4101Config struct {
+	ModelAliases []ModelAlias `json:"modelAliases"` // 模型别名表
+	StickyRouter struct {
+		Enabled      bool `json:"enabled"`      // 默认 true
+		PersistSec   int  `json:"persistSec"`   // 状态持久化间隔，默认 60
+		MaxEntries   int  `json:"maxEntries"`   // 内存上限，默认 1024
+	} `json:"stickyRouter"`
+}
+
 type Config struct {
 	Cloud struct {
 		OpenAI   CloudCfg   `json:"openai"`
@@ -68,6 +78,7 @@ type Config struct {
 	Audit      AuditCfg      `json:"audit"`
 	// v3.8.0 职业系统扩展段（顶层键：persona）
 	V38Config
+	V4101Config
 }
 
 // FirewallCfg 防火墙策略档位（passive | dynamic-ban | os-link，默认 passive）
