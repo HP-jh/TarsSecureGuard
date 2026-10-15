@@ -302,7 +302,6 @@ func main() {
 	mux.HandleFunc("/api/admin/shutdown", handleShutdown)
 	// v4.9.0 kingdom：
 
-动物分类学架构状态查询
 	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
