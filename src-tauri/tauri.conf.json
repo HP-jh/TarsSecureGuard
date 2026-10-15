@@ -37,11 +37,6 @@
     ],
     "security": {
       "csp": null
-    },
-    "trayIcon": {
-      "id": "main",
-      "iconPath": "icons/tray-green.png",
-      "tooltip": "TarsSecureGuard 桌面客户端"
     }
   },
   "bundle": {
