@@ -11,6 +11,8 @@ import (
 // ===================== Model Alias Tests =====================
 
 func TestResolveModelAlias(t *testing.T) {
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
 	// 构造测试配置
 	cfg.V4101Config.ModelAliases = []ModelAlias{
 		{Alias: "c37", Target: "claude-3-7-sonnet-20250219", ProviderID: "anthropic"},
@@ -73,6 +75,11 @@ func TestResolveModelByPrefix(t *testing.T) {
 }
 
 func TestExpandModelAlias(t *testing.T) {
+	if err := loadProviderRegistry(); err != nil {
+		t.Fatalf("loadProviderRegistry: %v", err)
+	}
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
 	cfg.V4101Config.ModelAliases = []ModelAlias{
 		{Alias: "c37", Target: "claude-3-7-sonnet-20250219", ProviderID: "anthropic"},
 	}
@@ -184,7 +191,7 @@ func TestStickyRouterProbeFailBackoff(t *testing.T) {
 		lastProbe:       time.Now().Add(-time.Hour),
 	}
 
-	ordered, isProbe := sr.selectSticky(dk, cands, preferred)
+	_, isProbe := sr.selectSticky(dk, cands, preferred)
 	if !isProbe {
 		t.Fatal("should probe")
 	}
