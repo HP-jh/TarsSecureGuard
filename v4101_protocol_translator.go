@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -300,10 +301,4 @@ func findProviderByProtocol(protocol string) (ProviderSpec, bool) {
 	return ProviderSpec{}, false
 }
 
-// traceFromReq 从请求提取 trace_id
-func traceFromReq(r *http.Request) string {
-	if r == nil {
-		return ""
-	}
-	return r.Header.Get("X-Trace-Id")
-}
+
