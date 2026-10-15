@@ -14,7 +14,9 @@ use tauri_plugin_shell::ShellExt;
 const GATEWAY_PORT: u16 = 18889;
 const HEALTH_PATH: &str = "/health";
 
-struct SidecarHandle(Arc<Mutex<Option<CommandChild>>>);
+static SIDECAR_CHILD: std::sync::LazyLock<Arc<Mutex<Option<CommandChild>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(None)));
+
 struct TrayState {
     alert_until: Mutex<Option<std::time::Instant>>,
 }
@@ -153,11 +155,8 @@ async fn check_update(_app: tauri::AppHandle) -> Result<Option<serde_json::Value
 }
 
 pub fn run() {
-    let sidecar_arc: Arc<Mutex<Option<CommandChild>>> = Arc::new(Mutex::new(None));
-
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .manage(SidecarHandle(sidecar_arc.clone()))
         .manage(TrayState { alert_until: Mutex::new(None) })
         .invoke_handler(tauri::generate_handler![
             set_tray_alert,
@@ -229,7 +228,6 @@ pub fn run() {
             }
 
             let handle = app.handle().clone();
-            let sidecar_arc_thread = sidecar_arc.clone();
             std::thread::spawn(move || {
                 let (healthy, first_run) = gateway_health_with_first_run();
                 if healthy {
@@ -251,7 +249,7 @@ pub fn run() {
                 match handle.shell().sidecar("tsg") {
                     Ok(cmd) => match cmd.env("TSG_APP_DIR", &data_dir).args(["--no-browser"]).spawn() {
                         Ok((mut rx, child)) => {
-                            *sidecar_arc_thread.lock().unwrap() = Some(child);
+                            *SIDECAR_CHILD.lock().unwrap() = Some(child);
                             std::thread::spawn(move || {
                                 while let Some(_ev) = rx.blocking_recv() {}
                             });
@@ -311,11 +309,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app, event| {
+    app.run(|_app, event| {
         match event {
             RunEvent::Exit => {
-                let state = app.state::<SidecarHandle>();
-                if let Some(mut child) = state.0.lock().unwrap().take() {
+                if let Some(mut child) = SIDECAR_CHILD.lock().unwrap().take() {
                     let _ = child.kill();
                 }
             }
@@ -323,7 +320,7 @@ pub fn run() {
                 if label == "main" {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = win_ev {
                         api.prevent_close();
-                        hide_window(app, "main");
+                        hide_window(_app, "main");
                     }
                 }
             }
