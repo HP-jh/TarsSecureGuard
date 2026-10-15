@@ -123,6 +123,7 @@ type CloudCfg struct {
 // ProviderOverride v3.2.0 单个 provider 的运行时覆盖（config.json providers 段）
 type ProviderOverride struct {
 	APIKey  string   `json:"apiKey"`
+	APIKeys []string `json:"apiKeys"` // v4.10.1: 多密钥支持（sticky session 区分候选）
 	BaseURL string   `json:"baseUrl"`
 	Enabled *bool    `json:"enabled"`
 	Models  []string `json:"models"`
