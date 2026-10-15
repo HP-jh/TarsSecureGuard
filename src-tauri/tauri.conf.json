@@ -75,8 +75,7 @@
       }
     },
     "macOS": {
-      "minimumSystemVersion": "10.13",
-      "entitlements": "src-tauri/entitlements.plist"
+      "minimumSystemVersion": "10.13"
     },
     "linux": {
       "deb": {
@@ -105,14 +104,6 @@
           ]
         }
       ]
-    },
-    "deep-link": {
-      "desktop": {
-        "schemes": [
-          "tsg",
-          "tsg-installer"
-        ]
-      }
     },
     "updater": {
       "active": true,

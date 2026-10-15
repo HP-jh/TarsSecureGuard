@@ -14,9 +14,9 @@ use std::net::TcpStream;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::image::Image;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{Manager, RunEvent};
+use tauri::{Emitter, Manager, RunEvent};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
@@ -68,13 +68,6 @@ fn focus_main_window(app: &tauri::AppHandle) {
     show_window(app, "main");
 }
 
-fn handle_deep_link_url(app: &tauri::AppHandle, url: &str) {
-    eprintln!("[tsg-desktop] deep-link received: {url}");
-    if let Some(path) = url.strip_prefix("tsg://") {
-        let _ = app.emit("deeplink", path);
-    }
-}
-
 fn refresh_tray_icon(app: &tauri::AppHandle) {
     let Some(tray) = app.tray_by_id("main") else { return };
     let state = app.state::<TrayState>();
@@ -91,12 +84,12 @@ fn refresh_tray_icon(app: &tauri::AppHandle) {
     }
 }
 
-fn start_tray_alert_timer(app: &tauri::AppHandle) {
+fn start_tray_alert_timer(app: tauri::AppHandle) {
     let state = app.state::<TrayState>();
     *state.alert_until.lock().unwrap() = Some(std::time::Instant::now() + Duration::from_secs(3));
-    refresh_tray_icon(app);
+    refresh_tray_icon(&app);
 
-    let handle = app.handle().clone();
+    let handle = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(3));
         refresh_tray_icon(&handle);
@@ -105,7 +98,7 @@ fn start_tray_alert_timer(app: &tauri::AppHandle) {
 
 #[tauri::command]
 fn set_tray_alert(app: tauri::AppHandle) {
-    start_tray_alert_timer(&app);
+    start_tray_alert_timer(app);
 }
 
 #[tauri::command]
@@ -123,8 +116,7 @@ fn set_tray_error(app: tauri::AppHandle, error: bool) {
 
 /// v4.11.0：查询更新（GitHub API）——spawn_blocking 内用 ureq 做同步 HTTPS
 #[tauri::command]
-async fn check_update(app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
-    let handle = app.handle().clone();
+async fn check_update(_app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
     let result = tauri::async_runtime::spawn_blocking(move || {
         let resp = ureq::get("https://api.github.com/repos/HP-jh/TarsSecureGuard/releases/latest")
             .set("Accept", "application/vnd.github+json")
@@ -175,7 +167,6 @@ async fn check_update(app: tauri::AppHandle) -> Result<Option<serde_json::Value>
 pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_deep_link::init())
         .manage(SidecarHandle(Mutex::new(None)))
         .manage(TrayState { alert_until: Mutex::new(None) })
         .invoke_handler(tauri::generate_handler![
@@ -184,15 +175,6 @@ pub fn run() {
             check_update
         ])
         .setup(|app| {
-            #[cfg(desktop)]
-            {
-                let handle = app.handle().clone();
-                if let Ok(deep_link) = handle.deep_link() {
-                    let _ = deep_link.register("tsg");
-                    let _ = deep_link.register("tsg-installer");
-                }
-            }
-
             // v4.11.0：系统托盘
             #[cfg(desktop)]
             {
@@ -218,7 +200,6 @@ pub fn run() {
                         move |app, event| match event.id.as_ref() {
                             "show" => focus_main_window(app),
                             "pause" => {
-                                let h = app_h2.clone();
                                 std::thread::spawn(move || {
                                     let _ = ureq::post("http://127.0.0.1:18889/api/admin/config")
                                         .set("Content-Type", "application/json")
@@ -228,7 +209,6 @@ pub fn run() {
                                     .and_then(|t| t.set_tooltip(Some("TarsSecureGuard — 已暂停")).ok());
                             }
                             "resume" => {
-                                let h = app_h2.clone();
                                 std::thread::spawn(move || {
                                     let _ = ureq::post("http://127.0.0.1:18889/api/admin/config")
                                         .set("Content-Type", "application/json")
@@ -319,7 +299,7 @@ pub fn run() {
             {
                 let h = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    tauri::async_runtime::sleep(Duration::from_secs(5)).await;
+                    tokio::time::sleep(Duration::from_secs(5)).await;
                     match check_update(h.clone()).await {
                         Ok(Some(info)) => { let _ = h.emit("update-available", info); }
                         _ => {}
@@ -344,12 +324,6 @@ pub fn run() {
 
     app.run(|app, event| {
         match event {
-            RunEvent::Opened { urls } => {
-                for url in urls {
-                    handle_deep_link_url(app, &url.to_string());
-                }
-                focus_main_window(app);
-            }
             RunEvent::Exit => {
                 let state = app.state::<SidecarHandle>();
                 if let Some(mut child) = state.0.lock().unwrap().take() {

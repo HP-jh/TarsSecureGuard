@@ -16,9 +16,10 @@ tauri-build = { version = "2", features = [] }
 # v4.11.0 选型：Tauri 2.12 + tray-icon + image-png + updater
 tauri = { version = "2.12", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
-tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
+# v4.11.0：tokio time 用于延迟更新检查
+tokio = { version = "1", features = ["time"] }
 # v4.11.0：轻量 HTTP 客户端（GitHub API 版本检测），体积远小于 reqwest
 ureq = { version = "2", features = ["json"] }
 serde_json = "1"
