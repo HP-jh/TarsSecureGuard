@@ -12,6 +12,10 @@
 #   -InstallDir <目录>
 #   -NoShortcut        不创建桌面快捷方式
 #   -NoVerify          跳过 SHA256 校验（不建议）
+#
+# 环境变量（可选，中国大陆用户推荐）：
+#   $env:TSG_MIRROR="gh-proxy"      强制使用国内镜像（gh-proxy / ghfast）
+#   $env:TSG_FORCE_MIRROR=1         跳过 GitHub 直连，直接使用镜像
 param(
   [string]$Version = "latest",
   [string]$BaseUrl = "",
@@ -24,9 +28,27 @@ $ErrorActionPreference = "Stop"
 $Repo = "HP-jh/TarsSecureGuard"
 $Gh = "https://github.com/$Repo/releases"
 
-function Write-Info($msg) { Write-Host "[tsg] $msg" -ForegroundColor Cyan }
+# ---------- 0. 强制 TLS 1.2（Windows 默认 1.0 会连不上 GitHub）----------
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+function Write-Info($msg)  { Write-Host "[tsg] $msg" -ForegroundColor Cyan }
 function Write-Warn2($msg) { Write-Host "[tsg] $msg" -ForegroundColor Yellow }
-function Write-Die($msg)  { Write-Host "[tsg] 错误：$msg" -ForegroundColor Red; exit 1 }
+function Write-Die($msg)   { Write-Host "[tsg] 错误：$msg" -ForegroundColor Red; exit 1 }
+
+# ---------- 镜像源配置 ----------
+$Mirrors = @{
+  "gh-proxy" = "https://gh-proxy.com/https://github.com"
+  "ghfast"   = "https://ghfast.top/https://github.com"
+}
+$MirrorKeys = @("gh-proxy", "ghfast")
+
+$EnvMirror = $env:TSG_MIRROR
+$ForceMirror = ($env:TSG_FORCE_MIRROR -eq "1")
+
+if ($EnvMirror -and -not $Mirrors.ContainsKey($EnvMirror)) {
+  Write-Warn2 "未知镜像 '$EnvMirror'，已知镜像：$($MirrorKeys -join ', ')。将使用默认策略。"
+  $EnvMirror = ""
+}
 
 # ---------- 1. 识别 CPU 架构 ----------
 switch ($env:PROCESSOR_ARCHITECTURE) {
@@ -36,22 +58,59 @@ switch ($env:PROCESSOR_ARCHITECTURE) {
 }
 
 # ---------- 2. 解析版本号（latest → 具体 vX.Y.Z）----------
-# Release 资产命名形如 tsg-v4.7.0-windows-amd64.exe，latest 时需先拿到真实版本号。
-if ($Version -eq "latest") {
+function Resolve-Latest($base) {
+  $api = "$base/api.github.com/repos/$Repo/releases/latest"
   try {
-    $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing -TimeoutSec 20
-    $Version = $rel.tag_name
+    $rel = Invoke-RestMethod -Uri $api -UseBasicParsing -TimeoutSec 10
+    return $rel.tag_name
   } catch {
+    # 兜底：跟随 releases/latest 的 302 跳转
     try {
-      # 兜底：跟随 releases/latest 的 302 跳转，URL 末段即 tag
-      $resp = [System.Net.HttpWebRequest]::Create("$Gh/latest")
+      $resp = [System.Net.HttpWebRequest]::Create("$base/$Repo/releases/latest")
       $resp.AllowAutoRedirect = $false
-      $resp.Timeout = 20000
+      $resp.Timeout = 10000
       $loc = $resp.GetResponse().Headers["Location"]
-      $Version = ($loc -split "/")[-1]
-    } catch {
-      Write-Die "无法获取最新版本号（网络受限？）。请手动指定：install.ps1 -Version v4.7.0"
-    }
+      return ($loc -split "/")[-1]
+    } catch { return $null }
+  }
+}
+
+function Try-Resolve-Latest() {
+  $candidates = @()
+  if ($BaseUrl -ne "") {
+    # 用户指定了自定义源
+    return Resolve-Latest "https://github.com"
+  }
+  if ($EnvMirror -and -not $ForceMirror) {
+    $candidates += $Mirrors[$EnvMirror]
+    $candidates += "https://github.com"
+  } elseif ($EnvMirror -and $ForceMirror) {
+    $candidates += $Mirrors[$EnvMirror]
+  } elseif ($ForceMirror) {
+    foreach ($k in $MirrorKeys) { $candidates += $Mirrors[$k] }
+  } else {
+    $candidates += "https://github.com"
+    if ($EnvMirror) { $candidates += $Mirrors[$EnvMirror] }
+    else { foreach ($k in $MirrorKeys) { $candidates += $Mirrors[$k] } }
+  }
+
+  foreach ($base in $candidates) {
+    $tag = Resolve-Latest $base
+    if ($tag -and ($tag -match '^v[0-9]')) { return $tag }
+  }
+  return $null
+}
+
+if ($Version -eq "latest") {
+  $Version = Try-Resolve-Latest
+  if (-not $Version) {
+    Write-Die @"
+无法获取最新版本号。可能原因：
+  1. 网络受限（在中国大陆？尝试设置环境变量后再运行）：
+     `$env:TSG_MIRROR="gh-proxy"; irm ... | iex`
+  2. GitHub 服务暂时不可用
+  3. 也可以手动指定版本：install.ps1 -Version v4.9.0
+"@
   }
 }
 if ($Version -notmatch '^v') { $Version = "v$Version" }
@@ -60,45 +119,99 @@ $Asset = "tsg-$Version-windows-$Arch.exe"
 $SumsAsset = "SHA256SUMS.txt"
 Write-Info "检测到 windows/$Arch，目标组件 $Asset（版本 $Version）"
 
-# ---------- 3. 确定下载源 ----------
-if ($BaseUrl -ne "") {
-  $Src = "$($BaseUrl.TrimEnd('/'))/$Asset"
-  $SrcSums = "$($BaseUrl.TrimEnd('/'))/$SumsAsset"
-} else {
-  $Src = "$Gh/download/$Version/$Asset"
-  $SrcSums = "$Gh/download/$Version/$SumsAsset"
+# ---------- 3. 确定下载源（支持镜像 fallback）----------
+function Make-Urls($base) {
+  $assetUrl = "$base/$Repo/releases/download/$Version/$Asset"
+  $sumsUrl  = "$base/$Repo/releases/download/$Version/$SumsAsset"
+  return @{ Asset = $assetUrl; Sums = $sumsUrl }
 }
-Write-Info "使用下载源：$Src"
 
-# ---------- 4. 安装 ----------
+function Get-Sources() {
+  $list = @()
+  if ($BaseUrl -ne "") {
+    $list += @{ Asset = "$($BaseUrl.TrimEnd('/'))/$Asset"; Sums = "$($BaseUrl.TrimEnd('/'))/$SumsAsset"; Name = "自定义源" }
+    return $list
+  }
+  if ($EnvMirror -and -not $ForceMirror) {
+    $list += (Make-Urls $Mirrors[$EnvMirror]); $list[-1].Name = "镜像 $($EnvMirror)"
+    $list += (Make-Urls "https://github.com"); $list[-1].Name = "GitHub 直连"
+  } elseif ($EnvMirror -and $ForceMirror) {
+    $list += (Make-Urls $Mirrors[$EnvMirror]); $list[-1].Name = "镜像 $($EnvMirror)"
+  } elseif ($ForceMirror) {
+    foreach ($k in $MirrorKeys) { $list += (Make-Urls $Mirrors[$k]); $list[-1].Name = "镜像 $($k)" }
+  } else {
+    $list += (Make-Urls "https://github.com"); $list[-1].Name = "GitHub 直连"
+    if ($EnvMirror) { $list += (Make-Urls $Mirrors[$EnvMirror]); $list[-1].Name = "镜像 $($EnvMirror)" }
+    else { foreach ($k in $MirrorKeys) { $list += (Make-Urls $Mirrors[$k]); $list[-1].Name = "镜像 $($k)" } }
+  }
+  return $list
+}
+
+$Sources = Get-Sources
+Write-Info "将依次尝试以下下载源：$($Sources.Name -join ' → ')"
+
+# ---------- 4. 下载（带重试和镜像 fallback）----------
 if ($InstallDir -eq "") { $InstallDir = Join-Path $env:LOCALAPPDATA "TarsSecureGuard" }
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $Bin = Join-Path $InstallDir "tsg.exe"
 $Tmp = Join-Path $env:TEMP "tsg-installer-$PID.exe"
 
-function Fetch-It($url, $out) {
-  if ($url -match '^https?://') {
-    Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+function Fetch-WithRetry($url, $out, $name, $retries = 2) {
+  $lastErr = $null
+  for ($i = 0; $i -le $retries; $i++) {
+    try {
+      if ($i -gt 0) { Write-Warn2 "第 $i 次重试：$name" }
+      if ($url -match '^https?://') {
+        Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing -TimeoutSec 30
+      } else {
+        $local = $url -replace '^file://', ''
+        if (Test-Path $local) { Copy-Item $local $out -Force }
+        else { throw "本地文件不存在：$local" }
+      }
+      return $true
+    } catch {
+      $lastErr = $_
+      if ($i -lt $retries) { Start-Sleep -Seconds 2 }
+    }
+  }
+  return $lastErr
+}
+
+$Downloaded = $false
+$UsedSource = $null
+foreach ($src in $Sources) {
+  Write-Info "尝试从 $($src.Name) 下载..."
+  $result = Fetch-WithRetry $src.Asset $Tmp $src.Name
+  if ($result -eq $true) {
+    $Downloaded = $true
+    $UsedSource = $src
+    Write-Info "$($src.Name) 下载成功 ✓"
+    break
   } else {
-    $local = $url -replace '^file://', ''
-    if (Test-Path $local) { Copy-Item $local $out -Force }
-    else { Write-Die "本地文件不存在：$local" }
+    Write-Warn2 "$($src.Name) 下载失败：$($result.Exception.Message)"
   }
 }
 
-try {
-  Fetch-It $Src $Tmp
-} catch {
-  Write-Die "下载失败：$($_.Exception.Message)"
+if (-not $Downloaded) {
+  Write-Die @"
+所有下载源均无法连接。可能原因：
+  1. 网络受限（在中国大陆？建议设置环境变量）：
+     `$env:TSG_MIRROR="gh-proxy"; irm ... | iex`
+  2. 也可以手动下载后运行：install.ps1 -BaseUrl "file:///C:/Users/你/Downloads"
+"@
 }
+
 if ((Test-Path $Tmp) -and (Get-Item $Tmp).Length -eq 0) { Write-Die "下载结果为空文件，请检查网络或下载源" }
 
 # ---------- 5. SHA256 校验（防篡改，默认开启）----------
 if (-not $NoVerify) {
   $TmpSums = Join-Path $env:TEMP "tsg-sums-$PID.txt"
-  $ok = $true
-  try { Fetch-It $SrcSums $TmpSums } catch { $ok = $false; Write-Warn2 "无法下载 SHA256SUMS.txt（网络受限？），跳过校验" }
-  if ($ok -and (Test-Path $TmpSums)) {
+  $ok = $false
+  foreach ($src in $Sources) {
+    $result = Fetch-WithRetry $src.Sums $TmpSums "SHA256SUMS ($($src.Name))" 1
+    if ($result -eq $true) { $ok = $true; break }
+  }
+  if ($ok -and (Test-Path $TmpSums) -and (Get-Item $TmpSums).Length -gt 0) {
     $want = $null
     foreach ($line in (Get-Content $TmpSums)) {
       if ($line -match '^([0-9a-fA-F]{64})\s.*' + [regex]::Escape($Asset)) { $want = $Matches[1]; break }
@@ -114,6 +227,8 @@ if (-not $NoVerify) {
     } else {
       Write-Warn2 "SHA256SUMS.txt 中未找到 $Asset 条目，跳过校验"
     }
+  } else {
+    Write-Warn2 "无法下载 SHA256SUMS.txt（网络受限？），跳过校验"
   }
   Remove-Item $TmpSums -Force -ErrorAction SilentlyContinue
 }
