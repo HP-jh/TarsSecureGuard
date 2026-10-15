@@ -13,6 +13,39 @@
 - 顶层 `.go` 文件归位分析（`internal/<domain>/` 模式评估）
 
 ---
+## [4.10.0] "Absorb" - 2026-10-15
+
+### Added
+- **Tripwire Prompt-Injection Detection Engine** (P0)：吸纳 promptward Rust 核心，Go-native 翻译实现
+  - 40+ 注入短语模式 + 17 条结构性正则
+  - Unicode 走私检测（零宽字符、双向文本、同形异义字折叠）
+  - 5 种编码解码重扫（Base64 / Hex / URL / ROT13 / Variation-Selector）
+  - Secret/PII 外泄检测（AWS/GitHub/OpenAI 密钥、JWT、信用卡 Luhn 校验）
+  - Markdown URL 伪装与外泄检测
+  - Kingdom 分类：Phylum=security, Class=prompt-injection
+  - 评估基准：Deepset recall >8.7%, Safe-Guard precision >99.5%, NotInject FP <0.9%
+- **mTLS Zero-Trust Layer** (P1)：OpenZiti 思路借鉴，Go 原生 crypto/tls 重实现
+  - TLS 1.3 强制 + ECDSA P-384/P-256
+  - 自举 ephemeral CA（无外部 PKI 也可启动）
+  - 服务端客户端证书验证 + 会话票证 0-RTT 风格恢复
+  - 配置项：server_cert_path / client_ca_path / session_tickets
+- **LangProbe 三级回退链** (v4.10.0+)：GoCore(1) > OtherLang(2) > GoFallback(3)
+  - CapabilityReport.Adapters 扩展：每模块支持多条 adapter + priority 排序
+  - prompt-injection 模块默认绑定 GoCore
+- **第三方合规**：NOTICE + THIRD_PARTY_LICENSES（MIT + Apache-2.0 保留）
+
+### Security
+- 新增 prompt injection 拦截层（WAF 补充语义级检测）
+- mTLS 传输加密默认启用（网关层）
+
+### UI
+- 新增 /api/tripwire/scan 管理面板接口
+- 新增 /api/tripwire/status 状态查询
+- Doctor 面板增加 Tripwire 检查项
+
+### Docs
+- B26 调研报告吸纳路线图落地（v4.10.0 Absorb → v4.10.1 Surpass → v4.10.2 Fortify）
+
 
 ## [4.9.0] - 2026-10-14
 
@@ -356,3 +389,4 @@
 
 ### Fixed
 - Linux build tags 缺失：设备/进程平台拆分文件
+

@@ -45,7 +45,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.9.0"
+var version = "4.10.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -939,3 +939,4 @@ func handleKingdomStatus(w http.ResponseWriter, r *http.Request) {
 		"version":  version,
 	})
 }
+

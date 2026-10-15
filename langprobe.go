@@ -36,7 +36,8 @@ type CapabilityReport struct {
 	Available []LangCapability   `json:"available"`
 	Missing   []string           `json:"missing"`
 	Recommend []InstallTip       `json:"recommend"`
-	Selected  map[string]string  `json:"selected"` // module -> best lang
+	Selected  map[string]string  `json:"selected"` // module -> best lang (backward compat)
+	Adapters  map[string][]string `json:"adapters"` // module -> priority-sorted langs (v4.10.0+)
 }
 
 // InstallTip 安装建议
@@ -183,8 +184,8 @@ func runLangProbe() *CapabilityReport {
 		return report.Available[i].Score > report.Available[j].Score
 	})
 
-	// 计算模块-语言映射
-	report.Selected = selectBestLangs(report.Available)
+	// 计算模块-语言映射（v4.10.0 支持多级回退链）
+	report.Selected, report.Adapters = selectBestLangs(report.Available)
 
 	// 生成安装建议
 	report.Recommend = generateInstallTips(report)
@@ -271,34 +272,61 @@ func parseVersion(s string) string {
 }
 
 // selectBestLangs 为每个模块选择最佳语言
-func selectBestLangs(avail []LangCapability) map[string]string {
-	m := map[string]string{}
+func selectBestLangs(avail []LangCapability) (selected map[string]string, adapters map[string][]string) {
+	selected = map[string]string{}
+	adapters = map[string][]string{}
 	// 模块到所需能力标签的映射
 	moduleNeeds := map[string][]string{
-		"firewall":  {"windows-firewall", "linux-firewall"},
-		"logging":   {"eventlog", "log-parser", "unified-log"},
-		"process":   {"process-monitor"},
-		"network":   {"net-connections"},
-		"hardware":  {"hardware-wmi", "hardware-psutil"},
+		"firewall":        {"windows-firewall", "linux-firewall"},
+		"logging":         {"eventlog", "log-parser", "unified-log"},
+		"process":         {"process-monitor"},
+		"network":         {"net-connections"},
+		"hardware":        {"hardware-wmi", "hardware-psutil"},
+		"prompt-injection": {"go-native"}, // v4.10.0 tripwire — GoCore first
 	}
 	for mod, needs := range moduleNeeds {
-		best := ""
-		bestScore := -1
+		var scored []struct {
+			lang  string
+			score int
+		}
 		for _, c := range avail {
 			for _, need := range needs {
-				if hasFeature(c.Features, need) && c.Score > bestScore {
-					best = c.Lang
-					bestScore = c.Score
+				if hasFeature(c.Features, need) {
+					scored = append(scored, struct{ lang string; score int }{c.Lang, c.Score})
 				}
 			}
 		}
-		if best != "" {
-			m[mod] = best
-		} else {
-			m[mod] = "go" // 回退 Go 原生
+		// Sort by score descending
+		for i := range scored {
+			for j := i + 1; j < len(scored); j++ {
+				if scored[i].score < scored[j].score {
+					scored[i], scored[j] = scored[j], scored[i]
+				}
+			}
 		}
+		var chain []string
+		for _, s := range scored {
+			chain = append(chain, s.lang)
+		}
+		// Three-level fallback: GoCore(1) > OtherLang(2) > GoFallback(3)
+		if len(chain) == 0 {
+			chain = []string{"go"}
+		}
+		// Ensure "go" is in the chain as ultimate fallback
+		hasGo := false
+		for _, l := range chain {
+			if l == "go" {
+				hasGo = true
+				break
+			}
+		}
+		if !hasGo {
+			chain = append(chain, "go")
+		}
+		adapters[mod] = chain
+		selected[mod] = chain[0] // backward compat: best available
 	}
-	return m
+	return selected, adapters
 }
 
 func hasFeature(fs []string, f string) bool {
@@ -541,3 +569,4 @@ func doctorLangProbeChecks() []doctorCheck {
 
 	return checks
 }
+
