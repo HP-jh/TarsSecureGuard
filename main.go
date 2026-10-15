@@ -45,7 +45,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.10.0"
+var version = "4.10.1"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -254,6 +254,9 @@ func main() {
 	// v3.0.5 可观测性端点：
 	//   /metrics —— Prometheus 拉取（经 gatewayMiddleware 鉴权；RBAC 归 app 类全角色可读）
 	//   /api/admin/traces —— 最近 trace 与 span 时间线（admin.read 类，admin/审计角色可读）
+	// v4.10.1 Surpass: 多协议透传（Anthropic / Gemini）
+	mux.HandleFunc("/v1/messages", moduleRoute("chatApi", handleV1AnthropicMessages))
+	mux.HandleFunc("/v1beta/models/", moduleRoute("chatApi", handleV1BetaGeminiGenerate))
 	mux.HandleFunc("/metrics", handleMetrics)
 	mux.HandleFunc("/api/admin/traces", handleTraces)
 
