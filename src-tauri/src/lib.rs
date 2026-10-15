@@ -1,17 +1,8 @@
 //! TarsSecureGuard v4.11.0 桌面客户端壳（Tauri 2）
-//!
-//! v4.11.0 七项桌面客户端功能完整实现：
-//! 1. 系统托盘（三态图标 + 菜单 + 关闭到托盘）
-//! 2. 启动 loading 窗口（800x500，/health 就绪后切换主窗口）
-//! 3. Windows 管理员权限（requestedExecutionLevel=requireAdministrator）
-//! 4. 自更新器（tauri-plugin-updater + GitHub Releases 检测）
-//! 5. SSE 实时事件流（前端 EventSource → Rust tray 闪烁命令）
-//! 6. release.yml 补全（Tauri 交叉编译 + 多平台安装包）
-//! 7. 首次运行引导（3 步：选模型 → 填 API key → 完成）
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem};
@@ -23,7 +14,7 @@ use tauri_plugin_shell::ShellExt;
 const GATEWAY_PORT: u16 = 18889;
 const HEALTH_PATH: &str = "/health";
 
-struct SidecarHandle(Mutex<Option<CommandChild>>);
+struct SidecarHandle(Arc<Mutex<Option<CommandChild>>>);
 struct TrayState {
     alert_until: Mutex<Option<std::time::Instant>>,
 }
@@ -114,7 +105,6 @@ fn set_tray_error(app: tauri::AppHandle, error: bool) {
     }
 }
 
-/// v4.11.0：查询更新（GitHub API）——spawn_blocking 内用 ureq 做同步 HTTPS
 #[tauri::command]
 async fn check_update(_app: tauri::AppHandle) -> Result<Option<serde_json::Value>, String> {
     let result = tauri::async_runtime::spawn_blocking(move || {
@@ -137,9 +127,7 @@ async fn check_update(_app: tauri::AppHandle) -> Result<Option<serde_json::Value
         let latest_v = parse(latest_tag);
         let current_v = parse(current);
 
-        let newer = latest_v > current_v;
-
-        if newer {
+        if latest_v > current_v {
             let mut download_url = None;
             if let Some(assets) = json["assets"].as_array() {
                 for asset in assets {
@@ -165,9 +153,11 @@ async fn check_update(_app: tauri::AppHandle) -> Result<Option<serde_json::Value
 }
 
 pub fn run() {
+    let sidecar_arc: Arc<Mutex<Option<CommandChild>>> = Arc::new(Mutex::new(None));
+
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .manage(SidecarHandle(Mutex::new(None)))
+        .manage(SidecarHandle(sidecar_arc.clone()))
         .manage(TrayState { alert_until: Mutex::new(None) })
         .invoke_handler(tauri::generate_handler![
             set_tray_alert,
@@ -175,7 +165,6 @@ pub fn run() {
             check_update
         ])
         .setup(|app| {
-            // v4.11.0：系统托盘
             #[cfg(desktop)]
             {
                 let app_h = app.handle().clone();
@@ -240,6 +229,7 @@ pub fn run() {
             }
 
             let handle = app.handle().clone();
+            let sidecar_arc_thread = sidecar_arc.clone();
             std::thread::spawn(move || {
                 let (healthy, first_run) = gateway_health_with_first_run();
                 if healthy {
@@ -261,7 +251,7 @@ pub fn run() {
                 match handle.shell().sidecar("tsg") {
                     Ok(cmd) => match cmd.env("TSG_APP_DIR", &data_dir).args(["--no-browser"]).spawn() {
                         Ok((mut rx, child)) => {
-                            handle.state::<SidecarHandle>().0.lock().unwrap().replace(child);
+                            *sidecar_arc_thread.lock().unwrap() = Some(child);
                             std::thread::spawn(move || {
                                 while let Some(_ev) = rx.blocking_recv() {}
                             });
@@ -294,7 +284,6 @@ pub fn run() {
                 }
             });
 
-            // v4.11.0：延迟检查更新
             #[cfg(desktop)]
             {
                 let h = app.handle().clone();
