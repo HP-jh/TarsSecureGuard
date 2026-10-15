@@ -2,7 +2,6 @@ package tripwire
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -177,7 +176,9 @@ func ScanExfil(text string, direction Direction, src Source) []Finding {
 	}
 
 	// Markdown/URL外泄（仅输出路径）
-	out = append(out, ScanMarkdownExfil(text, direction, src)...)
+	if direction == DirectionOutbound {
+		out = append(out, ScanMarkdown(text, src)...)
+	}
 
 	return out
 }

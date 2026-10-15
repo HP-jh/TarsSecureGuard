@@ -38,12 +38,12 @@ func Scan(text string, cfg ScanConfig) ScanResult {
 
 	// --- Phase 2: injection detection (inbound only) ---
 	if cfg.Direction == DirectionInbound {
-		inj := ScanInjection(normalized, cfg.Source)
+		inj := ScanInjection(normalized, cfg.Direction, cfg.Source)
 		findings = append(findings, inj...)
 	}
 
-	// --- Phase 3: exfiltration detection (outbound / any) ---
-	exf := ScanExfil(normalized, cfg.Source)
+	// --- Phase 3: exfiltration detection ---
+	exf := ScanExfil(normalized, cfg.Direction, cfg.Source)
 	findings = append(findings, exf...)
 
 	// --- Phase 4: markdown / URL exfil (outbound model output) ---
@@ -62,25 +62,25 @@ func Scan(text string, cfg ScanConfig) ScanResult {
 			}
 			// Re-run injection on decoded payload
 			if cfg.Direction == DirectionInbound {
-				inj2 := ScanInjection(d.Text, cfg.Source)
+				inj2 := ScanInjection(d.Text, cfg.Direction, cfg.Source)
 				// Annotate that these came from an encoded layer
 				for i := range inj2 {
-					inj2[i].Detail = "[decoded " + d.Method + "] " + inj2[i].Detail
-					inj2[i].Score = min(inj2[i].Score+0.05, 1.0)
+					inj2[i].Detail = "[decoded " + d.Kind + "] " + inj2[i].Detail
+					inj2[i].Score = minF64(inj2[i].Score+0.05, 1.0)
 				}
 				findings = append(findings, inj2...)
 			}
 			// Re-run exfil on decoded payload
-			exf2 := ScanExfil(d.Text, cfg.Source)
+			exf2 := ScanExfil(d.Text, cfg.Direction, cfg.Source)
 			for i := range exf2 {
-				exf2[i].Detail = "[decoded " + d.Method + "] " + exf2[i].Detail
-				exf2[i].Score = min(exf2[i].Score+0.05, 1.0)
+				exf2[i].Detail = "[decoded " + d.Kind + "] " + exf2[i].Detail
+				exf2[i].Score = minF64(exf2[i].Score+0.05, 1.0)
 			}
 			findings = append(findings, exf2...)
 		}
 	}
 
-	// --- Phase 6: deduplication by (Kind, Label, Start, End) ---
+	// --- Phase 6: deduplication ---
 	findings = dedup(findings)
 
 	// --- Phase 7: severity filtering ---
@@ -122,7 +122,7 @@ func dedup(ff []Finding) []Finding {
 	return out
 }
 
-func min(a, b float32) float32 {
+func minF64(a, b float64) float64 {
 	if a < b {
 		return a
 	}

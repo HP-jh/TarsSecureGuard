@@ -24,7 +24,7 @@ func smuggleOf(c rune) (smuggleKind, bool) {
 		return smuggleBidi, true
 	case c >= '\u2066' && c <= '\u2069':
 		return smuggleBidi, true
-	case c >= '\ue0000' && c <= '\ue007f':
+	case c >= '\U000E0000' && c <= '\U000E007F':
 		return smuggleTag, true
 	}
 	return 0, false
@@ -463,6 +463,11 @@ func runeFromInt(i int) (rune, bool) {
 		return rune(i), true
 	}
 	return 0, false
+}
+
+// Normalize returns the smuggling-cleaned, homoglyph-folded text.
+func Normalize(text string) string {
+	return Analyze(text).Text
 }
 
 // simpleNFKC 简化的NFKC折叠——覆盖最常见的兼容性字符
