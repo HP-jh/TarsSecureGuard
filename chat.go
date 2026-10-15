@@ -322,6 +322,9 @@ func routeChat(model string, msgs []Message, trace ...string) (string, string, e
 // （openai-compat 后端生效）并回传真实 usage 与 tool_calls。
 // 错误路径也返回 ChatResult（至少带 backend），便于调用方观测。
 func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (res ChatResult, err error) {
+	// v4.10.1: 模型别名展开（在路由决策前统一处理）
+	model, forcedProvider, _ = expandModelAlias(model)
+
 	// v3.4.0：出口统一埋点——所有后端路径（成功/失败）都进 Token 测量器
 	defer func() {
 		meterHook(model, res, err)
