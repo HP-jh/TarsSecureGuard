@@ -1807,4 +1807,59 @@ if(window.__TAURI__&&window.__TAURI__.event){window.__TAURI__.event.listen('deep
 function changeLang(code){ if(window.i18n){window.i18n.switchLang(code);} localStorage.setItem('tsg_lang',code); }
 (function(){ var saved=localStorage.getItem('tsg_lang')||''; if(saved&&window.i18n){window.i18n.switchLang(saved);} })();
 </script>
+<script>
+/* ============ v4.11.0 桌面客户端覆盖层 ============ */
+(function(){
+  if(location.protocol!=='tauri:'&&location.hostname!=='tauri.localhost')return;
+  var es=null,esRetry=0;
+  function connectSSE(){
+    if(es)return;
+    es=new EventSource(AB+'/ws/events');
+    es.onmessage=function(ev){
+      try{var d=JSON.parse(ev.data);handleSSE(d);}catch(e){}
+    };
+    es.onerror=function(){es.close();es=null;esRetry++;if(esRetry<10)setTimeout(connectSSE,3000*Math.min(esRetry,5));};
+    es.onopen=function(){esRetry=0;};
+  }
+  function handleSSE(d){
+    if(d.type==='intercept'||d.type==='waf'){
+      if(window.__TAURI__&&window.__TAURI__.core&&window.__TAURI__.core.invoke){
+        window.__TAURI__.core.invoke('set_tray_alert').catch(function(){});
+      }
+      if(curPage==='logs'||curPage==='waf'){
+        var line='['+new Date(d.timestamp).toLocaleTimeString()+'] ['+d.severity.toUpperCase()+'] '+d.title+' — '+d.detail+(d.ip?' (IP:'+d.ip+')':'')+(d.route?' ['+d.route+']':'');
+        LOGS.push(line);if(LOGS.length>LOG_MAX)LOGS.shift();renderLogs();
+      }
+    }
+  }
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){if(es){es.close();es=null;}}else{connectSSE();}
+  });
+  connectSSE();
+  var updBanner=null;
+  function showUpdateBanner(info){
+    if(updBanner)return;
+    var b=document.createElement('div');
+    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:10001;background:linear-gradient(90deg,#1f6feb,#8957e5);color:#fff;padding:10px 18px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 12px rgba(88,166,255,.3)';
+    b.innerHTML='<span>有新版本 <b>v'+esc(info.version)+'</b>（当前 v'+esc(info.current)+'）</span><button style="background:#fff;color:#1f6feb;border:none;border-radius:6px;padding:4px 14px;font-size:11px;font-weight:700;cursor:pointer" onclick="downloadUpdate()">下载更新</button><button style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer" onclick="dismissUpdate()">稍后</button>';
+    document.body.appendChild(b);updBanner=b;
+  }
+  window.downloadUpdate=function(){
+    if(window.__TAURI__&&window.__TAURI__.shell&&window.__TAURI__.shell.open){
+      window.__TAURI__.shell.open('https://github.com/HP-jh/TarsSecureGuard/releases/latest').catch(function(){});
+    }else{window.open('https://github.com/HP-jh/TarsSecureGuard/releases/latest','_blank');}
+  };
+  window.dismissUpdate=function(){
+    if(updBanner){updBanner.remove();updBanner=null;localStorage.setItem('tsg_update_dismissed',Date.now());}
+  };
+  if(window.__TAURI__&&window.__TAURI__.event&&window.__TAURI__.event.listen){
+    window.__TAURI__.event.listen('update-available',function(e){
+      var info=e.payload||e;if(info&&info.version)showUpdateBanner(info);
+    });
+    window.__TAURI__.event.listen('first-run',function(){
+      if($('wizard'))$('wizard').style.display='flex';
+    });
+  }
+})();
+</script>
 </body></html>

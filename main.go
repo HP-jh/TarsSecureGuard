@@ -45,7 +45,7 @@ const (
 )
 
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.10.1"
+var version = "4.11.0"
 
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
@@ -200,6 +200,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleFrontend)
 	mux.HandleFunc("/health", handleHealth) // 健康检查（免鉴权）
+	mux.HandleFunc("/ws/events", handleWSEvents) // v4.11.0 SSE 实时事件流
 	mux.HandleFunc("/api/status", handleStatus)
 	mux.HandleFunc("/api/stats", moduleRoute("stats", handleStats))                // 统计面板
 	mux.HandleFunc("/api/stats/history", moduleRoute("stats", handleStatsHistory)) // 24 小时请求量
@@ -423,6 +424,8 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		}
 		// 0) dynamic-ban / os-link 档位：处于封禁期的 IP 直接拒绝
 		if isBanned(clientIP(r)) {
+			ip := clientIP(r)
+			sseEmitIntercept("block", "IP封禁拦截", "IP处于动态封禁期（security.firewall.policy）", ip, r.URL.Path)
 			blockRequest(w, r, "IP 处于动态封禁期（security.firewall.policy）")
 			return
 		}
@@ -430,6 +433,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// v3.0.0 B 线：WAF 命中联动 IP 信誉扣分（-30，锦衣卫裁定 6）
 		if reason := wafCheck(r); reason != "" {
 			ip := clientIP(r)
+			sseEmitIntercept("block", "WAF拦截", reason, ip, r.URL.Path)
 			ipRepPenalty(ip, 30, "waf", reason)
 			markIPBanned(ip)
 			firewallBanIP(ip) // 按防火墙档位施加封禁副作用（passive 档为 no-op）
@@ -930,6 +934,18 @@ func isPathAllowed(path string, write bool) bool {
 }
 
 
+
+
+// isFirstRun 判定是否首次运行：config.json 不存在，或 cloud providers 全部未填 key
+func isFirstRun() bool {
+	if _, err := os.Stat(configPath); err != nil {
+		return true
+	}
+	cfgMu.RLock()
+	defer cfgMu.RUnlock()
+	noKey := cfg.Cloud.OpenAI.APIKey == "" && cfg.Cloud.DeepSeek.APIKey == ""
+	return noKey
+}
 // handleKingdomStatus v4.9.0：返回动物分类学架构状态
 func handleKingdomStatus(w http.ResponseWriter, r *http.Request) {
 	if kingdomRegistry == nil {

@@ -88,6 +88,9 @@ jobs:
           - platform: windows-latest
             target: windows-amd64
             rust_target: x86_64-pc-windows-msvc
+          - platform: windows-latest
+            target: windows-arm64
+            rust_target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
