@@ -14,8 +14,8 @@
 <meta name="googlebot" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TarsSecureGuard">
-<meta property="og:title" content="TarsSecureGuard — AI 时代的路由器与配置器 · 本地 AI 安全网关">
-<meta property="og:description" content="零依赖单文件本地 AI 安全网关。WAF 默认开启，13 客户端 × 35 provider，MCP stdio 即插即护，解压即用。">
+<meta property="og:title" content="TarsSecureGuard — 网关 + 桌面客户端 + MCP 桥">
+<meta property="og:description" content="v4.11+ 本地 AI 安全网关：Tauri 桌面客户端、auto-include MCP 桥、Security Core 不可关闭、7 平台原生产物。接 13 客户端，连 24 云模型 + 8 本地推理，外挂任意 MCP 工具（含字节 UI-TARS）。">
 <meta property="og:url" content="https://hp-jh.github.io/TarsSecureGuard/">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:locale:alternate" content="en_US">
@@ -43,7 +43,7 @@
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "Windows, macOS, Linux, Android",
       "softwareVersion": "{{VERSION}}",
-      "description": "零依赖单文件本地 AI 安全网关：WAF、提示词注入防护、三维限流、PII 脱敏、hash-chain 审计、MCP stdio 即插即护。接 13 种客户端，连 35 家模型商。",
+      "description": "v4.11+ 本地 AI 安全网关 + Tauri 桌面客户端 + auto-include MCP 桥。WAF、提示词注入防护、三维限流、PII 脱敏、hash-chain 审计、MCP stdio 即插即护。接 13 种客户端，连 24 家云模型 + 8 本地运行时，外挂任意 MCP 桥（如字节 UI-TARS 桌面操控）。",
       "keywords": "AI安全网关,LLM Gateway,OpenAI代理,MCP安全,提示词注入防护,本地AI,零依赖",
       "license": "https://opensource.org/licenses/MIT",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -268,7 +268,7 @@ code{font-family:var(--mono)}
 <header class="hero">
   <div class="hero-badge"><span class="dot"></span><span data-i18n="hero.badge">最新版 v{{VERSION}} · 发布于 {{RELEASE_DATE}}</span></div>
   <h1 data-i18n="hero.title">AI 时代的<br><span class="grad">路由器与配置器</span></h1>
-  <p data-i18n="hero.subtitle">零依赖单文件的本地 AI 安全网关（LLM 代理）。左边接 13 种 AI 客户端，右边连 35 家模型商，中间强制 WAF、提示词注入防护、三维限流、PII 脱敏与 hash-chain 审计。解压即用，数据不出本机。</p>
+  <p data-i18n="hero.subtitle">v4.11 起是 <b>网关 + 桌面客户端 + MCP 桥</b>三件套。左边接 13 种 AI 客户端，右边连 24 家云端模型 + 8 种本地推理运行时，外面挂任意 MCP 桥（字节 UI-TARS 桌面操控 / 任意 MCP server），中间强制 WAF、提示词注入防护、PII 脱敏、限流、IP 信誉、RBAC、审计——Security Core 不可关闭。7 平台原生产物，U 盘拷出去就能跑。</p>
   <div class="hero-btns">
     <a class="btn btn-primary" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="hero.cta_primary">Star on GitHub</a>
     <a class="btn btn-ghost" href="#install" data-i18n="hero.cta_secondary">一键安装</a>
@@ -319,10 +319,22 @@ code{font-family:var(--mono)}
       <span class="card-tag">始终开启</span>
     </div>
     <div class="card">
+      <div class="card-icon">🖥️</div>
+      <h3 data-i18n="features.c6.title">Tauri 桌面客户端</h3>
+      <p data-i18n="features.c6.desc">系统托盘常驻 + loading 启动窗口 + 管理员权限 + WebSocket 实时事件 + 自更新器，Windows / macOS / Linux / Android 7 平台一致体验。</p>
+      <span class="card-tag">v4.11.0</span>
+    </div>
+    <div class="card">
       <div class="card-icon">🔌</div>
       <h3 data-i18n="features.c2.title">Universal Connector</h3>
-      <p data-i18n="features.c2.desc">13 客户端 × 35 provider，新增 provider 只写 JSON。</p>
+      <p data-i18n="features.c2.desc">13 客户端 × 24 云 provider + 8 本地运行时，新增 provider 只写 JSON。</p>
       <span class="card-tag">v3.2.0</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🧩</div>
+      <h3 data-i18n="features.c7.title">auto-include MCP 桥</h3>
+      <p data-i18n="features.c7.desc">config.json 加一行即挂载外部 MCP server，工具自动合并到 /tools.list，字节 UI-TARS 桌面操控 / 任意 MCP 一行接入。</p>
+      <span class="card-tag">v4.11.0</span>
     </div>
     <div class="card">
       <div class="card-icon">⚙️</div>
@@ -331,10 +343,28 @@ code{font-family:var(--mono)}
       <span class="card-tag">v3.7.0</span>
     </div>
     <div class="card">
+      <div class="card-icon">🖱️</div>
+      <h3 data-i18n="features.c8.title">UI-TARS 桌面操控</h3>
+      <p data-i18n="features.c8.desc">集成字节 UI-TARS 视觉模型，AI 通过 MCP 调截屏 / 点击 / 输入 / 滚动 / 开浏览器，让 AI 真的能"动手"。</p>
+      <span class="card-tag">v4.12.0</span>
+    </div>
+    <div class="card">
       <div class="card-icon">🧠</div>
-      <h3 data-i18n="features.c4.title">能力感知路由</h3>
-      <p data-i18n="features.c4.desc">按 vision / tools / longContext 自动改道换模型。</p>
-      <span class="card-tag">v3.3.0</span>
+      <h3 data-i18n="features.c4.title">LobeHub 多设备路由</h3>
+      <p data-i18n="features.c4.desc">多设备协作 + 多智能体风格，AI 模块支持多 provider 路由 + 多 agent 协作。</p>
+      <span class="card-tag">v4.11.0</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h3 data-i18n="features.c9.title">Token 用量看板</h3>
+      <p data-i18n="features.c9.desc">按 provider / 应用 / 天统计 Token 与成本，可视化看板，帮你看清每一分钱的去向。</p>
+      <span class="card-tag">v4.11.0</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔑</div>
+      <h3 data-i18n="features.c10.title">vKey 虚拟密钥</h3>
+      <p data-i18n="features.c10.desc">每用户 / 每应用独立虚拟密钥 + 配额 + 审计 + 撤销，对标奇安信的企业级密钥管理。</p>
+      <span class="card-tag">v4.11.0</span>
     </div>
     <div class="card span-2">
       <div class="card-icon">🌐</div>
@@ -390,18 +420,19 @@ code{font-family:var(--mono)}
 <section class="section" id="milestones">
   <div class="section-head reveal">
     <div class="section-tag">Milestones</div>
-    <h2 data-i18n="milestones.title">15 天，从安全壳到<br>AI 路由器</h2>
+    <h2 data-i18n="milestones.title">17 天，从安全壳到<br>AI 路由器 + 桌面客户端 + MCP 桥</h2>
     <p data-i18n="milestones.subtitle">不是每个版本都是里程碑——这些是定位与架构真正跃迁的时刻。</p>
   </div>
   <div class="timeline reveal">
     <div class="tl-item"><div class="v">v3.0.0 · 2026-09-30</div><h4 data-i18n="milestones.m1.title">Your AI's Safety Belt<span class="tag">起点</span></h4><p data-i18n="milestones.m1.desc">Security Core 强制加载：WAF / Prompt 注入 / PII / 限流 / IP 信誉 / RBAC / 审计，默认开启不可关闭。</p></div>
     <div class="tl-item"><div class="v">v3.2.0 · 2026-10-04</div><h4 data-i18n="milestones.m2.title">The Router of the AI Era<span class="tag">定位跃迁</span></h4><p data-i18n="milestones.m2.desc">从安全壳变成路由器：13 客户端 × 24 provider，新增 provider 只写配置不改代码；--mcp-stdio 即插即护。</p></div>
-    <div class="tl-item"><div class="v">v3.2.2 · 2026-10-06</div><h4 data-i18n="milestones.m3.title">治理层</h4><p data-i18n="milestones.m3.desc">共享记忆 / OAuth-IdP / 守门人 / hash-chain 审计 v2——从反向代理抬到企业级治理面。</p></div>
-    <div class="tl-item"><div class="v">v3.7.0 · 2026-10-06</div><h4 data-i18n="milestones.m4.title">Extender 配置器</h4><p data-i18n="milestones.m4.desc">替用户探测并配置好 OpenClaw / Continue / Aider / Cline 等已装工具，定位升级"路由器+配置器"。</p></div>
-    <div class="tl-item"><div class="v">v3.8.0 · 2026-10-07</div><h4 data-i18n="milestones.m5.title">Persona 职业系统</h4><p data-i18n="milestones.m5.desc">5 种职业模板自适应模块、链路与模型匹配，全年龄段可用。</p></div>
-    <div class="tl-item"><div class="v">v4.1.0 · 2026-10-08</div><h4 data-i18n="milestones.m6.title">Multi-agent + 设备网</h4><p data-i18n="milestones.m6.desc">multi-agent collaboration、MCP、distributed device mesh——从单机网关走向多 agent 协同。</p></div>
-    <div class="tl-item"><div class="v">v4.7.0 · 2026-10-12</div><h4 data-i18n="milestones.m7.title">对外发布</h4><p data-i18n="milestones.m7.desc">GitHub Pages 三站 + 7 语言 README + 红蓝对抗报告 i18n + SHA256 安装器。</p></div>
-    <div class="tl-item"><div class="v">v4.9.0 · 2026-10-14</div><h4 data-i18n="milestones.m8.title">Kingdom 分类学架构<span class="tag">当前</span></h4><p data-i18n="milestones.m8.desc">界门纲目科属种分层：Protectiva / Functionalis / Frontend / Backend。零破坏兼容层。</p></div>
+    <div class="tl-item"><div class="v">v3.7.0 · 2026-10-06</div><h4 data-i18n="milestones.m3.title">Extender 配置器</h4><p data-i18n="milestones.m3.desc">替用户探测并配置好 OpenClaw / Continue / Aider / Cline 等已装工具，定位升级"路由器+配置器"。</p></div>
+    <div class="tl-item"><div class="v">v4.9.0 · 2026-10-14</div><h4 data-i18n="milestones.m4.title">Kingdom 分类学架构</h4><p data-i18n="milestones.m4.desc">界门纲目科属种分层：Protectiva / Functionalis / Frontend / Backend。零破坏兼容层。</p></div>
+    <div class="tl-item"><div class="v">v4.10.0 · 2026-10-15</div><h4 data-i18n="milestones.m5.title">Absorb 攻击面收敛<span class="tag">B7</span></h4><p data-i18n="milestones.m5.desc">tripwire 入侵检测 + mTLS 双向认证 + Go-native prompt-injection 检测，最坏情况加密兜底。</p></div>
+    <div class="tl-item"><div class="v">v4.10.1 · 2026-10-15</div><h4 data-i18n="milestones.m6.title">Surpass 安全性能评价<span class="tag">B6</span></h4><p data-i18n="milestones.m6.desc">动态防护 + 静态防护双轨评价，5 文件 33 测试 -race 全绿。</p></div>
+    <div class="tl-item"><div class="v">v4.11.0 · 2026-10-15</div><h4 data-i18n="milestones.m7.title">Tauri 桌面客户端 + 7 平台产物<span class="tag">v4.11</span></h4><p data-i18n="milestones.m7.desc">系统托盘 / loading 窗口 / 管理员权限 / 自更新器 / WebSocket 事件；linux/darwin/windows × amd64/arm64 + android-arm64。</p></div>
+    <div class="tl-item"><div class="v">v4.11.x · 2026-10-17</div><h4 data-i18n="milestones.m8.title">auto-include + 360 UI + LobeHub + Token + vKey</h4><p data-i18n="milestones.m8.desc">config.json 一行挂载外部 MCP 桥 + 仿 360 安全 UI + LobeHub 多设备路由 + Token 看板 + vKey 虚拟密钥 + 模型路由策略。</p></div>
+    <div class="tl-item"><div class="v">v4.12.0 · 计划</div><h4 data-i18n="milestones.m9.title">UI-TARS 桌面操控 + TSG 终章<span class="tag">当前</span></h4><p data-i18n="milestones.m9.desc">集成字节开源 UI-TARS 视觉模型，AI 通过 MCP 调截屏 / 点击 / 输入 / 滚动 / 开浏览器；TSG 终章 18h 跑满 15 版本收官。</p></div>
   </div>
 </section>
 
@@ -428,6 +459,10 @@ code{font-family:var(--mono)}
     <details><summary data-i18n="faq.q2">需要安装运行环境吗？</summary><dd data-i18n="faq.a2">不需要。TSG 是单文件原生二进制，go.mod 零第三方依赖，无容器、无数据库。</dd></details>
     <details><summary data-i18n="faq.q3">支持本地大模型吗？</summary><dd data-i18n="faq.a3">支持。自动发现 Ollama / LM Studio / vLLM，配合 Token 测量器做云端/本地成本对比。</dd></details>
     <details><summary data-i18n="faq.q4">和 LiteLLM 有什么区别？</summary><dd data-i18n="faq.a4">LiteLLM 是 Python 栈，需要 Postgres+Redis，镜像近 1GB。TSG 是零依赖单文件，Security Core 强制开启，--mcp-stdio 即插即护，服务于"今天就想安全地把本地 AI 用起来"的个人与隔离内网。</dd></details>
+    <details><summary data-i18n="faq.q5">v4.11 桌面客户端支持哪些系统？</summary><dd data-i18n="faq.a5">Windows / macOS / Linux / Android 全平台支持，统一 Tauri 框架；系统托盘常驻、loading 启动窗口、管理员权限开机自启、WebSocket 实时事件，7 平台原生产物直接下载即用。</dd></details>
+    <details><summary data-i18n="faq.q6">auto-include 怎么挂载外部 MCP 桥？</summary><dd data-i18n="faq.a6">在 <code>config.json</code> 加一段 <code>auto_include</code> 列出外部 MCP bridge（如字节 UI-TARS 桌面操控 <a href="https://github.com/HP-jh/TarsUITarsBridge" rel="noopener">TarsUITarsBridge</a>），网关启动时自动扫描、握手、把工具合并到 <code>/tools.list</code>，不用改 TSG 一行代码。</dd></details>
+    <details><summary data-i18n="faq.q7">Security Core 真的不能关闭吗？</summary><dd data-i18n="faq.a7">真的。「AI 只能加严」单向合并铁律——你可以加新规则，不能删已有规则；WAF / 提示词注入 / PII / 限流 / IP 信誉 / RBAC / 审计 默认开启不可关闭，因为关掉任何一个就是给攻击者开门。</dd></details>
+    <details><summary data-i18n="faq.q8">vKey 虚拟密钥是什么？</summary><dd data-i18n="faq.a8">每用户 / 每应用独立虚拟密钥 + 配额 + 审计 + 撤销，对标奇安信的企业级密钥管理。你可以给团队成员开不同 vKey，每把钥匙有独立额度、用量可查、随时撤销，不必共享 OpenAI 密钥。</dd></details>
   </div>
 </section>
 
@@ -447,6 +482,7 @@ code{font-family:var(--mono)}
     <div class="foot-links">
       <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="footer.source">源码</a>
       <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener" data-i18n="footer.releases">发布版</a>
+      <a href="https://github.com/HP-jh/TarsUITarsBridge" rel="noopener" data-i18n="footer.uitars">UI-TARS MCP 桥</a>
       <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener" data-i18n="footer.issues">问题反馈</a>
       <a href="./download.html" rel="noopener" data-i18n="footer.download">下载页</a>
     </div>
