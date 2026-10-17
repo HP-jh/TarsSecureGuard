@@ -43,7 +43,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.14.0"
+var version = "4.15.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -242,21 +242,21 @@ func main() {
 	mux.HandleFunc("/api/kb/list", handleKBList)
 	mux.HandleFunc("/api/kb/get", handleKBGet)
 	mux.HandleFunc("/api/kb/setkey", handleKBSetKey)
-	// v4.14.0 知识库 v2（pkg/kb 倒排索引 + chunk）
+	// v4.15.0 知识库 v2（pkg/kb 倒排索引 + chunk）
 	mux.HandleFunc("/api/kb/ingest", pkgkb.HandleIngest)
 	mux.HandleFunc("/api/kb/query", pkgkb.HandleQuery)
 	mux.HandleFunc("/api/kb/docs", pkgkb.HandleListDocs)
 	mux.HandleFunc("/api/kb/delete", pkgkb.HandleDeleteDoc)
 	mux.HandleFunc("/api/kb/stats", pkgkb.HandleStats)
-	// v4.14.0 Obsidian Vault 同步
+	// v4.15.0 Obsidian Vault 同步
 	mux.HandleFunc("/api/obsidian/sync", obsidian.HandleSync)
 	mux.HandleFunc("/api/obsidian/parse", obsidian.HandleParseNote)
-	// v4.14.0 语音输入纠错
+	// v4.15.0 语音输入纠错
 	mux.HandleFunc("/api/voicecorrection/correct", voicecorrection.HandleCorrect)
-	// v4.14.0 TSG ↔ TarsEnterprise 互操作
+	// v4.15.0 TSG ↔ TarsEnterprise 互操作
 	mux.HandleFunc("/api/v1/interop/receive-command", interop.HandleReceiveCommand)
 	mux.HandleFunc("/api/v1/interop/events", interop.HandleEvents)
-	// v4.14.0 auto-update admin endpoints
+	// v4.15.0 auto-update admin endpoints
 	mux.HandleFunc("/api/admin/update/check", handleUpdateCheck)
 	mux.HandleFunc("/api/admin/update/apply", handleUpdateApply)
 	mux.HandleFunc("/api/admin/update/rollback", handleUpdateRollback)
@@ -391,7 +391,7 @@ func main() {
 		providerHealthWorker(ctx.Done())
 	}
 	reconcileModuleWorkers()
-	// v4.14.0: auto-update startup check (non-blocking) + 24h daemon
+	// v4.15.0: auto-update startup check (non-blocking) + 24h daemon
 	startAutoUpdateCheck()
 	startUpdateDaemon()
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载

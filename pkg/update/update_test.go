@@ -18,10 +18,10 @@ func TestParseVersion(t *testing.T) {
 		in   string
 		want Version
 	}{
-		{"v4.14.0", Version{4, 14, 0, "", ""}},
-		{"4.14.0", Version{4, 14, 0, "", ""}},
-		{"v4.14.0-alpha.1", Version{4, 14, 0, "alpha.1", ""}},
-		{"v4.14.0+build.123", Version{4, 14, 0, "", "build.123"}},
+		{"v4.15.0", Version{4, 15, 0, "", ""}},
+		{"4.15.0", Version{4, 15, 0, "", ""}},
+		{"v4.15.0-alpha.1", Version{4, 15, 0, "alpha.1", ""}},
+		{"v4.15.0+build.123", Version{4, 15, 0, "", "build.123"}},
 	}
 	for _, c := range cases {
 		got, err := ParseVersion(c.in)
@@ -39,12 +39,12 @@ func TestVersionGreaterThan(t *testing.T) {
 		a, b string
 		gt   bool
 	}{
-		{"v4.14.0", "v4.13.0", true},
-		{"v4.13.0", "v4.14.0", false},
-		{"v4.14.1", "v4.14.0", true},
-		{"v4.14.0", "v4.14.0", false},
-		{"v4.14.0", "v4.14.0-alpha", true},
-		{"v4.14.0-alpha", "v4.14.0", false},
+		{"v4.15.0", "v4.13.0", true},
+		{"v4.13.0", "v4.15.0", false},
+		{"v4.15.1", "v4.15.0", true},
+		{"v4.15.0", "v4.15.0", false},
+		{"v4.15.0", "v4.15.0-alpha", true},
+		{"v4.15.0-alpha", "v4.15.0", false},
 	}
 	for _, c := range cases {
 		a, _ := ParseVersion(c.a)
@@ -98,7 +98,7 @@ func TestStableTableRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	u := &Updater{ConfigDir: dir}
 	tab := StableTable{
-		TarsSecureGuard: "v4.14.0",
+		TarsSecureGuard: "v4.15.0",
 		TarsEnterprise:  "v0.3.0",
 		LastSync:        time.Now().Format(time.RFC3339),
 	}
@@ -109,7 +109,7 @@ func TestStableTableRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.TarsSecureGuard != "v4.14.0" {
+	if loaded.TarsSecureGuard != "v4.15.0" {
 		t.Fatalf("stable = %s", loaded.TarsSecureGuard)
 	}
 }
@@ -130,12 +130,12 @@ func TestVerifySHA256(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	if err := u.verifySHA256(binPath, ts.URL, "v4.14.0"); err != nil {
+	if err := u.verifySHA256(binPath, ts.URL, "v4.15.0"); err != nil {
 		t.Fatal(err)
 	}
 
 	os.WriteFile(binPath, []byte("tampered"), 0755)
-	if err := u.verifySHA256(binPath, ts.URL, "v4.14.0"); err == nil {
+	if err := u.verifySHA256(binPath, ts.URL, "v4.15.0"); err == nil {
 		t.Fatal("expected verify failure")
 	}
 }
@@ -146,8 +146,8 @@ func TestFallbackStableVersion(t *testing.T) {
 	if v := u.FallbackStableVersion(); v != "" {
 		t.Fatalf("empty fallback = %q", v)
 	}
-	_ = u.SaveStableTable(StableTable{TarsSecureGuard: "v4.14.0"})
-	if v := u.FallbackStableVersion(); v != "v4.14.0" {
+	_ = u.SaveStableTable(StableTable{TarsSecureGuard: "v4.15.0"})
+	if v := u.FallbackStableVersion(); v != "v4.15.0" {
 		t.Fatalf("fallback = %q", v)
 	}
 }
@@ -165,7 +165,7 @@ func TestWriteDefaultStableTable(t *testing.T) {
 	if err := json.Unmarshal(b, &tab); err != nil {
 		t.Fatal(err)
 	}
-	if tab.TarsSecureGuard != "v4.14.0" {
+	if tab.TarsSecureGuard != "v4.15.0" {
 		t.Fatalf("default stable = %s", tab.TarsSecureGuard)
 	}
 }

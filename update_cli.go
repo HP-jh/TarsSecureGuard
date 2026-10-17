@@ -1,5 +1,5 @@
 // update_cli.go: CLI sub-command and HTTP handlers for auto-update.
-// v4.14.0
+// v4.15.0
 package main
 
 import (

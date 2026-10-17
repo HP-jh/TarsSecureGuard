@@ -1,4 +1,4 @@
-// chattest.go — v4.14.0 AI Chat API 测试面板
+// chattest.go — v4.15.0 AI Chat API 测试面板
 package main
 
 import (

@@ -244,6 +244,45 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 .download-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.3);color:var(--green);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s}
 .download-btn:hover{background:rgba(63,185,80,.2)}
 .download-btn.hidden{display:none}
+/* ============ v4.15.0 交互提升 ============ */
+/* ripple 波纹 */
+.ripple{position:relative;overflow:hidden}
+.ripple::after{content:'';position:absolute;inset:0;background:radial-gradient(circle, rgba(255,255,255,.25) 0%, transparent 70%);transform:scale(0);opacity:0;transition:transform .4s ease-out,opacity .4s ease-out;pointer-events:none;border-radius:inherit}
+.ripple:active::after{transform:scale(2.5);opacity:1;transition:transform 0s,opacity 0s}
+/* 按钮点击态增强 */
+.btn{position:relative;overflow:hidden}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6)}
+/* 页面转场 fade+slide */
+.page{opacity:0;transform:translateX(12px);transition:opacity .2s ease,transform .2s ease;display:none}
+.page.active{opacity:1;transform:translateX(0);display:block}
+/* toast 堆叠优化 */
+#toast-wrap{position:fixed;bottom:24px;right:24px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:360px}
+.toast{background:var(--bg2);border:1px solid var(--border2);border-left:3px solid var(--cyan);border-radius:10px;padding:11px 18px;font-size:12px;color:var(--text);box-shadow:var(--shadow);animation:toastIn .25s ease both;pointer-events:auto;transition:opacity .35s,transform .35s;position:relative}
+.toast.ok{border-left-color:var(--green)}
+.toast.warn{border-left-color:var(--yellow)}
+.toast.err{border-left-color:var(--red)}
+.toast.hide{opacity:0;transform:translateY(12px)}
+.toast-close{position:absolute;top:4px;right:6px;width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:4px;color:var(--muted);font-size:14px;line-height:1;transition:color .15s}
+.toast-close:hover{color:var(--text)}
+@keyframes toastIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+/* 进度条增强 */
+.progress-label{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text2);margin-bottom:6px}
+.progress-label b{color:var(--cyan)}
+/* 骨架屏区域 */
+.skeleton-area{padding:16px}
+.skeleton-area .skel-row{height:14px;margin:12px 0;border-radius:4px}
+/* 空状态增强 */
+.empty .empty-hint{font-size:11px;color:var(--muted);margin-top:8px}
+/* 导航项转场 */
+.nav-item{transition:background .18s,color .18s,transform .15s}
+.nav-item:active{transform:scale(.97)}
+/* 全局 spinner 覆盖 */
+.global-loader{position:fixed;inset:0;background:rgba(4,8,14,.65);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.global-loader.show{display:flex;animation:bootFade .2s ease both}
+.global-loader .spinner-big{width:40px;height:40px;border:3px solid rgba(255,255,255,.12);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite}
+.global-loader .loader-text{font-size:13px;color:var(--text2)}
+.global-loader .progress{width:200px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
 </style>
 <script src="i18n.js"></script>
 </head>
@@ -274,6 +313,8 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M17.94 17.94A10.5 10.5 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A9.9 9.9 0 0 1 12 5c7 0 11 7 11 7a21.8 21.8 0 0 1-3.22 4.19M9.88 9.88A3 3 0 1 0 14.12 14.12"/><path d="M1 1l22 22"/></symbol>
 </svg>
+<!-- v4.15.0 全局加载层 -->
+<div class="global-loader" id="global-loader"><div class="spinner-big"></div><div class="loader-text" id="loader-text">加载中…</div><div class="progress"><div class="progress-bar" id="loader-bar" style="width:0%"></div></div></div>
 <div class="app">
 <div class="side-mask" id="side-mask" onclick="closeSide()"></div>
 <div class="sidebar" id="sidebar">
@@ -900,7 +941,13 @@ function keyDlgSubmit(){var k=$('key-input').value.trim();if(!k){$('key-err').te
 把内容复制过来';return;}localStorage.setItem('tsg_api_key',k);keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){api(w.u,w.o).then(w.res).catch(function(e){w.rej(e);toast('密钥可能不对：'+(e&&e.message||e),'err');});});}
 function keyDlgClose(){$('key-dlg').classList.remove('show');keyDlgOpen=false;$('key-err').textContent='';}
 function keyDlgCancel(){keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){w.rej(new Error('需要网关密钥才能继续'))});}
-function toast(msg,type){var w=$('toast-wrap');var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;w.appendChild(t);setTimeout(function(){t.classList.add('hide');setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},350)},2800);while(w.children.length>4)w.removeChild(w.firstChild);}
+/* v4.15.0 增强 Toast：三色 + 分级消失时间 + 手动关闭 + 堆叠 */
+var TOAST_CFG={ok:{delay:4000},warn:{delay:6000},err:{delay:0},'':{delay:4000}};
+function toast(msg,type){var w=$('toast-wrap');var t=document.createElement('div');t.className='toast '+(type||'');var cfg=TOAST_CFG[type||'']||TOAST_CFG[''];
+  var closeBtn=(type==='err')?'<span class="toast-close" onclick="this.parentNode.classList.add(\'hide\');setTimeout(function(el){if(el.parentNode)el.parentNode.removeChild(el)},350,this.parentNode)">&times;</span>':'';
+  t.innerHTML='<span>'+esc(msg)+'</span>'+closeBtn;w.appendChild(t);
+  if(cfg.delay>0){setTimeout(function(){t.classList.add('hide');setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},350)},cfg.delay);}
+  while(w.children.length>5)w.removeChild(w.firstChild);}
 /* v4.7.7 版本徽章动态化：从 /api/status 读取真实版本号，侧边栏徽章与标签页标题同步刷新——
    彻底消灭「徽章写死旧版本」的漂移（此前 v4.6.0 后连续三个版本徽章未更新） */
 function syncVerBadge(){api('/api/status').then(function(d){if(!d||!d.version)return;var v='v'+d.version;var b=$('ver-badge');if(b&&b.textContent!==v)b.textContent=v;var t='TarsSecureGuard '+v;if(document.title!==t)document.title=t;}).catch(function(){});}
@@ -957,11 +1004,28 @@ function palGo(i){if(!palItems[i])return;closePalette();palItems[i].a();}
 function palKey(e){if(e.key==='ArrowDown'){e.preventDefault();palSel=Math.min(palSel+1,palItems.length-1);palHover(palSel);}else if(e.key==='ArrowUp'){e.preventDefault();palSel=Math.max(palSel-1,0);palHover(palSel);}else if(e.key==='Enter'){e.preventDefault();palGo(palSel);}}
 function openHelp(){$('help').classList.add('show');}
 function closeHelp(){$('help').classList.remove('show');}
+/* v4.15.0 快捷键：Ctrl+K / Ctrl+/ / Esc / / / ? */
 document.addEventListener('keydown',function(e){
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('palette').classList.contains('show')?closePalette():openPalette();return;}
   if((e.ctrlKey||e.metaKey)&&e.key==='/'){e.preventDefault();$('help').classList.contains('show')?closeHelp():openHelp();return;}
-  if(e.key==='Escape'){closePalette();closeHelp();cfmNo();closeSide();}
+  if(e.key==='Escape'){closePalette();closeHelp();cfmNo();keyDlgCancel();closeSide();return;}
+  if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){var t=e.target;if(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)return;e.preventDefault();openPalette();return;}
+  if(e.key==='?'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){var t=e.target;if(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)return;e.preventDefault();$('help').classList.contains('show')?closeHelp():openHelp();return;}
 });
+/* v4.15.0 全局 Loader 控制 */
+function showLoader(text,progress){var el=$('global-loader');if(!el)return;el.classList.add('show');if(text)$('loader-text').textContent=text;if(progress!==undefined){$('loader-bar').style.width=progress+'%';}}
+function hideLoader(){$('global-loader').classList.remove('show');$('loader-bar').style.width='0%';}
+/* v4.15.0 Ripple 自动绑定 */
+function bindRipple(){document.querySelectorAll('.btn:not(.ripple-bound)').forEach(function(b){b.classList.add('ripple');b.classList.add('ripple-bound');});}
+(function(){bindRipple();var mo=new MutationObserver(function(){bindRipple();});mo.observe(document.body,{childList:true,subtree:true});})();
+/* v4.15.0 页面加载骨架屏三档 */
+var pageLoadTimers={};
+function showPageSkeleton(pageId){var el=$('p-'+pageId);if(!el)return;var sk=document.createElement('div');sk.className='skeleton-area';sk.id='sk-'+pageId;sk.innerHTML='<div class="skel skel-row" style="width:80%"></div><div class="skel skel-row" style="width:60%"></div><div class="skel skel-row" style="width:70%"></div>';el.appendChild(sk);}
+function hidePageSkeleton(pageId){var sk=$('sk-'+pageId);if(sk)sk.remove();}
+function wrapPageLoad(pageId,loaderFn){var t0=Date.now();var done=false;function finish(){if(done)return;done=true;hidePageSkeleton(pageId);hideLoader();}
+  var t1=setTimeout(function(){if(done)return;showPageSkeleton(pageId);},100);
+  var t2=setTimeout(function(){if(done)return;showLoader('正在加载…',30);},500);
+  loaderFn().then(function(r){finish();return r;}).catch(function(e){finish();throw e;});}
 /* ============ Dashboard：KPI + 趋势图 + 资源 ============ */
 var TREND=[],TREND_MAX=120,lastTotal=null,lastT=0;
 function fmtUp(ms){var s=Math.floor(ms/1000);if(s<60)return s+'s';var m=Math.floor(s/60);if(m<60)return m+'m '+(s%60)+'s';var h=Math.floor(m/60);if(h<24)return h+'h '+(m%60)+'m';return Math.floor(h/24)+'d '+(h%24)+'h';}
@@ -2146,7 +2210,7 @@ function runChatTest(){
       out.innerHTML=`<div class="apitest-result"><pre>Error: ${e.message}</pre></div>`;
     });
 }
-/* ============ v4.14.0 KB v2 ============ */
+/* ============ v4.15.0 KB v2 ============ */
 function loadKBv2(){
   fetch('/api/kb/stats').then(r=>r.json()).then(function(d){
     var el=$('kv2-stats'); if(el) el.innerHTML='文档: '+(d.documents||0)+' &nbsp;|&nbsp; 分块: '+(d.chunks||0)+' &nbsp;|&nbsp; 索引词: '+(d.terms||0);
@@ -2178,7 +2242,7 @@ function kbv2Query(){
       el.innerHTML=html;
     }).catch(function(e){el.innerHTML='<div style="color:var(--red)">检索失败</div>';});
 }
-/* ============ v4.14.0 Obsidian ============ */
+/* ============ v4.15.0 Obsidian ============ */
 function loadObsidian(){}
 function obsSync(){
   var path=$('obs-path').value;if(!path){toast('请输入 Vault 路径','err');return;}
@@ -2199,7 +2263,7 @@ function obsSync(){
       html+='</div>';out.innerHTML=html;
     }).catch(function(e){el.innerHTML='<span style="color:var(--red)">同步失败: '+esc(e.message)+'</span>';});
 }
-/* ============ v4.14.0 Voice Correction ============ */
+/* ============ v4.15.0 Voice Correction ============ */
 function loadVoice(){}
 function voiceCorrect(){
   var text=$('vc-text').value;if(!text){toast('请输入文本','err');return;}

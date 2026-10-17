@@ -1,4 +1,4 @@
-// pkg/voicecorrection — v4.14.0 语音输入纠错 MVP
+// pkg/voicecorrection — v4.15.0 语音输入纠错 MVP
 // 基于编辑距离 + 拼音近似 + 常见同音词替换
 package voicecorrection
 

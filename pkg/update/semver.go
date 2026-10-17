@@ -1,5 +1,5 @@
 // Package update provides auto-update capability for TarsSecureGuard.
-// v4.14.0: semver parsing and comparison.
+// v4.15.0: semver parsing and comparison.
 package update
 
 import (
@@ -17,7 +17,7 @@ type Version struct {
 	Metadata   string
 }
 
-// ParseVersion parses a semver string like "v4.14.0" or "4.14.0-alpha.1".
+// ParseVersion parses a semver string like "v4.15.0" or "4.15.0-alpha.1".
 func ParseVersion(s string) (Version, error) {
 	s = strings.TrimPrefix(s, "v")
 	var v Version

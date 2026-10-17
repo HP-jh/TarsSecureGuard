@@ -296,7 +296,7 @@ func copyFile(src, dst string) error {
 // WriteDefaultStableTable creates the initial stable_versions.json.
 func WriteDefaultStableTable(dir string) error {
 	t := StableTable{
-		TarsSecureGuard:     "v4.14.0",
+		TarsSecureGuard:     "v4.15.0",
 		TarsEnterprise:      "v0.2.0",
 		TarsWingGuard:       "v0.1.0",
 		TarsOpenClawSandbox: "v0.1.0",
