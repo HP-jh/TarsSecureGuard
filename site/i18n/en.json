@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "title": "TarsSecureGuard — The Router & Configurator of the AI Era, with Safety Belt",
+    "description": "TarsSecureGuard (TSG) is your AI tool's next-door neighbor: out-of-the-box local security gateway + one-click configurator — unified OpenAI-compatible protocol, intelligent model routing, single binary, zero dependency."
+  },
+  "nav": {
+    "features": "Features",
+    "architecture": "Architecture",
+    "scenarios": "Scenarios",
+    "screenshots": "Screenshots",
+    "compare": "Compare",
+    "faq": "FAQ",
+    "changelog": "Changelog",
+    "download": "Download",
+    "github": "GitHub"
+  },
+  "hero": {
+    "badge": "Latest {{VERSION}}",
+    "title": "The Router & Configurator of the AI Era",
+    "subtitle": "13 AI clients on the left, 32+ models on the right — and a mandatory safety belt in the middle. Single binary, zero dependency, unzip and run.",
+    "cta_primary": "Download Now",
+    "cta_secondary": "GitHub Repo"
+  },
+  "features": {
+    "title": "Core Features",
+    "subtitle": "From v3.3.0 to v4.9.0, every release pushes the boundary of the AI gateway",
+    "v49": {
+      "title": "Kingdom Architecture",
+      "desc": "Animal-taxonomy-inspired architecture: 12 nodes × 26 roles × token strategy, clear responsibilities, boundless extension."
+    },
+    "v47": {
+      "title": "LangProbe Multilingual",
+      "desc": "Concurrent language probe engine + syntax-tree parsing + semantic scoring, 6-locale real-time switching."
+    },
+    "v46": {
+      "title": "Cross-Platform Full Coverage",
+      "desc": "7-platform binaries (Linux/Darwin/Windows × amd64/arm64 + Android arm64), unified delivery."
+    },
+    "v45": {
+      "title": "Performance Evaluation",
+      "desc": "Benchmark harness + regression baseline + trend dashboard: throughput, latency, resource usage, degradation curve at a glance."
+    },
+    "v44": {
+      "title": "Worst-Case Encryption",
+      "desc": "Layered encryption + boot verification sentinel + transparent encryption + anti-memory-dump, last line of defense even if host is compromised."
+    },
+    "v43": {
+      "title": "Security Scoring",
+      "desc": "Dynamic + static dual-dimension security scoring, quantifiable, traceable, and alertable."
+    },
+    "v42": {
+      "title": "Android MVP",
+      "desc": "Pure Go cross-compile arm64 + Kotlin shell app — local gateway on mobile."
+    },
+    "v41": {
+      "title": "System-Native Detection",
+      "desc": "Provider multi-credential failover + system-native integration, more stable connections, seamless switching."
+    },
+    "v40": {
+      "title": "Crown Architecture Rewrite",
+      "desc": "Crown Bus + 12 processing nodes + 26 professional roles — gateway as microkernel."
+    },
+    "v37": {
+      "title": "One-Click Configurator Extender",
+      "desc": "Probe installed AI tools, one-click generate接入 config, copy-paste and done."
+    },
+    "v35": {
+      "title": "Extreme Modularity",
+      "desc": "5-tier裁剪 profiles one-click switch; adaptive suggestion engine knows your habits."
+    },
+    "v33": {
+      "title": "Conversion Hub & Model Library",
+      "desc": "Any backend接入, unified OpenAI-compatible format; capability-aware routing auto-redirects to matching models."
+    }
+  },
+  "architecture": {
+    "title": "Architecture Overview",
+    "subtitle": "Kingdom 7-layer taxonomy: from ingress to guardian, every layer is an independently evolvable defense line",
+    "layers": [
+      { "name": "Ingress", "desc": "HTTP / stdio / MCP triple-channel unified entry, OpenAI-compatible protocol passthrough" },
+      { "name": "WAF", "desc": "Path traversal / command injection / SQLi / XSS / prompt injection / PII detection, merged regex + byte prescreen" },
+      { "name": "Semantic", "desc": "Static rules first, gray-zone sent to local small-model adjudication; fail-close — engine unavailable yields 503" },
+      { "name": "Governance", "desc": "Rate limit / IP reputation / RBAC / gatekeeper / audit hash-chain / PII masking, action-level defense" },
+      { "name": "Routing", "desc": "Static rules fallback + ε-greedy bandit auto-optimization; success-rate×latency fused with lm-eval offline scoring" },
+      { "name": "Adapter", "desc": "OpenAI / Anthropic / Gemini / Ollama quad-protocol reconstruction, multimodal full-path adaptation" },
+      { "name": "Connector", "desc": "24 cloud + 8 local runtime registry, shared connection pool 98.5% reuse, circuit-breaker auto-recovery" },
+      { "name": "Guardian", "desc": "L0-L3 tiered response: degrade → fuse → graceful shutdown; RSS-based memory-leak capture, eco resource-saving profile auto-applied" }
+    ]
+  },
+  "scenarios": {
+    "title": "Usage Scenarios",
+    "subtitle": "Whether you're a solo developer, a small team, or an enterprise, TSG fits your AI接入 style",
+    "personal": {
+      "title": "Solo Developer",
+      "items": [
+        "Local Ollama + cloud DeepSeek dual backend, token meter real-time cost comparison",
+        "One-click config Cursor / Cline / Continue to point at TSG, no per-tool API key changes"
+      ]
+    },
+    "team": {
+      "title": "Tech Team",
+      "items": [
+        "Shared memory & shared info cross-tenant isolated, team knowledge base plug-and-play",
+        "Audit hash-chain v2 daily file rotation, full-chain recalculation tamper-proof, compliance export one-click"
+      ]
+    },
+    "enterprise": {
+      "title": "Enterprise Deploy",
+      "items": [
+        "OAuth/OIDC PKCE enterprise IdP integration, role mapping through identical RBAC matrix",
+        "Privacy profile one-click switch to纯 local mode, intranet zero external traffic with full security chain"
+      ]
+    }
+  },
+  "screenshots": {
+    "title": "Management Panel",
+    "subtitle": "Chinese UI, dark theme, glassmorphism — from dashboard to governance, elegant out of the box"
+  },
+  "compare": {
+    "title": "Comparison",
+    "subtitle": "Not "yet another gateway", but "the router of the AI era"",
+    "headers": ["Dimension", "TSG", "LiteLLM", "Kong + AI Plugin"],
+    "rows": [
+      ["Deploy Cost", "Single binary zero dep", "Python dep stack", "PostgreSQL + container cluster"],
+      ["Security Chain", "8-layer mandatory uncloseable", "Basic rate limit", "Extra WAF config needed"],
+      ["Client Config", "Extender one-click", "Manual base_url edit", "Manual base_url edit"],
+      ["Local Models", "8 runtimes built-in", "Ollama mostly", "Self-built adapter"],
+      ["Audit Compliance", "hash-chain audit v2", "Basic logs", "Plugin extension needed"],
+      ["Performance", "Pool 98.5% reuse + cache", "Basic reuse", "Depends on upstream"]
+    ]
+  },
+  "faq": {
+    "title": "FAQ",
+    "subtitle": "Installation, upgrade, migration, compatibility, security — your questions answered",
+    "items": [
+      { "q": "Which operating systems are supported?", "a": "Windows, macOS, Linux, Android on amd64 / arm64; installer auto-detects architecture." },
+      { "q": "Do I need a runtime environment?", "a": "No. TSG is a single native binary, no containers, no databases, no runtime dependencies." },
+      { "q": "Does it support local LLMs?", "a": "Yes. Auto-discovers Ollama / LM Studio / llama.cpp; token meter compares cloud vs local cost in real time." },
+      { "q": "Is data uploaded anywhere?", "a": "No. Default zero-external-traffic profile can shut off all outbound modules; audit and keys stay local." },
+      { "q": "How to uninstall?", "a": "Delete the install directory (default ~/.tsg/bin or %LOCALAPPDATA%\\TarsSecureGuard). No system residue." },
+      { "q": "How to upgrade?", "a": "Subscription edition supports one-click update package; community edition: download new binary and overwrite, config auto-preserved." },
+      { "q": "Migrating from LiteLLM / other gateway?", "a": "Easy. TSG exposes standard OpenAI-compatible endpoint; point base_url and api_key to TSG, zero client changes." },
+      { "q": "Can security policies be relaxed?", "a": "No. Security Core is mandatory and uncloseable; "AI can only tighten" one-way merge rule, locked by 100% tests + runtime audit." },
+      { "q": "How to connect enterprise IdP?", "a": "Configure OAuth/OIDC Authorization Code + PKCE, supports RS256/ES256 signature verification, role mapping auto-validated into RBAC matrix." },
+      { "q": "Where is the performance bottleneck?", "a": "Since v3.2.3 WAF merged regex + byte prescreen solved the main bottleneck (strict -99.8%); pool reuse 98.5%, P99 -27%~-40%." },
+      { "q": "How is the API Key managed?", "a": "Default key randomly generated at startup; recommend injecting via TSG_ADMIN_KEY env var; all admin ops are audited." },
+      { "q": "Why "router"?", "a": "A router doesn't produce cables or websites — it lets every device access the internet safely. TSG doesn't produce models; it lets every AI client safely use every model." }
+    ]
+  },
+  "changelog": {
+    "title": "Version Timeline",
+    "subtitle": "From v3.2.0 to v4.9.0, every step is traceable",
+    "view_all": "View All Releases"
+  },
+  "team": {
+    "title": "About",
+    "subtitle": "From "security gateway" to "router of the AI era", TSG's evolution never stops",
+    "origin": "Mission: every AI call comes with a safety belt, every AI tool connects with zero config.",
+    "scale": "Current scale: v4.9.0 covers 32+ model providers, 13 AI clients, 7-platform binaries, 8-layer security chain, 0 third-party dependencies.",
+    "roadmap": "Roadmap: deepen the "connect + secure + perform" triangle; next milestone focuses on intelligent governance and out-of-the-box experience."
+  },
+  "footer": {
+    "license": "MIT License",
+    "contribute": "Contributing",
+    "issues": "Issues",
+    "releases": "All Releases",
+    "copyright": "© 2026 TarsSecureGuard · The Router of the AI Era"
+  },
+  "theme": {
+    "dark": "Dark",
+    "light": "Light",
+    "auto": "Auto"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  }
+}

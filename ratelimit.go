@@ -25,6 +25,8 @@ func endpointClass(path string) string {
 	switch {
 	case strings.HasPrefix(path, "/api/chat/") || strings.HasPrefix(path, "/api/urgent/"):
 		return "chat"
+	case strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/chat/"):
+		return "chat"
 	case strings.HasPrefix(path, "/api/admin/models") || strings.HasPrefix(path, "/api/admin/model"):
 		return "model"
 	case strings.HasPrefix(path, "/api/admin"):
@@ -50,6 +52,25 @@ var (
 	rlBucketMu sync.Mutex
 	rlBuckets  = map[bucketKey]*tokenBucket{}
 )
+
+func init() {
+	// 独立定时清理：每 5 分钟清理 30 分钟未活跃的桶，防 map 无限增长
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			now := time.Now()
+			cutoff := now.Add(-30 * time.Minute)
+			rlBucketMu.Lock()
+			for k, b := range rlBuckets {
+				if b.lastRef.Before(cutoff) {
+					delete(rlBuckets, k)
+				}
+			}
+			rlBucketMu.Unlock()
+		}
+	}()
+}
 
 // classQuota 端点类的每分钟额度（0 表示不限）
 func classQuota(cls string) int {
@@ -176,10 +197,9 @@ func allowRateLimited(ip, user, tenant, path string) (bool, string) {
 func handleRateLimited(w http.ResponseWriter, r *http.Request, reason string) {
 	ip := clientIP(r)
 	auditLog("RATE_LIMIT_BLOCK", "-", reason)
-	ipRepPenalty(ip, 15, "rate-limit")
-	w.Header().Set("Retry-After", "60")
+	ipRepPenalty(ip, 15, "rate-limit", "")
 	writeJSONStatus(w, http.StatusTooManyRequests, map[string]string{
-		"error": "rate limit exceeded",
+		"error": "429 Too Many Requests: " + reason,
 		"hint":  "速率限制：分层额度见 config.rateLimit（默认 chat 60 / admin 10 / model 6 每分钟）",
 	})
 }

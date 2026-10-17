@@ -70,6 +70,8 @@ var moduleRegistry = []Module{
 	{ID: "adaptive", Name: "Adaptive", Description: "极致模块化与自适应：内置/自定义裁剪档案一键切换、模块使用习惯分析建议、新手/高阶界面模式（v3.5.0）", Category: "ops", Default: true},
 	// v3.7.0：扩展器 / 一键配置器（探测本机 AI 工具并生成接入 TSG 的配置片段）
 	{ID: "extender", Name: "Extender", Description: "扩展器 / 一键配置器：探测本机已装的 AI 工具（OpenClaw/Continue/Aider/Cline/ZooCode/Codex），一键生成接入 TSG 端点的配置片段（v3.7.0）", Category: "tools", Default: true},
+	// v3.8.0：职业系统（内置职业 + 自动配置 + 调用链优化 + 模型匹配）
+	{ID: "persona", Name: "Persona System", Description: "职业系统：内置学生/文字创作者/开发者/研究者/通用职业，自动配置模块/连接器/工具/全局记忆/调用链优化/模型匹配（v3.8.0）", Category: "core", Default: true},
 }
 
 // securityModuleDesc 安全模块在模块列表中的展示形态（locked，无开关）

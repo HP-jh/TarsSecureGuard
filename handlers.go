@@ -1,5 +1,4 @@
 package main
-
 import (
 	"encoding/json"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"sync"
 	"time"
 )
-
 // ===================== 前端 =====================
 func handleFrontend(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" && r.URL.Path != "/index.html" && r.URL.Path != "/admin" {
@@ -28,7 +26,6 @@ func handleFrontend(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Write(data)
 }
-
 // ===================== 状态 =====================
 func statusPayload() map[string]interface{} {
 	uptime := time.Since(startTime).Milliseconds()
@@ -54,11 +51,9 @@ func statusPayload() map[string]interface{} {
 		"models": ms,
 	}
 }
-
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, statusPayload())
 }
-
 func handleFallback(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
 		"enabled":     true,
@@ -68,7 +63,6 @@ func handleFallback(w http.ResponseWriter, r *http.Request) {
 		"history":     []interface{}{},
 	})
 }
-
 func handleSecurity(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	blocks := wafBlocks
@@ -87,21 +81,18 @@ func handleSecurity(w http.ResponseWriter, r *http.Request) {
 		"firewall":              firewallStatus(),
 	})
 }
-
 func handleWAFLogs(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	l := append([]string(nil), wafLogs...)
 	mu.Unlock()
 	writeJSON(w, map[string]interface{}{"logs": l})
 }
-
 func handleLogs(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	l := append([]string(nil), logs...)
 	mu.Unlock()
 	writeJSON(w, map[string]interface{}{"logs": l})
 }
-
 func handleAuditLogs(w http.ResponseWriter, r *http.Request) {
 	// v3.0.4 [MT_AUDIT_ISOLATION]：审计按租户硬隔离——
 	//   global_admin/global_auditor 可查全部（?tenant=x 定向跨租户查询，记 AUDIT_CROSS_TENANT_ACCESS）
@@ -140,7 +131,6 @@ func handleAuditLogs(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("查看审计日志 %d 条（租户=%s）", len(lines), tenant))
 	writeJSON(w, map[string]interface{}{"logs": lines, "count": len(lines), "tenant": tenant})
 }
-
 // validateConfigValue v2.0.0 值域校验：安全与档位类配置拒绝非法值。
 // handleConfig POST 与 set_config 内置工具共用，防止绕过（安全模块不可关的铁律在值层也封死）。
 func validateConfigValue(path string, val interface{}) bool {
@@ -169,29 +159,13 @@ func validateConfigValue(path string, val interface{}) bool {
 	}
 	return true
 }
-
-// handleKeyRotate v3.7.1 P2-10：管理员主动轮换网关密钥
-func handleKeyRotate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
-		return
-	}
-	newKey := rotateGatewayKey()
-	cfgMu.Lock()
-	cfg.Security.APIKey = newKey
-	cfgMu.Unlock()
-	saveConfig()
-	auditLog("SECURITY_KEY_ROTATED", "admin", "管理员通过 UI 主动轮换网关密钥")
-	logMsg("[SECURITY] 网关密钥已主动轮换，新密钥见 gateway-key.txt")
-	writeJSON(w, map[string]interface{}{"success": true, "message": "密钥已轮换，请查看 gateway-key.txt"})
-}
-
 func handleConfig(w http.ResponseWriter, r *http.Request) {
 	// POST：批量保存白名单配置（{ "security.mode": "strict", "search.engine": "serper" }）
 	if r.Method == http.MethodPost {
 		var body map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+			// v4.7.4 小白化：错误走 i18n，中英文自动匹配
+			i18nErrorJSON(w, r, http.StatusBadRequest, "err.invalidrequest")
 			return
 		}
 		cfgMu.Lock()
@@ -224,7 +198,8 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			auditLog("CONFIG_REJECTED", "-", rj)
 		}
 		if err != nil {
-			writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid config value"})
+			// v4.7.4 小白化：错误走 i18n
+			i18nErrorJSON(w, r, http.StatusBadRequest, "err.invalidconfig")
 			return
 		}
 		if applied > 0 {
@@ -262,18 +237,10 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			ctools[i].SecretHeaders[k] = "***"
 		}
 	}
-	// v3.7.1 P1-4：按角色分级返回配置（viewer/readonly/user 看不到完整 security/users）
-	id, _ := identityFromRequest(r)
-	secOut := map[string]interface{}{
-		"wafEnabled":      wafOn,
-		"mode":            mode,
-		"apiKeySet":       apiKeySet,
-		"auditLogEnabled": auditOn,
-	}
-	resp := map[string]interface{}{
+	writeJSON(w, map[string]interface{}{
 		"server": map[string]interface{}{
 			"port":       port,
-			"listenAddr": listenAddr,
+			"listenAddr": "127.0.0.1",
 		},
 		"modules":      moduleStatusSummary(),
 		"firewall":     firewallStatusSnapshot(),
@@ -286,7 +253,12 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			"maxRetries":  3,
 			"autoRecover": true,
 		},
-		"security": secOut,
+		"security": map[string]interface{}{
+			"wafEnabled":      wafOn,
+			"mode":            mode,
+			"apiKeySet":       apiKeySet,
+			"auditLogEnabled": auditOn,
+		},
 		"search": map[string]interface{}{
 			"engine": eng,
 			"apiKey": hasKey,
@@ -298,17 +270,28 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		"mcp": map[string]interface{}{
 			"externalServers": extServers,
 		},
+		"users": users,
 		"tools": toolNames(),
-	}
-	// admin/auditor/global 角色可见完整 security + users；其他角色只保留基础 security 字段
-	if id.Role == "admin" || id.Role == "auditor" || id.Role == "global_admin" || id.Role == "global_auditor" || id.Role == "team_lead" {
-		resp["users"] = users
-	} else {
-		delete(secOut, "apiKeySet")
-	}
-	writeJSON(w, resp)
+	})
 }
-
+// handleConfigRevert v4.6.2：回滚到上一份合法配置（admin only）
+func handleConfigRevert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "仅支持 POST"})
+		return
+	}
+	name, role, ok := userFromRequest(r)
+	if !ok || role != "admin" {
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "需要 admin 角色"})
+		return
+	}
+	if err := revertConfig(); err != nil {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	auditLog("CONFIG_REVERT", name, "配置已回滚至上一份合法快照")
+	writeJSON(w, map[string]string{"status": "reverted"})
+}
 // ===================== 搜索 / 占位 / 发现 =====================
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
@@ -317,7 +300,8 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	var body map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		// v4.7.4 小白化：错误走 i18n
+		i18nErrorJSON(w, r, http.StatusBadRequest, "err.invalidrequest")
 		return
 	}
 	query := body["query"]
@@ -331,7 +315,6 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, res)
 }
-
 // handleFeishu 为飞书 API 占位端点（保留给后续集成）
 func handleFeishu(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
@@ -339,7 +322,6 @@ func handleFeishu(w http.ResponseWriter, r *http.Request) {
 		"message":  "飞书 API 占位。请在 config.json 配置 App ID/Secret 后启用。",
 	})
 }
-
 func handleDiscoveryScan(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
@@ -348,19 +330,15 @@ func handleDiscoveryScan(w http.ResponseWriter, r *http.Request) {
 	logMsg("[DISCOVERY] 扫描开始")
 	writeJSON(w, map[string]interface{}{"success": true, "message": "Scan started"})
 }
-
 func handleDiscoveryResults(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, discoverLocal())
 }
-
 // ===================== 统计面板 API（新增：v1.0.2 功能强化） =====================
-
 // 按小时请求量统计：key 为 Unix 小时时间戳（time.Unix()/3600），供 /api/stats/history 查询
 var (
 	historyMu    sync.Mutex
 	hourlyCounts = map[int64]int{}
 )
-
 // recordHourlyRequest 把当前小时的请求量 +1，并顺带清理 24 小时以前的旧桶（防 map 无限增长）
 func recordHourlyRequest() {
 	h := time.Now().Unix() / 3600
@@ -373,7 +351,6 @@ func recordHourlyRequest() {
 	}
 	historyMu.Unlock()
 }
-
 // handleStats GET /api/stats —— 统计面板数据：
 // 总请求数 / 成功率 / WAF 拦截数 / 平均响应时间 / 运行时长 / 当前模型 / 内存占用
 func handleStats(w http.ResponseWriter, r *http.Request) {
@@ -381,7 +358,6 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	total, succ, blocks := totalReq, successReq, wafBlocks
 	totalMs, samples := respTotalMs, respSamples
 	mu.Unlock()
-
 	// 成功率：成功请求 / 总请求（百分比，保留两位小数；无请求时为 0）
 	successRate := 0.0
 	if total > 0 {
@@ -392,7 +368,6 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	if samples > 0 {
 		avgMs = float64(totalMs) / float64(samples)
 	}
-
 	// 当前活跃模型：优先本地 GGUF 模型；未运行时回退展示自动发现的在线模型
 	_, cur := modelState()
 	activeModel := cur
@@ -404,11 +379,9 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
 	// 进程内存占用（Go runtime 视角）
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-
 	writeJSON(w, map[string]interface{}{
 		"totalRequests":   total,
 		"successRate":     fmt.Sprintf("%.2f%%", successRate),
@@ -424,7 +397,6 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
-
 // handleStatsHistory GET /api/stats/history —— 最近 24 小时每小时的请求量
 // 返回 24 个小时桶（从 23 小时前到当前小时），count 为该小时内的请求数
 func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
@@ -441,12 +413,12 @@ func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 	historyMu.Unlock()
 	writeJSON(w, map[string]interface{}{"history": history})
 }
-
 // handleHealth GET /health —— 健康检查端点（免鉴权，供监控/负载均衡探活）
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
-		"status":  "ok",
-		"version": version,
-		"uptime":  time.Since(startTime).Round(time.Second).String(),
+		"status":    "ok",
+		"version":   version,
+		"uptime":    time.Since(startTime).Round(time.Second).String(),
+		"first_run": isFirstRun(), // v4.11.0 首次运行标记
 	})
 }

@@ -1,7 +1,7 @@
 [package]
 name = "tsg-desktop"
-version = "3.2.1"
-description = "TarsSecureGuard v3.2.1 桌面客户端（Tauri 壳，本地网关 sidecar 承载）"
+version = "4.11.0"
+description = "TarsSecureGuard v4.11.0 桌面客户端（Tauri 壳，本地网关 sidecar 承载）"
 edition = "2021"
 rust-version = "1.90"
 
@@ -13,11 +13,17 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# v3.2.1 选型钉版：Tauri 2.12.0（2.x 当前稳定线；遇阻降 2.11.5 只改本行）
-tauri = { version = "2.12", features = [] }
+# v4.11.0 选型：Tauri 2.12 + tray-icon + image-png + updater
+tauri = { version = "2.12", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
+# v4.11.0：tokio time 用于延迟更新检查
+tokio = { version = "1", features = ["time"] }
+# v4.11.0：轻量 HTTP 客户端（GitHub API 版本检测），体积远小于 reqwest
+ureq = { version = "2", features = ["json"] }
+serde_json = "1"
 
-# 发布体积优先（Go 网关约 10MB + 壳 <5MB + 前端 100KB，总预算 <30MB）
 [profile.release]
 codegen-units = 1
 lto = true

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TarsSecureGuard 性能看板</title>
+<meta name="description" content="TarsSecureGuard 性能基准与趋势看板：吞吐、延迟、资源占用与各模块热点分析。">
+<link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/perf.html">
+<style>
+:root{--bg:#0b0f1a;--bg-2:#0d1220;--surface:rgba(20,26,48,0.72);--surface-solid:#151c30;--border:rgba(120,140,200,0.14);--text:#e8ecf6;--text-2:#9aa6c0;--accent:#4f8cff;--accent-2:#6fa3ff;--ok:#3fd08c;--warn:#f5a623;--shadow:0 8px 32px rgba(0,0,0,0.35);--radius:14px;--max-w:1120px;--font:"Inter","Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace}
+[data-theme="light"]{--bg:#f6f8fc;--bg-2:#eef1f8;--surface:rgba(255,255,255,0.78);--surface-solid:#ffffff;--border:rgba(100,120,180,0.18);--text:#1a1f2e;--text-2:#5a6580;--accent:#2563eb;--accent-2:#3b82f6;--shadow:0 8px 32px rgba(30,50,100,0.12)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+.wrap{max-width:var(--max-w);margin:0 auto;padding:0 24px}
+
+/* Nav */
+.nav{position:fixed;inset:0 0 auto 0;z-index:100;height:64px;backdrop-filter:saturate(140%) blur(16px);background:linear-gradient(180deg,var(--surface) 0%,rgba(0,0,0,0) 100%);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:var(--max-w);margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:100%}
+.nav-logo{font-weight:700;font-size:18px;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+.nav-logo svg{width:28px;height:28px}
+.nav-links{display:flex;gap:22px;align-items:center;font-size:14px}
+.nav-links a{color:var(--text-2);transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-ctrls{display:flex;gap:10px;align-items:center}
+.btn-icon{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s}
+.btn-icon:hover{border-color:var(--accent);color:var(--text)}
+.nav-toggle{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer}
+@media(max-width:860px){.nav-links{display:none;position:absolute;top:64px;left:0;right:0;background:var(--surface-solid);border-bottom:1px solid var(--border);padding:12px 24px;flex-direction:column;align-items:flex-start;gap:12px}.nav-links.open{display:flex}.nav-toggle{display:block}}
+
+/* Hero */
+.hero{position:relative;padding:120px 24px 48px;text-align:center;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(79,140,255,0.14),transparent);pointer-events:none}
+.hero h1{font-size:clamp(28px,5vw,44px);font-weight:800;line-height:1.15;letter-spacing:-.02em;margin-bottom:10px;position:relative}
+.hero .sub{color:var(--text-2);font-size:17px;position:relative}
+.hero .back{margin-top:20px;display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border-radius:10px;border:1px solid var(--border);color:var(--text-2);font-size:14px;transition:all .2s;position:relative}
+.hero .back:hover{border-color:var(--accent);color:var(--text)}
+
+/* Sections */
+.section{padding:40px 24px}
+.section h2{font-size:22px;font-weight:700;margin-bottom:18px}
+
+/* Cards */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;backdrop-filter:blur(8px);transition:transform .25s,border-color .25s}
+.card:hover{transform:translateY(-2px);border-color:rgba(79,140,255,0.3)}
+.card h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.card p{color:var(--text-2);font-size:14px;line-height:1.6}
+.metric{font-size:28px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--ok));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+
+/* Chart placeholder */
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;backdrop-filter:blur(8px);margin-top:16px}
+.chart-box h3{font-size:15px;font-weight:700;margin-bottom:12px}
+.chart-placeholder{display:flex;align-items:center;justify-content:center;height:220px;color:var(--text-2);font-size:13px;background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(120,140,200,0.05) 10px,rgba(120,140,200,0.05) 20px);border-radius:10px}
+
+/* Footer */
+.footer{border-top:1px solid var(--border);padding:40px 24px 28px;background:var(--bg-2);margin-top:40px}
+.footer-inner{max-width:var(--max-w);margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.footer-links{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;font-size:14px}
+.footer-links a{color:var(--text-2);transition:color .2s}
+.footer-links a:hover{color:var(--text)}
+.footer-copy{color:var(--text-2);font-size:13px;opacity:.7}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="./">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" rx="8" fill="url(#g)"/><path d="M8 16h6v-6H8v6zm10 0h6v-6h-6v6zM8 24h6v-6H8v6zm10 0h6v-6h-6v6z" fill="#fff" opacity=".9"/><defs><linearGradient id="g" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#4f8cff"/><stop offset="1" stop-color="#3fd08c"/></linearGradient></defs></svg>
+      TarsSecureGuard
+    </a>
+    <button class="nav-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')">☰</button>
+    <div class="nav-links" id="navLinks">
+      <a href="./">首页</a>
+      <a href="./#features">功能</a>
+      <a href="./#faq">FAQ</a>
+      <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">GitHub</a>
+    </div>
+    <div class="nav-ctrls">
+      <button class="btn-icon" id="themeBtn" onclick="toggleTheme()" title="Theme">🌙</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>性能看板</h1>
+    <p class="sub">TarsSecureGuard 基准测试与趋势分析 · 当前版本 {{VERSION}}</p>
+    <a class="back" href="./">← 返回首页</a>
+  </div>
+</header>
+
+<section class="section">
+  <div class="wrap">
+    <h2>关键指标</h2>
+    <div class="card-grid">
+      <div class="card">
+        <div class="metric">-99.8%</div>
+        <h3>WAF strict 扫描</h3>
+        <p>合并正则 + ASCII 触发字节预筛，纯中文正文 strict 扫描 474 µs → 0.99 µs</p>
+      </div>
+      <div class="card">
+        <div class="metric">-79%</div>
+        <h3>日志落盘延迟</h3>
+        <p>常开句柄管线优化，单行落盘 4004 ns → 832 ns</p>
+      </div>
+      <div class="card">
+        <div class="metric">98.5%</div>
+        <h3>连接池复用率</h3>
+        <p>共享 Transport 实测复用计数，800 并发出站</p>
+      </div>
+      <div class="card">
+        <div class="metric">-27%~-40%</div>
+        <h3>出站 P99 延迟</h3>
+        <p>v3.2.0 相对 v3.0.5 基线，连接池 + 缓存 + 熔断综合收益</p>
+      </div>
+      <div class="card">
+        <div class="metric">-15%</div>
+        <h3>PII 脱敏延迟</h3>
+        <p>四模式合并单遍替换，97 µs → 81 µs</p>
+      </div>
+      <div class="card">
+        <div class="metric">-10%</div>
+        <h3>响应缓存 CPU</h3>
+        <p>16 分片锁（FNV-1a 定片），并发 get/put @2 核</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <h2>趋势图表</h2>
+    <div class="chart-box">
+      <h3>延迟趋势（CI 自动采集）</h3>
+      <div class="chart-placeholder">数据由 CI 自动填充（perf-data.json），后续版本接入实时图表</div>
+    </div>
+    <div class="chart-box">
+      <h3>吞吐趋势（CI 自动采集）</h3>
+      <div class="chart-placeholder">数据由 CI 自动填充（perf-data.json），后续版本接入实时图表</div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-links">
+      <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">源码</a>
+      <a href="./">首页</a>
+      <a href="https://hp-jh.github.io/TarsSecureGuard/">站点首页</a>
+    </div>
+    <p class="footer-copy">© 2026 TarsSecureGuard · The Router of the AI Era</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'tsg-site-prefs';
+  function loadPrefs(){ try{ const r=localStorage.getItem(STORAGE_KEY); if(r) return JSON.parse(r); }catch(e){} return {}; }
+  function savePrefs(p){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(p)); }catch(e){} }
+  function setTheme(mode){
+    const html=document.documentElement;
+    if(mode==='auto'){ const dark=window.matchMedia('(prefers-color-scheme: dark)').matches; html.setAttribute('data-theme',dark?'dark':'light'); }
+    else html.setAttribute('data-theme',mode);
+    document.getElementById('themeBtn').textContent = mode==='light'?'☀️':'🌙';
+    const p=loadPrefs(); p.theme=mode; savePrefs(p);
+  }
+  window.toggleTheme=function(){
+    const cur=document.documentElement.getAttribute('data-theme');
+    const p=loadPrefs();
+    const mode=(p.theme==='light'||cur==='light')?'dark':'light';
+    setTheme(mode);
+  };
+  const prefs=loadPrefs();
+  if(prefs.theme) setTheme(prefs.theme); else setTheme('auto');
+})();
+</script>
+</body>
+</html>

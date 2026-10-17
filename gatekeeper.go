@@ -116,7 +116,6 @@ func gkSensitivePath(p string) bool {
 		"/.ssh/", "id_rsa", "id_ed25519", "id_ecdsa", "credentials",
 		"/.env", ".env.", "/.git/config", "authorized_keys", "known_hosts",
 		".aws/credentials", ".kube/config", ".netrc", ".npmrc",
-		"config.json", "gateway-key.txt", "whitelist-integrity.json", "audit", "/logs/",
 	}
 	for _, pat := range patterns {
 		if strings.Contains(lp, pat) {

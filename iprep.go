@@ -14,6 +14,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +29,8 @@ type ipRepEntry struct {
 	Last404Win   time.Time `json:"last404Win"`   // 404 突发扣分窗口（每分钟至多一次）
 	AnomalyMark  time.Time `json:"anomalyMark"`  // NAT 异常标记时间
 	distinctSrcs map[string]bool // 触发扣分的来源用户集合（NAT 识别用，不持久化）
+	wafRules     map[string]bool // 命中过的 WAF 规则名（防单规则重复命中即封禁）
+	FirstPenalty time.Time       // 首次扣分时间（用于时间窗判定）
 }
 
 var (
@@ -65,15 +68,15 @@ func ipRepScore(ip string) float64 {
 	return 100
 }
 
-// ipRepPenalty 扣分入口（source: waf / scan404 / rate-limit / abuse）
-func ipRepPenalty(ip string, delta float64, source string) {
+// ipRepPenalty 扣分入口（source: waf / scan404 / rate-limit / abuse；detail 传 WAF 规则名）
+func ipRepPenalty(ip string, delta float64, source string, detail string) {
 	if !ipRepEnabled() || ipRepWhitelisted(ip) || ip == "" || ip == "127.0.0.1" || ip == "::1" {
 		return
 	}
 	ipRepMu.Lock()
 	e, ok := ipRepTable[ip]
 	if !ok {
-		e = &ipRepEntry{Score: 100, distinctSrcs: map[string]bool{}}
+		e = &ipRepEntry{Score: 100, distinctSrcs: map[string]bool{}, wafRules: map[string]bool{}}
 		ipRepTable[ip] = e
 	}
 	// 404 突发每分钟至多扣一次（防单次扫描事件重复扣分）
@@ -84,25 +87,39 @@ func ipRepPenalty(ip string, delta float64, source string) {
 		}
 		e.Last404Win = time.Now()
 	}
+	// 记录首次扣分时间
+	if e.FirstPenalty.IsZero() {
+		e.FirstPenalty = time.Now()
+	}
 	e.Score -= delta
 	if e.Score < 0 {
 		e.Score = 0
 	}
 	e.LastPenalty = time.Now()
 	e.distinctSrcs[source] = true
+	// WAF 规则多样性记录
+	if source == "waf" && detail != "" {
+		e.wafRules[detail] = true
+	}
 	// NAT 异常识别：15 分钟内 ≥3 种不同扣分来源（大量不同用户/事件类型同时命中同 IP）
 	if time.Since(e.AnomalyMark) > 15*time.Minute && len(e.distinctSrcs) >= 3 {
 		e.AnomalyMark = time.Now()
 		auditLog("IP_REPUTATION_ANOMALY", "system", "ip="+ip+" 疑似 NAT/共享出口（多来源扣分集中），请确认是否误伤；白名单可经 config.ipReputation.whitelist 豁免")
 	}
 	score := e.Score
+	wafRuleCount := len(e.wafRules)
+	firstPenalty := e.FirstPenalty
 	ipRepMu.Unlock()
 
 	// 低于 40：触发动态封禁（时长 = banDuration×2），复用既有防火墙档位
+	// v4.6.2 加固：要求 WAF 命中特征多样（≥2 种不同规则 或 时间窗 >60 秒）才封禁，防 NAT 误伤
 	if score < 40 {
-		firewallBanIP(ip) // passive 档为 no-op；dynamic-ban/os-link 生效
-		firewallBanIPExtra(ip) // 二倍时长（见 firewalldriver 扩展；不支持则等效单次）
-		auditLog("IP_REPUTATION_BAN", "system", "ip="+ip+" score<40 已联动防火墙封禁（banDuration×2）")
+		canBan := source != "waf" || wafRuleCount >= 2 || time.Since(firstPenalty) > 60*time.Second
+		if canBan {
+			firewallBanIP(ip) // passive 档为 no-op；dynamic-ban/os-link 生效
+			firewallBanIPExtra(ip) // 二倍时长（见 firewalldriver 扩展；不支持则等效单次）
+			auditLog("IP_REPUTATION_BAN", "system", "ip="+ip+" score<40 已联动防火墙封禁（banDuration×2）；WAF 规则多样性="+fmt.Sprintf("%d", wafRuleCount))
+		}
 	}
 }
 
@@ -148,6 +165,8 @@ func ipRepUnban(operator, ip string) bool {
 		e.Score = 100
 		e.BannedAt = time.Time{}
 		e.distinctSrcs = map[string]bool{}
+		e.wafRules = map[string]bool{}
+		e.FirstPenalty = time.Time{}
 	}
 	ipRepMu.Unlock()
 	firewallUnbanIP(ip)
@@ -188,10 +207,11 @@ func ipRepLoad() {
 	defer ipRepMu.Unlock()
 	for ip, p := range in {
 		ipRepTable[ip] = &ipRepEntry{
-			Score:       p.Score,
-			LastPenalty: time.Unix(p.LastPenalty, 0),
-			BannedAt:    time.Unix(p.BannedAt, 0),
+			Score:        p.Score,
+			LastPenalty:  time.Unix(p.LastPenalty, 0),
+			BannedAt:     time.Unix(p.BannedAt, 0),
 			distinctSrcs: map[string]bool{},
+			wafRules:     map[string]bool{},
 		}
 	}
 	logMsg("[IPREP] 信誉表已从 state/iprep.json 恢复（条目数见状态接口）")
