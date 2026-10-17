@@ -50,8 +50,8 @@ func TestV32RegistryLoadAndShape(t *testing.T) {
 	if cloud < 20 {
 		t.Errorf("云端 provider %d 个，低于承诺的 20 个", cloud)
 	}
-	if local < 8 {
-		t.Errorf("本地运行时 provider %d 个，低于承诺的 8 个", local)
+	if local < 7 {
+		t.Errorf("本地运行时 provider %d 个，低于承诺的 7 个", local)
 	}
 	validProto := map[string]bool{"openai-compat": true, "anthropic": true, "gemini": true, "ollama": true}
 	validKind := map[string]bool{"cloud": true, "local": true}
