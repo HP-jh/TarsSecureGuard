@@ -1,4 +1,4 @@
-// pkg/obsidian — v4.12.0 Obsidian Vault 连接器 MVP
+// pkg/obsidian — v4.13.0 Obsidian Vault 连接器 MVP
 package obsidian
 
 import (

@@ -19,6 +19,7 @@ import (
 	"time"
 	"github.com/HP-jh/TarsSecureGuard/kingdom"
 	pkgkb "github.com/HP-jh/TarsSecureGuard/pkg/kb"
+	"github.com/HP-jh/TarsSecureGuard/pkg/interop"
 	"github.com/HP-jh/TarsSecureGuard/pkg/obsidian"
 	"github.com/HP-jh/TarsSecureGuard/pkg/voicecorrection"
 )
@@ -42,7 +43,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.12.0"
+var version = "4.13.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -238,17 +239,20 @@ func main() {
 	mux.HandleFunc("/api/kb/list", handleKBList)
 	mux.HandleFunc("/api/kb/get", handleKBGet)
 	mux.HandleFunc("/api/kb/setkey", handleKBSetKey)
-	// v4.12.0 知识库 v2（pkg/kb 倒排索引 + chunk）
+	// v4.13.0 知识库 v2（pkg/kb 倒排索引 + chunk）
 	mux.HandleFunc("/api/kb/ingest", pkgkb.HandleIngest)
 	mux.HandleFunc("/api/kb/query", pkgkb.HandleQuery)
 	mux.HandleFunc("/api/kb/docs", pkgkb.HandleListDocs)
 	mux.HandleFunc("/api/kb/delete", pkgkb.HandleDeleteDoc)
 	mux.HandleFunc("/api/kb/stats", pkgkb.HandleStats)
-	// v4.12.0 Obsidian Vault 同步
+	// v4.13.0 Obsidian Vault 同步
 	mux.HandleFunc("/api/obsidian/sync", obsidian.HandleSync)
 	mux.HandleFunc("/api/obsidian/parse", obsidian.HandleParseNote)
-	// v4.12.0 语音输入纠错
+	// v4.13.0 语音输入纠错
 	mux.HandleFunc("/api/voicecorrection/correct", voicecorrection.HandleCorrect)
+	// v4.13.0 TSG ↔ TarsEnterprise 互操作
+	mux.HandleFunc("/api/v1/interop/receive-command", interop.HandleReceiveCommand)
+	mux.HandleFunc("/api/v1/interop/events", interop.HandleEvents)
 	mux.HandleFunc("/api/search", moduleRoute("webSearch", handleSearch))
 	mux.HandleFunc("/api/feishu/", handleFeishu)
 	mux.HandleFunc("/mcp", moduleRoute("mcpExternal", handleMCP))

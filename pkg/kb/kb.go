@@ -1,4 +1,4 @@
-// pkg/kb — v4.12.0 Knowledge Base 骨架 MVP
+// pkg/kb — v4.13.0 Knowledge Base 骨架 MVP
 package kb
 
 import (
