@@ -298,6 +298,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-item nav-adv" onclick="pg('discovery',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Discovery</div></div>
 <div class="nav-group"><div class="nav-title">安全</div>
 <div class="nav-item nav-adv" onclick="pg('security',this)"><span class="ic"><svg><use href="#i-sec"/></svg></span> Security</div>
+<div class="nav-item" onclick="pg('sec360',this)"><span class="ic">🛡️</span> 安全中心</div>
 <div class="nav-item nav-adv" onclick="pg('waf',this)"><span class="ic"><svg><use href="#i-waf"/></svg></span> WAF Logs</div></div>
 <div class="nav-group"><div class="nav-title">防护</div>
 <div class="nav-item nav-adv" onclick="pg('kb',this)"><span class="ic">📚</span> 知识库</div>
@@ -425,6 +426,48 @@ this)"><span class="ic"><svg><use href="#i-device"/></svg></span> Device</div>
 <div class="page" id="p-discovery">
 <div class="card"><div class="card-title"><span class="d"></span>AI 工具自动发现 <span class="right"><button class="btn btn-p btn-sm" id="btn-disc" onclick="scanNetwork()"><span class="spinner"></span>扫描网络</button></span></div><div id="disc-content"><div class="empty"><div class="ic">*</div>Click "Scan Network" to discover AI tools and services on your network</div></div></div></div>
 <!-- ===== Security ===== -->
+<div class="page" id="p-sec360">
+<style>
+.sec360-score{display:flex;align-items:center;gap:28px;padding:24px}
+.sec360-ring{position:relative;width:140px;height:140px}
+.sec360-ring svg{width:140px;height:140px;transform:rotate(-90deg)}
+.sec360-ring-bg{fill:none;stroke:var(--bg3);stroke-width:10}
+.sec360-ring-fill{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1s ease}
+.sec360-ring-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.sec360-ring-num{font-size:36px;font-weight:800;line-height:1}
+.sec360-ring-label{font-size:11px;color:var(--text2);margin-top:4px}
+.sec360-cats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1}
+.sec360-cat{padding:14px;border-radius:var(--r-md);background:var(--bg1);border:1px solid var(--border);transition:transform .2s}
+.sec360-cat:hover{transform:translateY(-2px)}
+.sec360-cat-s{border-color:rgba(63,185,80,.3);background:rgba(63,185,80,.06)}
+.sec360-cat-w{border-color:rgba(217,153,34,.3);background:rgba(217,153,34,.06)}
+.sec360-cat-d{border-color:rgba(248,81,73,.3);background:rgba(248,81,73,.06)}
+.sec360-cat-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sec360-cat-n{font-size:12px;font-weight:600}
+.sec360-cat-v{font-size:16px;font-weight:700}
+.sec360-cat-bar{height:4px;border-radius:2px;background:var(--bg3);overflow:hidden}
+.sec360-cat-bar>div{height:100%;border-radius:2px;transition:width 1s ease}
+.sec360-scanbtn{padding:10px 28px;border-radius:var(--r-md);background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-weight:600;border:none;cursor:pointer;font-size:14px;transition:opacity .2s}
+.sec360-scanbtn:hover{opacity:.9}
+.sec360-scanbtn:disabled{opacity:.5;cursor:not-allowed}
+.sec360-threats{margin-top:16px}
+.sec360-th{padding:10px 14px;border-radius:var(--r-sm);background:var(--bg1);border:1px solid var(--border);margin-bottom:6px;display:flex;align-items:center;gap:12px}
+.sec360-th-l{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sec360-th-h .sec360-th-l{background:var(--red);box-shadow:0 0 6px var(--red)}
+.sec360-th-m .sec360-th-l{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.sec360-th-lo .sec360-th-l{background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.sec360-th-t{flex:1;font-size:12px}
+.sec360-th-t strong{display:block;margin-bottom:2px}
+.sec360-th-t span{color:var(--text2);font-size:11px}
+.sec360-th-a{padding:4px 10px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);color:var(--text2);font-size:11px;cursor:pointer}
+.sec360-th-a:hover{background:var(--bg3);color:var(--text)}
+.sec360-rec{padding:10px 14px;border-radius:var(--r-sm);background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.15);margin-bottom:6px;font-size:12px;color:var(--text2)}
+.sec360-empty{text-align:center;padding:40px;color:var(--text2);font-size:13px}
+</style>
+<div class="card"><div class="card-title"><span class="d"></span>安全中心 <span class="right"><button class="sec360-scanbtn" id="sec360-scanbtn" onclick="sec360Scan()">🔍 一键扫描</button></span></div>
+<div id="sec360-content">
+  <div class="sec360-empty">点击「一键扫描」开始安全检测</div>
+</div></div></div>
 <div class="page" id="p-security">
 <div class="card"><div class="card-title"><span class="d"></span>安全总览 <span class="right"><button class="btn btn-s btn-sm" onclick="loadSec()">刷新</button></span></div><div id="sec-content"><div class="skel skel-row" style="width:80%"></div><div class="skel skel-row" style="width:60%"></div></div></div></div>
 <!-- ===== WAF ===== -->
@@ -1894,5 +1937,48 @@ function changeLang(code){ if(window.i18n){window.i18n.switchLang(code);} localS
   };
 })();
 
+
+/* ===== 360 安全中心 ===== */
+function sec360Scan(){
+  const btn=document.getElementById('sec360-scanbtn');
+  btn.disabled=true;btn.textContent='扫描中...';
+  fetch('/api/admin/security/scan',{method:'POST',headers:{'Authorization':'Bearer '+tok}})
+    .then(r=>r.json()).then(()=>{
+      setTimeout(()=>sec360Load(),800);
+    }).catch(e=>{btn.disabled=false;btn.textContent='🔍 一键扫描';err('扫描失败: '+e.message);});
+}
+function sec360Load(){
+  const el=document.getElementById('sec360-content');
+  fetch('/api/admin/security/status',{headers:{'Authorization':'Bearer '+tok}})
+    .then(r=>r.json()).then(d=>{
+      const btn=document.getElementById('sec360-scanbtn');
+      btn.disabled=false;btn.textContent='🔍 一键扫描';
+      if(!d.scanned&&!d.scanning){el.innerHTML='<div class="sec360-empty">点击「一键扫描」开始安全检测</div>';return;}
+      if(d.scanning){el.innerHTML='<div class="sec360-empty">扫描进行中，请稍候...</div>';return;}
+      renderSec360(d);
+    }).catch(e=>{el.innerHTML='<div class="sec360-empty">加载失败: '+e.message+'</div>';});
+}
+function renderSec360(d){
+  const el=document.getElementById('sec360-content');
+  const score=d.score||0;
+  const color=score>=90?'#3fb950':score>=60?'#d29922':'#f85149';
+  const status=score>=90?'safe':score>=60?'warning':'danger';
+  const circ=2*Math.PI*60;
+  const off=circ*(1-score/100);
+  let cats='';
+  if(d.categories){
+    d.categories.forEach(c=>{
+      const cls=c.status==='safe'?'sec360-cat-s':c.status==='warning'?'sec360-cat-w':'sec360-cat-d';
+      const barColor=c.status==='safe'?'#3fb950':c.status==='warning'?'#d29922':'#f85149';
+      cats+=\`<div class="sec360-cat \${cls}"><div class="sec360-cat-h"><span class="sec360-cat-n">\${c.name}</span><span class="sec360-cat-v" style="color:\${barColor}">\${c.score}</span></div><div class="sec360-cat-bar"><div style="width:\${c.score}%;background:\${barColor}"></div></div></div>\`;
+    });
+  }
+  let html=\`<div class="sec360-score"><div class="sec360-ring"><svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="60" class="sec360-ring-bg"/><circle cx="70" cy="70" r="60" class="sec360-ring-fill" stroke="\${color}" stroke-dasharray="\${circ}" stroke-dashoffset="\${off}"/></svg><div class="sec360-ring-text"><div class="sec360-ring-num" style="color:\${color}">\${score}</div><div class="sec360-ring-label">安全评分</div></div></div><div class="sec360-cats">\${cats}</div></div>\`;
+  if(d.recommendations&&d.recommendations.length){
+    html+='<div style="padding:0 24px 16px"><div style="font-size:12px;font-weight:600;margin-bottom:8px">修复建议</div>';
+    d.recommendations.forEach(r=>{html+=\`<div class="sec360-rec">\${r}</div>\`;});html+='</div>';
+  }
+  el.innerHTML=html;
+}
 </script>
 </body></html>
