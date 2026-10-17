@@ -366,6 +366,8 @@ this)"><span class="ic"><svg><use href="#i-device"/></svg></span> Device</div>
 <select class="input" id="c-model" style="width:auto"><option value="auto">自动选择</option><option value="local">仅本地</option><option value="cloud">仅云端</option></select>
 <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;cursor:pointer;min-height:34px"><input type="checkbox" id="c-search"> Web Search</label>
 <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;cursor:pointer;min-height:34px"><input type="checkbox" id="c-agent"> Agent Boost</label>
+<span style="flex:1"></span>
+<button class="btn btn-s btn-sm" id="c-test-toggle" onclick="toggleChatTest()">🧪 API Test</button>
 </div>
 <div class="chat-msg" id="c-msgs">
 <div class="msg a"><div class="msg-av">AI</div><div><div class="msg-b">Welcome to TarsSecureGuard AI. I can use local/cloud models, web search, and 7 specialized agents. How can I assist you today?</div><div class="msg-t">系统</div></div></div>
@@ -1979,6 +1981,47 @@ function renderSec360(d){
     d.recommendations.forEach(r=>{html+=\`<div class="sec360-rec">\${r}</div>\`;});html+='</div>';
   }
   el.innerHTML=html;
+}
+
+/* ===== Chat API Test ===== */
+var chatTestMode=false;
+function toggleChatTest(){
+  chatTestMode=!chatTestMode;
+  const msgs=document.getElementById('c-msgs');
+  const panel=document.getElementById('c-test-panel');
+  const btn=document.getElementById('c-test-toggle');
+  if(chatTestMode){
+    msgs.style.display='none';
+    panel.style.display='block';
+    btn.textContent='💬 Chat';
+    btn.style.background='var(--bg2)';
+    btn.style.color='var(--text)';
+  }else{
+    msgs.style.display='block';
+    panel.style.display='none';
+    btn.textContent='🧪 API Test';
+    btn.style.background='linear-gradient(135deg,var(--blue),var(--purple))';
+    btn.style.color='#fff';
+  }
+}
+function runChatTest(){
+  const btn=document.getElementById('ct-run');
+  const out=document.getElementById('ct-output');
+  const model=document.getElementById('ct-model').value||'auto';
+  const prompt=document.getElementById('ct-prompt').value;
+  if(!prompt){err('请输入提示词');return;}
+  btn.disabled=true;btn.textContent='测试中...';
+  out.innerHTML='<div class="sec360-empty" style="padding:20px">请求中...</div>';
+  fetch('/api/chat/test',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify({model:model,prompt:prompt,search:false,agent:false})})
+    .then(r=>r.json()).then(d=>{
+      btn.disabled=false;btn.textContent='▶ 运行测试';
+      let meta=`<div class="apitest-meta"><span>⏱️ ${d.latencyMs||0}ms</span><span>🖥️ ${d.backend||'-'}</span><span>📝 ${d.usage?d.usage.total_tokens+' tokens':'-'}</span><span>📊 ${d.status||'ok'}</span></div>`;
+      let body=`<pre>${d.error? 'Error: '+d.error : (d.content||'(无内容)')}</pre>`;
+      out.innerHTML=`<div class="apitest-result">${meta}${body}</div>`;
+    }).catch(e=>{
+      btn.disabled=false;btn.textContent='▶ 运行测试';
+      out.innerHTML=`<div class="apitest-result"><pre>Error: ${e.message}</pre></div>`;
+    });
 }
 </script>
 </body></html>

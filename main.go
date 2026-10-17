@@ -39,7 +39,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.11.3"
+var version = "4.11.4"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -188,6 +188,8 @@ func main() {
 	mux.HandleFunc("/api/stats", moduleRoute("stats", handleStats))                // 统计面板
 	mux.HandleFunc("/api/stats/history", moduleRoute("stats", handleStatsHistory)) // 24 小时请求量
 	mux.HandleFunc("/api/chat/completions", moduleRoute("chatApi", handleChat))
+	mux.HandleFunc("/api/chat/test", moduleRoute("chatApi", handleChatTest))
+	mux.HandleFunc("/api/chat/test/history", moduleRoute("chatApi", handleChatTestHistory))
 	mux.HandleFunc("/api/urgent/chat", moduleRoute("urgentChat", handleUrgent))
 	mux.HandleFunc("/api/admin/models", moduleRoute("localModels", handleModels))
 	mux.HandleFunc("/api/admin/models/start", moduleRoute("localModels", handleModelStart))
