@@ -79,6 +79,9 @@ type Config struct {
 	// v3.8.0 职业系统扩展段（顶层键：persona）
 	V38Config
 	V4101Config
+	// v4.15.1 unified install path + persistent data
+	InstallRoot string `json:"installRoot"` // empty = platform default
+	DataRoot    string `json:"dataRoot"`    // empty = platform default
 }
 
 // FirewallCfg 防火墙策略档位（passive | dynamic-ban | os-link，默认 passive）

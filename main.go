@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 	"github.com/HP-jh/TarsSecureGuard/kingdom"
+	"github.com/HP-jh/TarsSecureGuard/pkg/data"
 	pkgkb "github.com/HP-jh/TarsSecureGuard/pkg/kb"
 	"github.com/HP-jh/TarsSecureGuard/pkg/interop"
 	"github.com/HP-jh/TarsSecureGuard/pkg/obsidian"
@@ -43,7 +44,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.15.0"
+var version = "4.15.1"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -127,6 +128,8 @@ func main() {
 	initFileLogging()
 	resolveConfigPath()
 	loadConfig()
+	// v4.15.1 unified install path + persistent data
+	resolveInstallDataRoots()
 	// v4.9.0 kingdom：初始化动物分类学注册中心并迁移现有配置
 	kingdomRegistry = kingdom.NewRegistry()
 	_ = kingdomRegistry.MigrateFromV4(cfg.Modules, nil, nil, nil, nil, nil, nil)
@@ -940,4 +943,32 @@ func handleKingdomStatus(w http.ResponseWriter, r *http.Request) {
 		"legacy":   kingdomRegistry.ToLegacyModules(),
 		"version":  version,
 	})
+}
+
+
+// resolveInstallDataRoots sets installRoot and dataRoot from config or defaults.
+// v4.15.1
+func resolveInstallDataRoots() {
+	installRoot = cfg.InstallRoot
+	if installRoot == "" {
+		installRoot = os.Getenv("TARS_INSTALL_ROOT")
+	}
+	if installRoot == "" {
+		home, _ := os.UserHomeDir()
+		installRoot = filepath.Join(home, ".tars", "install")
+	}
+	dataRoot = cfg.DataRoot
+	if dataRoot == "" {
+		dataRoot = os.Getenv("TARS_DATA_ROOT")
+	}
+	if dataRoot == "" {
+		home, _ := os.UserHomeDir()
+		dataRoot = filepath.Join(home, ".tars", "data")
+	}
+	// Ensure data dirs exist and migrate
+	dm := data.New(dataRoot)
+	_ = dm.EnsureAll()
+	_ = dm.Migrate()
+	// Ensure install root exists
+	_ = os.MkdirAll(installRoot, 0755)
 }

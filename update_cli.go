@@ -1,5 +1,5 @@
 // update_cli.go: CLI sub-command and HTTP handlers for auto-update.
-// v4.15.0
+// v4.15.1: unified install path + data persistence + dual channels.
 package main
 
 import (
@@ -12,26 +12,34 @@ import (
 	"github.com/HP-jh/TarsSecureGuard/pkg/update"
 )
 
+var (
+	installRoot string // set during startup from config or default
+	dataRoot    string // set during startup from config or default
+)
+
 func runUpdate(args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: tsg update <check|apply|rollback>")
+		fmt.Println("Usage: tsg update <check|apply|rollback|channel>")
 		fmt.Println("  check    - check for newer version on GitHub")
 		fmt.Println("  apply    - download and apply the latest update")
-		fmt.Println("  rollback - restore previous binary backup")
+		fmt.Println("  rollback - restore previous version")
+		fmt.Println("  channel  - get or set release channel (stable|beta)")
 		os.Exit(1)
 	}
-	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard")
+	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard", installRoot, dataRoot)
 	// Ensure stable_versions.json exists
 	if _, err := u.LoadStableTable(); err != nil {
 		_ = update.WriteDefaultStableTable(u.ConfigDir)
 	}
+	// Ensure data dirs
+	_ = u.DataMgr.EnsureAll()
+	_ = u.DataMgr.Migrate()
 
 	switch args[0] {
 	case "check":
 		res := u.Check()
 		if res.Error != "" {
 			fmt.Fprintf(os.Stderr, "Check failed: %s\n", res.Error)
-			// fallback
 			fb := u.FallbackStableVersion()
 			if fb != "" {
 				fmt.Printf("Fallback stable version: %s\n", fb)
@@ -41,9 +49,9 @@ func runUpdate(args []string) {
 		b, _ := json.MarshalIndent(res, "", "  ")
 		fmt.Println(string(b))
 		if res.HasUpdate {
-			fmt.Printf("\nUpdate available: %s -> %s\n", res.Current, res.Latest)
+			fmt.Printf("\nUpdate available: %s -> %s (channel: %s)\n", res.Current, res.Latest, res.Channel)
 		} else {
-			fmt.Printf("\nAlready up to date (%s)\n", res.Current)
+			fmt.Printf("\nAlready up to date (%s, channel: %s)\n", res.Current, res.Channel)
 		}
 	case "apply":
 		res := u.Check()
@@ -65,7 +73,6 @@ func runUpdate(args []string) {
 			fmt.Fprintf(os.Stderr, "Restart failed: %v\n", err)
 			os.Exit(1)
 		}
-		// Wait for restart to take over
 		time.Sleep(2 * time.Second)
 	case "rollback":
 		if err := u.Rollback(); err != nil {
@@ -73,34 +80,68 @@ func runUpdate(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("Rollback complete. Please restart manually.")
+	case "channel":
+		runUpdateChannel(u, args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown update command: %s\n", args[0])
 		os.Exit(1)
 	}
 }
 
+func runUpdateChannel(u *update.Updater, args []string) {
+	cfg, err := update.LoadChannelConfig(u.DataMgr.Sub("config"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load channel config: %v\n", err)
+		os.Exit(1)
+	}
+	if len(args) == 0 {
+		fmt.Printf("Current channel: %s\n", cfg.Channel)
+		fmt.Printf("Auto-prompt: %v\n", cfg.AutoPrompt)
+		fmt.Println("Usage: tsg update channel set <stable|beta>")
+		return
+	}
+	if len(args) >= 2 && args[0] == "set" {
+		ch := update.ParseChannel(args[1])
+		cfg.Channel = string(ch)
+		if err := update.SaveChannelConfig(u.DataMgr.Sub("config"), cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to save channel: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Channel set to: %s\n", cfg.Channel)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "Usage: tsg update channel [set <stable|beta>]\n")
+	os.Exit(1)
+}
+
 // startAutoUpdateCheck runs a non-blocking version check at startup.
 func startAutoUpdateCheck() {
 	go func() {
-		u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard")
+		u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard", installRoot, dataRoot)
 		if _, err := u.LoadStableTable(); err != nil {
 			_ = update.WriteDefaultStableTable(u.ConfigDir)
 		}
+		_ = u.DataMgr.EnsureAll()
+		_ = u.DataMgr.Migrate()
 		res := u.Check()
 		if res.Error != "" {
 			logMsg(fmt.Sprintf("[AUTO-UPDATE] Check failed: %s", res.Error))
 			return
 		}
 		if res.HasUpdate {
-			logMsg(fmt.Sprintf("[AUTO-UPDATE] New version available: %s (current %s)", res.Latest, res.Current))
+			logMsg(fmt.Sprintf("[AUTO-UPDATE] New version available: %s (current %s, channel %s)", res.Latest, res.Current, res.Channel))
 		} else {
-			logMsg(fmt.Sprintf("[AUTO-UPDATE] Up to date (%s)", res.Current))
+			logMsg(fmt.Sprintf("[AUTO-UPDATE] Up to date (%s, channel %s)", res.Current, res.Channel))
 		}
-		// Save stable table on successful check
 		tab, _ := u.LoadStableTable()
 		if res.Latest != "" {
 			tab.TarsSecureGuard = res.Latest
 			_ = u.SaveStableTable(tab)
+		}
+		// Update last_check
+		if cc, err := update.LoadChannelConfig(u.DataMgr.Sub("config")); err == nil {
+			cc.LastCheck = time.Now().Format(time.RFC3339)
+			_ = update.SaveChannelConfig(u.DataMgr.Sub("config"), cc)
 		}
 	}()
 }
@@ -112,7 +153,7 @@ func startUpdateDaemon() {
 		defer ticker.Stop()
 		for {
 			<-ticker.C
-			u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard")
+			u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard", installRoot, dataRoot)
 			res := u.Check()
 			if res.Error != "" {
 				logMsg(fmt.Sprintf("[UPDATE-DAEMON] Check failed: %s", res.Error))
@@ -121,7 +162,6 @@ func startUpdateDaemon() {
 			if res.HasUpdate {
 				logMsg(fmt.Sprintf("[UPDATE-DAEMON] New version available: %s", res.Latest))
 			}
-			// Refresh stable table
 			tab, _ := u.LoadStableTable()
 			if res.Latest != "" {
 				tab.TarsSecureGuard = res.Latest
@@ -131,10 +171,9 @@ func startUpdateDaemon() {
 	}()
 }
 
-
 // HTTP handlers for admin UI
 func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
-	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard")
+	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard", installRoot, dataRoot)
 	if _, err := u.LoadStableTable(); err != nil {
 		_ = update.WriteDefaultStableTable(u.ConfigDir)
 	}
@@ -144,7 +183,7 @@ func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
-	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard")
+	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard", installRoot, dataRoot)
 	res := u.Check()
 	if res.Error != "" {
 		w.Header().Set("Content-Type", "application/json")
@@ -172,7 +211,7 @@ func handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleUpdateRollback(w http.ResponseWriter, r *http.Request) {
-	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard")
+	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard", installRoot, dataRoot)
 	if err := u.Rollback(); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -184,16 +223,23 @@ func handleUpdateRollback(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
-	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard")
+	u := update.NewUpdater("v"+version, "HP-jh", "TarsSecureGuard", installRoot, dataRoot)
 	tab, err := u.LoadStableTable()
 	stable := "unknown"
 	if err == nil && tab.TarsSecureGuard != "" {
 		stable = tab.TarsSecureGuard
 	}
+	cc, _ := update.LoadChannelConfig(u.DataMgr.Sub("config"))
+	installed, _ := u.InstallMgr.ListInstalled()
+	current, _ := u.InstallMgr.ReadCurrent()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"current":      "v" + version,
-		"stable_known": stable,
-		"config_dir":   u.ConfigDir,
+		"current":         "v" + version,
+		"stable_known":    stable,
+		"channel":         cc.Channel,
+		"install_root":    u.InstallMgr.Root,
+		"data_root":       u.DataMgr.Root,
+		"installed":       installed,
+		"active_version":  current,
 	})
 }

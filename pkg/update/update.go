@@ -1,4 +1,5 @@
-// update.go: core auto-update logic.
+// update.go: core auto-update logic with unified install path.
+// v4.15.1: install/data isolation + channel support.
 package update
 
 import (
@@ -14,6 +15,9 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/HP-jh/TarsSecureGuard/pkg/data"
+	"github.com/HP-jh/TarsSecureGuard/pkg/install"
 )
 
 // Updater handles version checking, downloading, and applying updates.
@@ -23,33 +27,45 @@ type Updater struct {
 	Repo           string
 	GitHub         *GitHubClient
 	HTTPClient     *http.Client
-	ConfigDir      string // e.g. ~/.tars
+	ConfigDir      string // legacy ~/.tars
+	InstallMgr     *install.Manager
+	DataMgr        *data.Manager
+	Channel        Channel
 }
 
-// NewUpdater creates an updater for the given repo.
-func NewUpdater(currentVersion, owner, repo string) *Updater {
-	return &Updater{
+// NewUpdater creates an updater. If installRoot/dataRoot are empty, defaults are used.
+func NewUpdater(currentVersion, owner, repo, installRoot, dataRoot string) *Updater {
+	u := &Updater{
 		CurrentVersion: currentVersion,
 		Owner:          owner,
 		Repo:           repo,
 		GitHub:         NewGitHubClient(owner, repo),
 		HTTPClient:     &http.Client{Timeout: 120 * time.Second},
 		ConfigDir:      defaultConfigDir(),
+		InstallMgr:     install.New(installRoot),
+		DataMgr:        data.New(dataRoot),
+		Channel:        ChannelStable,
 	}
+	// Load channel from data config
+	if cc, err := LoadChannelConfig(u.DataMgr.Sub("config")); err == nil && cc.Channel != "" {
+		u.Channel = ParseChannel(cc.Channel)
+	}
+	return u
 }
 
 // CheckResult holds the result of a version check.
 type CheckResult struct {
-	HasUpdate   bool
-	Latest      string
-	Current     string
-	DownloadURL string
-	SumsURL     string
-	ReleaseURL  string
-	Error       string
+	HasUpdate   bool     `json:"hasUpdate"`
+	Latest      string   `json:"latest"`
+	Current     string   `json:"current"`
+	DownloadURL string   `json:"downloadURL"`
+	SumsURL     string   `json:"sumsURL"`
+	ReleaseURL  string   `json:"releaseURL"`
+	Channel     string   `json:"channel"`
+	Error       string   `json:"error"`
 }
 
-// Check queries GitHub for a newer version.
+// Check queries GitHub for a newer version respecting the channel.
 func (u *Updater) Check() CheckResult {
 	cur, err := ParseVersion(u.CurrentVersion)
 	if err != nil {
@@ -63,8 +79,12 @@ func (u *Updater) Check() CheckResult {
 	if err != nil {
 		return CheckResult{Error: "parse latest: " + err.Error()}
 	}
+	// Channel filtering
+	if u.Channel == ChannelStable && !IsStableRelease(u.CurrentVersion, rel.TagName) {
+		return CheckResult{Latest: rel.TagName, Current: u.CurrentVersion, Channel: string(u.Channel), Error: "latest is not a stable release"}
+	}
 	binary, sums := FindAsset(rel, runtime.GOOS, runtime.GOARCH)
-	res := CheckResult{Latest: rel.TagName, Current: u.CurrentVersion, ReleaseURL: rel.HTMLURL}
+	res := CheckResult{Latest: rel.TagName, Current: u.CurrentVersion, ReleaseURL: rel.HTMLURL, Channel: string(u.Channel)}
 	if binary != nil {
 		res.DownloadURL = binary.BrowserDownloadURL
 	}
@@ -77,15 +97,21 @@ func (u *Updater) Check() CheckResult {
 	return res
 }
 
+// CheckChannel queries GitHub and returns releases matching the channel.
+func (u *Updater) CheckChannel() CheckResult {
+	// Reuse Check for single latest; for channel-aware multi-release use ListReleases
+	return u.Check()
+}
+
 // StableTable maps repo names to their last known stable version.
 type StableTable struct {
-	TarsSecureGuard   string `json:"TarsSecureGuard"`
-	TarsEnterprise    string `json:"TarsEnterprise"`
-	TarsWingGuard     string `json:"TarsWingGuard"`
+	TarsSecureGuard     string `json:"TarsSecureGuard"`
+	TarsEnterprise      string `json:"TarsEnterprise"`
+	TarsWingGuard       string `json:"TarsWingGuard"`
 	TarsOpenClawSandbox string `json:"TarsOpenClawSandbox"`
 	TarsVoiceCorrection string `json:"TarsVoiceCorrection"`
-	TarsUITarsBridge  string `json:"TarsUITarsBridge"`
-	LastSync          string `json:"_last_sync"`
+	TarsUITarsBridge    string `json:"TarsUITarsBridge"`
+	LastSync            string `json:"_last_sync"`
 }
 
 // LoadStableTable reads ~/.tars/stable_versions.json.
@@ -115,47 +141,64 @@ func (u *Updater) SaveStableTable(t StableTable) error {
 	return os.WriteFile(filepath.Join(u.ConfigDir, "stable_versions.json"), b, 0644)
 }
 
-// Apply downloads, verifies, and replaces the binary.
+// Apply downloads, verifies, and installs the new version into the unified path.
+// It does NOT modify any existing version directory.
 func (u *Updater) Apply(check CheckResult) error {
 	if !check.HasUpdate || check.DownloadURL == "" {
 		return fmt.Errorf("no update available")
 	}
+	ver := strings.TrimPrefix(check.Latest, "v")
+	verDir := u.InstallMgr.VersionDir(ver)
+	if err := os.MkdirAll(verDir, 0755); err != nil {
+		return fmt.Errorf("mkdir version dir: %w", err)
+	}
 
-	// Download new binary
-	tmpBin := filepath.Join(u.ConfigDir, "update.tmp")
+	// Determine binary name
+	binName := "TarsSecureGuard"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	tmpBin := filepath.Join(verDir, "."+binName+".tmp")
+
+	// Download
 	if err := u.downloadFile(check.DownloadURL, tmpBin); err != nil {
 		return fmt.Errorf("download binary: %w", err)
 	}
 	defer os.Remove(tmpBin)
 
-	// Verify SHA256 if sums available
+	// Verify
 	if check.SumsURL != "" {
 		if err := u.verifySHA256(tmpBin, check.SumsURL, check.Latest); err != nil {
 			return fmt.Errorf("sha256 verify: %w", err)
 		}
 	}
 
-	// Backup current binary
-	self, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("locate self: %w", err)
+	// Move into place
+	finalBin := filepath.Join(verDir, binName)
+	if err := os.Rename(tmpBin, finalBin); err != nil {
+		return fmt.Errorf("stage binary: %w", err)
 	}
-	backup := self + ".backup"
-	if err := copyFile(self, backup); err != nil {
-		return fmt.Errorf("backup: %w", err)
+	_ = os.Chmod(finalBin, 0755)
+
+	// Backup current config before switching
+	_ = u.DataMgr.BackupConfig()
+	_ = u.DataMgr.PruneBackups(7)
+
+	// Switch current pointer
+	if err := u.InstallMgr.SetCurrent(ver); err != nil {
+		return fmt.Errorf("set current: %w", err)
 	}
 
-	// Atomic replace
-	if err := os.Rename(tmpBin, self+".new"); err != nil {
-		return fmt.Errorf("stage new: %w", err)
-	}
-	if err := os.Rename(self+".new", self); err != nil {
-		// rollback
-		_ = os.Rename(backup, self)
-		return fmt.Errorf("replace: %w", err)
-	}
+	// Record history
+	ch := string(u.Channel)
+	_ = u.DataMgr.AppendInstallHistory(data.InstallHistory{
+		Version:   check.Latest,
+		Timestamp: time.Now(),
+		Action:    "install",
+		Channel:   ch,
+	})
 
-	// Write update log
+	// Log
 	u.logUpdate(check.Latest, "success", "")
 
 	// Save stable version
@@ -166,20 +209,37 @@ func (u *Updater) Apply(check CheckResult) error {
 	return nil
 }
 
-// Rollback restores the backup binary.
+// Rollback restores the previous version from install history.
 func (u *Updater) Rollback() error {
-	self, err := os.Executable()
-	if err != nil {
-		return err
+	hist, err := u.DataMgr.ReadInstallHistory()
+	if err != nil || len(hist) < 2 {
+		// Fallback to backup binary
+		self, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		backup := self + ".backup"
+		if _, err := os.Stat(backup); err != nil {
+			return fmt.Errorf("no backup found")
+		}
+		return os.Rename(backup, self)
 	}
-	backup := self + ".backup"
-	if _, err := os.Stat(backup); err != nil {
-		return fmt.Errorf("no backup found")
+	// Roll back to the version before last
+	prev := hist[len(hist)-2].Version
+	prev = strings.TrimPrefix(prev, "v")
+	if err := u.InstallMgr.SetCurrent(prev); err != nil {
+		return fmt.Errorf("rollback to %s: %w", prev, err)
 	}
-	return os.Rename(backup, self)
+	_ = u.DataMgr.AppendInstallHistory(data.InstallHistory{
+		Version:   prev,
+		Timestamp: time.Now(),
+		Action:    "rollback",
+		Channel:   string(u.Channel),
+	})
+	return nil
 }
 
-// fallbackStableVersion returns the locally cached stable version when API fails.
+// FallbackStableVersion returns the locally cached stable version when API fails.
 func (u *Updater) FallbackStableVersion() string {
 	t, err := u.LoadStableTable()
 	if err != nil {
@@ -214,14 +274,11 @@ func (u *Updater) downloadFile(url, dst string) error {
 }
 
 func (u *Updater) verifySHA256(binPath, sumsURL, tag string) error {
-	// Download SHA256SUMS
 	tmpSums := filepath.Join(u.ConfigDir, "sums.tmp")
 	if err := u.downloadFile(sumsURL, tmpSums); err != nil {
 		return err
 	}
 	defer os.Remove(tmpSums)
-
-	// Compute local hash
 	f, err := os.Open(binPath)
 	if err != nil {
 		return err
@@ -232,8 +289,6 @@ func (u *Updater) verifySHA256(binPath, sumsURL, tag string) error {
 		return err
 	}
 	localHash := hex.EncodeToString(h.Sum(nil))
-
-	// Find expected hash
 	var expected string
 	sf, err := os.Open(tmpSums)
 	if err != nil {
@@ -259,7 +314,8 @@ func (u *Updater) verifySHA256(binPath, sumsURL, tag string) error {
 }
 
 func (u *Updater) logUpdate(newVer, status, detail string) {
-	path := filepath.Join(u.ConfigDir, "update.log")
+	path := u.DataMgr.LogPath("update.log")
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return
@@ -274,23 +330,6 @@ func defaultConfigDir() string {
 		home = "."
 	}
 	return filepath.Join(home, ".tars")
-}
-
-func copyFile(src, dst string) error {
-	sf, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer sf.Close()
-	df, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer df.Close()
-	if _, err := io.Copy(df, sf); err != nil {
-		return err
-	}
-	return df.Sync()
 }
 
 // WriteDefaultStableTable creates the initial stable_versions.json.
