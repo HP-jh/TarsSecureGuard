@@ -101,16 +101,30 @@ func fetchURLText(u string, maxLen int) (map[string]interface{}, error) {
 	if !isHTTPURL(u) {
 		return nil, fmt.Errorf("仅支持 http/https 链接")
 	}
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TarsSecureGuard/9.0")
-	// v3.7.1：tars_fetch_url 复用 SSRF 加固客户端（customToolClient），
-	// 落实协议白名单/禁重定向/拨号时实际 IP 校验（防 DNS 重绑定）/30s 超时/2MB 上限
-	resp, err := customToolClient.Do(req)
-	if err != nil {
-		return nil, err
+	cur := u
+	var resp *http.Response
+	for hop := 0; ; hop++ {
+		req, err := http.NewRequest("GET", cur, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TarsSecureGuard/9.0")
+		// v4.6.3：fetchClient（SSRF 严格模式，禁自动重定向）——目标 URL 模型可控
+		resp, err = fetchClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		// 3xx：逐跳校验重定向目标后手工跟随（最多 3 跳），杜绝 3xx 跳内网绕过
+		if resp.StatusCode >= 300 && resp.StatusCode < 400 && hop < 3 {
+			next, ok := ssrfRedirectURL(resp)
+			resp.Body.Close()
+			if !ok {
+				return nil, fmt.Errorf("重定向目标不合法或被 SSRF 防护拒绝")
+			}
+			cur = next
+			continue
+		}
+		break
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxFetchBytes+1))
@@ -129,7 +143,7 @@ func fetchURLText(u string, maxLen int) (map[string]interface{}, error) {
 		text = text[:maxLen] + "...[截断]"
 	}
 	return map[string]interface{}{
-		"url":          u,
+		"url":          cur,
 		"status":       resp.StatusCode,
 		"content_type": ct,
 		"length":       len(text),
@@ -156,9 +170,26 @@ func loadOpenAPIDoc(id string) (*openAPIDoc, error) {
 	var data []byte
 	var err error
 	if isHTTPURL(id) {
-		resp, err := httpClientShort.Get(id)
-		if err != nil {
-			return nil, err
+		// v4.6.3：文档 URL 由 API 请求体传入——走 fetchClient 严格 SSRF 防线，
+		// 3xx 逐跳校验后手工跟随（最多 3 跳）
+		cur := id
+		var resp *http.Response
+		for hop := 0; ; hop++ {
+			var e error
+			resp, e = fetchClient.Get(cur)
+			if e != nil {
+				return nil, e
+			}
+			if resp.StatusCode >= 300 && resp.StatusCode < 400 && hop < 3 {
+				next, ok := ssrfRedirectURL(resp)
+				resp.Body.Close()
+				if !ok {
+					return nil, fmt.Errorf("OpenAPI 重定向目标不合法或被 SSRF 防护拒绝")
+				}
+				cur = next
+				continue
+			}
+			break
 		}
 		defer resp.Body.Close()
 		data, err = io.ReadAll(io.LimitReader(resp.Body, maxOpenAPIBytes+1))

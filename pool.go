@@ -15,7 +15,6 @@ package main
 
 import (
 	"crypto/tls"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"sync"
@@ -43,10 +42,13 @@ func initPooledClients(maxIdlePerHost int) {
 		}
 		sharedTransport = &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
+			// v4.6.3 SSRF 统一防线：连接时对实际解析 IP 校验（防 DNS 重绑定）。
+			// 本池目标主机均由内置常量/运维配置决定（云端 provider 固定域名、
+			// 本机/局域网 ollama/lmstudio），不接受模型/请求体注入 URL——故放行
+			// 回环+RFC1918（官方支持的局域网推理部署场景）；链路本地/云元数据
+			// (169.254.169.254)/组播/未指定地址仍然一律拒绝。用户/模型可控 URL
+			// 的出站走 fetchClient/downloadClient（严格模式，不开例外）。
+			DialContext:           ssrfSafeDialContext(true, true),
 			MaxIdleConns:          256,
 			MaxIdleConnsPerHost:   maxIdlePerHost,
 			IdleConnTimeout:       90 * time.Second,

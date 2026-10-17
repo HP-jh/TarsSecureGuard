@@ -1,158 +1,553 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TarsSecureGuard — AI 时代的路由器与配置器，自带安全带</title>
-<meta name="description" content="TarsSecureGuard（TSG）是 AI 工具的左邻右舍：开箱即用的本地安全网关 + 一键配置器——统一 OpenAI 兼容协议、智能模型路由，并替你配好 OpenClaw / Continue / Aider / Cline / ZooCode / Codex 等已装 AI 工具的接入，单文件解压即用。">
-<meta name="keywords" content="TarsSecureGuard,AI网关,LLM Gateway,OpenAI兼容,模型路由,AI安全,安全网关,配置器,一键配置,AI工具配置,OpenClaw,Continue,Aider,Cline,模块化,本地大模型">
-<meta name="author" content="TarsSecureGuard Team">
+<title data-i18n="meta.title">TarsSecureGuard — AI 时代的路由器与配置器</title>
+<meta name="description" content="TarsSecureGuard（TSG）是零依赖单文件的本地 AI 安全网关与 LLM 代理：接 13 种 AI 客户端，连 35 家模型商，强制 WAF、提示词注入防护、限流、PII 脱敏与审计。解压即用，数据不出本机。" data-i18n="meta.description">
+<meta name="keywords" content="TarsSecureGuard,TSG,AI安全网关,LLM网关,大模型网关,LLM代理,OpenAI代理,AI Gateway,LLM Gateway,OpenAI Compatible,Model Router,AI Security,MCP安全,提示词注入防护,本地AI,Local LLM,API网关,AI代理">
 <link rel="canonical" href="https://hp-jh.github.io/TarsSecureGuard/">
+<link rel="alternate" hreflang="zh-CN" href="https://hp-jh.github.io/TarsSecureGuard/">
+<link rel="alternate" hreflang="en" href="https://hp-jh.github.io/TarsSecureGuard/">
+<link rel="alternate" hreflang="x-default" href="https://hp-jh.github.io/TarsSecureGuard/">
+<meta name="robots" content="index,follow">
+<meta name="googlebot" content="index,follow,max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TarsSecureGuard">
-<meta property="og:title" content="TarsSecureGuard — AI 时代的路由器与配置器">
-<meta property="og:description" content="统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化、自适应模式。解压即用，无需容器与数据库。">
+<meta property="og:title" content="TarsSecureGuard — AI 时代的路由器与配置器 · 本地 AI 安全网关">
+<meta property="og:description" content="零依赖单文件本地 AI 安全网关。WAF 默认开启，13 客户端 × 35 provider，MCP stdio 即插即护，解压即用。">
 <meta property="og:url" content="https://hp-jh.github.io/TarsSecureGuard/">
 <meta property="og:locale" content="zh_CN">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="TarsSecureGuard — AI 时代的路由器与配置器">
-<meta name="twitter:description" content="统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化、自适应模式。">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:image" content="https://hp-jh.github.io/TarsSecureGuard/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TarsSecureGuard — 本地 AI 安全网关">
+<meta name="twitter:description" content="零依赖单文件。WAF 默认开，35 provider，MCP 即插即护。">
+<meta name="twitter:image" content="https://hp-jh.github.io/TarsSecureGuard/og-image.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "TarsSecureGuard",
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Windows, macOS, Linux",
-  "softwareVersion": "3.7.0",
-  "description": "开箱即用的本地 AI 安全网关与一键配置器：统一 OpenAI 兼容协议、智能模型路由、连接器生态、极致模块化、Extender 一键配置已装 AI 工具。",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "author": { "@type": "Organization", "name": "TarsSecureGuard Team" },
-  "url": "https://hp-jh.github.io/TarsSecureGuard/",
-  "downloadUrl": "https://github.com/HP-jh/TarsSecureGuard/releases",
-  "codeRepository": "https://github.com/HP-jh/TarsSecureGuard",
-  "inLanguage": "zh-CN"
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "name": "TarsSecureGuard",
+      "url": "https://hp-jh.github.io/TarsSecureGuard/",
+      "description": "零依赖单文件本地 AI 安全网关与 LLM 代理",
+      "inLanguage": ["zh-CN","en"],
+      "publisher": {"@type": "Organization","name": "TarsSecureGuard"}
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "TarsSecureGuard",
+      "alternateName": ["TSG","AI 安全网关","LLM Gateway"],
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Windows, macOS, Linux, Android",
+      "softwareVersion": "{{VERSION}}",
+      "description": "零依赖单文件本地 AI 安全网关：WAF、提示词注入防护、三维限流、PII 脱敏、hash-chain 审计、MCP stdio 即插即护。接 13 种客户端，连 35 家模型商。",
+      "keywords": "AI安全网关,LLM Gateway,OpenAI代理,MCP安全,提示词注入防护,本地AI,零依赖",
+      "license": "https://opensource.org/licenses/MIT",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Organization", "name": "TarsSecureGuard" },
+      "url": "https://hp-jh.github.io/TarsSecureGuard/",
+      "downloadUrl": "https://github.com/HP-jh/TarsSecureGuard/releases",
+      "codeRepository": "https://github.com/HP-jh/TarsSecureGuard"
+    }
+  ]
 }
 </script>
 <style>
-:root{--bg:#0d1220;--card:#151c30;--line:#232c48;--txt:#e8ecf6;--sub:#9aa6c0;--acc:#4f8cff;--ok:#3fd08c}
+:root{
+  --bg:#08090c;--bg-2:#0c0e14;
+  --surface:rgba(18,20,28,.72);--surface-solid:#11131a;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.14);
+  --text:#f5f7fa;--text-2:#9aa3b5;--text-3:#6b7385;
+  --accent:#6366f1;--accent-2:#8b5cf6;--accent-3:#22d3ee;
+  --ok:#34d399;--warn:#fbbf24;--danger:#f87171;
+  --shadow:0 8px 32px rgba(0,0,0,.4);
+  --radius:16px;--radius-sm:12px;
+  --nav-h:60px;--max-w:1180px;
+  --font:-apple-system,BlinkMacSystemFont,"Inter","SF Pro Display","Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+[data-theme="light"]{
+  --bg:#fafbfd;--bg-2:#f1f3f9;
+  --surface:rgba(255,255,255,.8);--surface-solid:#fff;
+  --border:rgba(20,30,60,.1);--border-strong:rgba(20,30,60,.18);
+  --text:#11151c;--text-2:#4a5468;--text-3:#8b95a8;
+  --accent:#4f46e5;--accent-2:#7c3aed;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
-a{color:var(--acc);text-decoration:none}
-.wrap{max-width:980px;margin:0 auto;padding:0 24px}
-header{padding:72px 0 48px;text-align:center;background:linear-gradient(180deg,#101a33 0%,var(--bg) 100%)}
-h1{font-size:40px;letter-spacing:1px}
-.tagline{color:var(--sub);font-size:18px;margin-top:12px}
-.btns{margin-top:28px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-block;padding:11px 26px;border-radius:8px;font-size:15px;font-weight:600}
-.btn-main{background:var(--acc);color:#fff}
-.btn-main:hover{opacity:.9}
-.btn-ghost{border:1px solid var(--line);color:var(--txt)}
-.btn-ghost:hover{border-color:var(--acc)}
-section{padding:44px 0}
-h2{font-size:24px;margin-bottom:22px}
-h2 .num{color:var(--acc);margin-right:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px}
-.card h3{font-size:16px;margin-bottom:8px}
-.card p{color:var(--sub);font-size:14px}
-.card h3 em{color:var(--ok);font-style:normal;font-size:12px;margin-left:6px}
-pre{background:#0a0f1c;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:10px 0}
-code{font-family:ui-monospace,Consolas,monospace}
-.os{color:var(--sub);font-size:13px;margin-top:14px}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
-th{color:var(--sub);font-weight:600}
-.faq dt{font-weight:600;margin-top:16px}
-.faq dd{color:var(--sub);font-size:14px;margin-left:0}
-footer{border-top:1px solid var(--line);padding:28px 0;color:var(--sub);font-size:13px;text-align:center}
-footer a{margin:0 10px}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+::selection{background:rgba(99,102,241,.3);color:#fff}
+
+/* particle canvas */
+#particles{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* nav — floating pill */
+.nav{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:100;
+  background:rgba(14,16,22,.7);backdrop-filter:saturate(180%) blur(16px);
+  -webkit-backdrop-filter:saturate(180%) blur(16px);
+  border:1px solid var(--border);border-radius:999px;
+  padding:0 8px;display:flex;align-items:center;gap:4px;
+  max-width:calc(100vw - 32px);
+}
+[data-theme="light"] .nav{background:rgba(255,255,255,.75)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:0 12px;height:40px}
+.nav-logo svg{width:22px;height:22px}
+.nav-links{display:flex;gap:2px;align-items:center}
+.nav-links a{color:var(--text-2);font-size:13.5px;padding:8px 14px;border-radius:999px;transition:all .2s}
+.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.nav-cta{background:var(--text);color:var(--bg);font-size:13px;font-weight:600;padding:8px 16px;border-radius:999px;margin-left:8px;transition:opacity .2s}
+.nav-cta:hover{opacity:.85}
+.nav-toggle{display:none;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:8px 12px}
+.lang-select{background:transparent;border:none;color:var(--text-2);font-size:12px;cursor:pointer;padding:6px 4px}
+.lang-select option{background:var(--surface-solid);color:var(--text)}
+@media(max-width:900px){
+  .nav-links,.nav-cta{display:none}
+  .nav-toggle{display:block}
+  .nav-links.open{display:flex;position:fixed;top:68px;left:16px;right:16px;flex-direction:column;background:var(--surface-solid);border:1px solid var(--border);border-radius:16px;padding:8px;align-items:stretch}
+}
+
+/* hero — left-aligned Linear style */
+.hero{position:relative;z-index:1;padding:160px 24px 80px;max-width:var(--max-w);margin:0 auto}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);color:#c7d2fe;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:500;margin-bottom:28px;animation:fadeUp .8s var(--ease) both}
+[data-theme="light"] .hero-badge{color:var(--accent)}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero h1{font-size:clamp(44px,8vw,84px);font-weight:700;line-height:1.02;letter-spacing:-.04em;margin-bottom:24px;max-width:900px;animation:fadeUp .8s var(--ease) .1s both}
+.hero h1 .grad{background:linear-gradient(135deg,#fff 0%,#c7d2fe 50%,#22d3ee 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+[data-theme="light"] .hero h1 .grad{background:linear-gradient(135deg,#111 0%,#4f46e5 60%,#0891b2 100%);-webkit-background-clip:text;background-clip:text}
+.hero p{color:var(--text-2);font-size:clamp(17px,2vw,20px);max-width:620px;margin-bottom:36px;line-height:1.6;animation:fadeUp .8s var(--ease) .2s both}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap;animation:fadeUp .8s var(--ease) .3s both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:12px;font-size:15px;font-weight:600;letter-spacing:-.01em;transition:transform .2s var(--ease),box-shadow .25s,background .2s}
+.btn:hover{transform:translateY(-2px)}
+.btn-primary{background:var(--text);color:var(--bg)}
+.btn-primary:hover{box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.btn-ghost{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);backdrop-filter:blur(8px)}
+.btn-ghost:hover{background:rgba(255,255,255,.08);border-color:var(--border-strong)}
+[data-theme="light"] .btn-ghost{background:rgba(20,30,60,.04)}
+.btn-sm{padding:8px 16px;font-size:13px;border-radius:999px}
+
+/* product window mock */
+.hero-window{margin-top:80px;position:relative;animation:fadeUp 1s var(--ease) .4s both}
+.hero-window::after{content:"";position:absolute;inset:auto 0 -1px 0;height:120px;background:linear-gradient(180deg,transparent,var(--bg));z-index:2}
+.window{background:#0a0c12;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.win-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.win-dot{width:11px;height:11px;border-radius:50%}
+.win-dot.r{background:#ff5f57}.win-dot.y{background:#febc2e}.win-dot.g{background:#28c840}
+.win-title{flex:1;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.win-body{padding:28px;display:grid;grid-template-columns:200px 1fr;gap:24px;min-height:340px;color:#e5e7eb}
+.win-side{border-right:1px solid rgba(255,255,255,.08);padding-right:20px}
+.win-side .item{padding:8px 10px;border-radius:8px;font-size:13px;color:#9ca3af;margin-bottom:2px}
+.win-side .item.active{background:rgba(99,102,241,.2);color:#fff}
+.win-main h4{font-size:15px;font-weight:600;margin-bottom:16px;color:#fff}
+.win-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.win-stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px}
+.win-stat .n{font-size:22px;font-weight:700;color:#fff}
+.win-stat .l{font-size:11px;color:#6b7280;margin-top:2px}
+.win-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}
+.win-row .k{color:#9ca3af}
+.win-row .v{color:#34d399;font-family:var(--mono)}
+@media(max-width:700px){.win-body{grid-template-columns:1fr}.win-side{display:none}}
+
+/* sections */
+.section{padding:120px 24px;position:relative;z-index:1;max-width:var(--max-w);margin:0 auto}
+.section-head{margin-bottom:64px;max-width:680px}
+.section-head.centered{text-align:center;margin-left:auto;margin-right:auto}
+.section-tag{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-3);margin-bottom:16px}
+.section-head h2{font-size:clamp(30px,4.5vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
+.section-head p{color:var(--text-2);font-size:17px;line-height:1.65}
+
+/* bento grid */
+.bento{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;grid-auto-rows:220px}
+.bento .card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;backdrop-filter:blur(10px);overflow:hidden;transition:transform .3s var(--ease),border-color .3s}
+.bento .card::before{content:"";position:absolute;inset:0;background:radial-gradient(500px circle at var(--mx,50%) var(--my,0%),rgba(99,102,241,.08),transparent 45%);opacity:0;transition:opacity .3s;pointer-events:none}
+.bento .card:hover{transform:translateY(-4px);border-color:var(--border-strong)}
+.bento .card:hover::before{opacity:1}
+.bento .card-icon{width:42px;height:42px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(139,92,246,.15))}
+.bento .card h3{font-size:18px;font-weight:600;margin-bottom:8px;letter-spacing:-.01em}
+.bento .card p{color:var(--text-2);font-size:14px;line-height:1.6}
+.bento .card-tag{display:inline-block;font-size:11px;font-weight:500;color:var(--ok);background:rgba(52,211,153,.1);padding:3px 10px;border-radius:999px;margin-top:12px}
+/* spans — this is where the offset/masonry feel comes from */
+.bento .span-2{grid-column:span 2}
+.bento .tall{grid-row:span 2}
+@media(max-width:860px){
+  .bento{grid-template-columns:1fr;grid-auto-rows:auto}
+  .bento .span-2,.bento .tall{grid-column:span 1;grid-row:span 1}
+  .bento .card{min-height:180px}
+}
+
+/* terminal */
+.terminal{background:#0a0c12;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;max-width:760px;margin:0 auto;box-shadow:var(--shadow)}
+.term-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.term-dot{width:11px;height:11px;border-radius:50%}
+.term-dot.r{background:#ff5f57}.term-dot.y{background:#febc2e}.term-dot.g{background:#28c840}
+.term-title{flex:1;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.term-body{padding:24px;font-family:var(--mono);font-size:13.5px;line-height:1.8;overflow-x:auto}
+.term-body .p{color:var(--ok)}
+.term-body .c{color:var(--text-3)}
+.term-body .o{color:var(--text-2)}
+
+/* timeline */
+.timeline{position:relative;max-width:780px;margin:0 auto;padding-left:32px}
+.timeline::before{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--accent),var(--accent-2),var(--accent-3));border-radius:2px}
+.tl-item{position:relative;margin-bottom:32px;padding-left:20px}
+.tl-item::before{content:"";position:absolute;left:-31px;top:6px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);transition:all .2s}
+.tl-item:hover::before{background:var(--accent);box-shadow:0 0 0 4px rgba(99,102,241,.15)}
+.tl-item .v{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-3);margin-bottom:4px}
+.tl-item h4{font-size:16px;font-weight:600;margin-bottom:6px;letter-spacing:-.01em}
+.tl-item p{color:var(--text-2);font-size:14px;line-height:1.65;max-width:600px}
+.tl-item .tag{font-size:11px;font-weight:500;color:var(--accent);background:rgba(99,102,241,.1);padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:middle}
+
+/* faq */
+.faq{max-width:780px;margin:0 auto}
+.faq details{border:1px solid var(--border);border-radius:var(--radius-sm);padding:18px 22px;margin-bottom:10px;background:var(--surface);transition:border-color .2s}
+.faq details[open]{border-color:var(--border-strong)}
+.faq summary{cursor:pointer;font-weight:500;font-size:15px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-size:20px;color:var(--text-3);transition:transform .3s var(--ease)}
+.faq details[open] summary::after{transform:rotate(45deg);color:var(--accent)}
+.faq dd{color:var(--text-2);font-size:14px;margin-top:12px;line-height:1.7}
+
+/* cta */
+.cta{text-align:center;padding:120px 24px;position:relative;z-index:1;background:radial-gradient(ellipse at bottom,rgba(99,102,241,.12),transparent 60%)}
+
+/* footer */
+footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relative;z-index:1}
+.foot-inner{max-width:var(--max-w);margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.foot-links{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;font-size:14px}
+.foot-links a{color:var(--text-3);transition:color .2s}
+.foot-links a:hover{color:var(--text-2)}
+.foot-copy{color:var(--text-3);font-size:13px;opacity:.8}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+pre{background:#0a0c12;border:1px solid var(--border);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:13.5px;color:#c7d4f0;margin:12px 0;font-family:var(--mono);line-height:1.7}
+code{font-family:var(--mono)}
+#assets-table table{width:100%;border-collapse:collapse;font-size:14px}
+#assets-table th,#assets-table td{padding:14px 20px;text-align:left;border-bottom:1px solid var(--border)}
+#assets-table th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:600;background:rgba(255,255,255,.02)}
+#assets-table tr:last-child td{border-bottom:none}
+#assets-table tr:hover td{background:rgba(99,102,241,.04)}
+#assets-table td a.btn{padding:6px 14px;font-size:12px;border-radius:8px;background:var(--text);color:var(--bg)}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <h1>TarsSecureGuard</h1>
-    <p class="tagline">AI 时代的路由器与配置器，自带安全带 —— 你的 AI 工具，由它守护并配好</p>
-    <div class="btns">
-      <a class="btn btn-main" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">GitHub 仓库</a>
-      <a class="btn btn-ghost" href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">下载发布版</a>
-      <a class="btn btn-ghost" href="#quickstart">一键安装</a>
+
+<canvas id="particles"></canvas>
+
+<nav class="nav">
+  <a class="nav-logo" href="/">
+    <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="url(#g)"/><path d="M8 16h6v-6H8v6zm10 0h6v-6h-6v6zM8 24h6v-6H8v6zm10 0h6v-6h-6v6z" fill="#fff" opacity=".9"/><defs><linearGradient id="g" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+    TarsSecureGuard
+  </a>
+  <div class="nav-links" id="navLinks">
+    <a href="#features" data-i18n="nav.features">特性</a>
+    <a href="#install" data-i18n="nav.install">安装</a>
+    <a href="#milestones" data-i18n="nav.milestones">里程碑</a>
+    <a href="#faq" data-i18n="nav.faq">FAQ</a>
+  </div>
+  <select class="lang-select" onchange="setLang(this.value)">
+    <option value="zh-CN">中文</option>
+    <option value="en">EN</option>
+  </select>
+  <a class="nav-cta" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="nav.github">GitHub</a>
+  <button class="nav-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')">☰</button>
+</nav>
+
+<header class="hero">
+  <div class="hero-badge"><span class="dot"></span><span data-i18n="hero.badge">最新版 v{{VERSION}} · 发布于 {{RELEASE_DATE}}</span></div>
+  <h1 data-i18n="hero.title">AI 时代的<br><span class="grad">路由器与配置器</span></h1>
+  <p data-i18n="hero.subtitle">零依赖单文件的本地 AI 安全网关（LLM 代理）。左边接 13 种 AI 客户端，右边连 35 家模型商，中间强制 WAF、提示词注入防护、三维限流、PII 脱敏与 hash-chain 审计。解压即用，数据不出本机。</p>
+  <div class="hero-btns">
+    <a class="btn btn-primary" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="hero.cta_primary">Star on GitHub</a>
+    <a class="btn btn-ghost" href="#install" data-i18n="hero.cta_secondary">一键安装</a>
+  </div>
+  <div class="hero-window">
+    <div class="window">
+      <div class="win-bar">
+        <span class="win-dot r"></span><span class="win-dot y"></span><span class="win-dot g"></span>
+        <span class="win-title">tsg — dashboard</span>
+      </div>
+      <div class="win-body">
+        <div class="win-side">
+          <div class="item active">📊 仪表盘</div>
+          <div class="item">🛡️ WAF 日志</div>
+          <div class="item">🔀 路由</div>
+          <div class="item">🔑 Provider</div>
+          <div class="item">👤 治理</div>
+          <div class="item">📝 审计</div>
+        </div>
+        <div class="win-main">
+          <h4 data-i18n="hero.window.title">网关状态</h4>
+          <div class="win-stats">
+            <div class="win-stat"><div class="n">128</div><div class="l" data-i18n="hero.window.s1">今日请求</div></div>
+            <div class="win-stat"><div class="n" style="color:var(--ok)">0</div><div class="l" data-i18n="hero.window.s2">拦截</div></div>
+            <div class="win-stat"><div class="n">42ms</div><div class="l" data-i18n="hero.window.s3">P99 延迟</div></div>
+          </div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r1">Security Core</span><span class="v">ON · 不可关闭</span></div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r2">Active Providers</span><span class="v">8 / 35</span></div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r3">MCP stdio</span><span class="v">connected</span></div>
+          <div class="win-row"><span class="k" data-i18n="hero.window.r4">Audit chain</span><span class="v">sha256 ✓</span></div>
+        </div>
+      </div>
     </div>
   </div>
 </header>
 
-<section id="features">
-  <div class="wrap">
-    <h2><span class="num">01</span>核心特性</h2>
-    <div class="grid">
-      <div class="card"><h3>一键配置器 Extender <em>v3.7.0</em></h3><p>探测本机已装的 OpenClaw / Continue / Aider / Cline / ZooCode / Codex，一键生成接入配置，复制粘贴即完成——别的工具配置再复杂，TSG 替你配好。</p></div>
-      <div class="card"><h3>安全网关 <em>内置</em></h3><p>WAF 规则、PII 脱敏、审计哈希链、零信任默认密钥通道，提示词与响应全链路防护。</p></div>
-      <div class="card"><h3>统一转换中枢 <em>v3.3.0</em></h3><p>任意后端接口接入，前端统一 OpenAI 兼容格式；自动协议转换、参数映射与多模态适配。</p></div>
-      <div class="card"><h3>模型库与能力匹配 <em>v3.3.0</em></h3><p>添加模型后按标签自动识别能力边界（视觉 / 长上下文 / 函数调用），智能路由按需调度。</p></div>
-      <div class="card"><h3>连接器生态 <em>v3.4.0</em></h3><p>打通搜索、抓取、MCP 与外部服务，AI 无缝接入各类工具、平台与本地环境。</p></div>
-      <div class="card"><h3>极致模块化 <em>v3.5.0</em></h3><p>内置 5 档裁剪档案（极简 / 标准 / 全量 / 纯本地 / 低配）一键切换，支持自定义快照，按需裁剪不背包袱。</p></div>
-      <div class="card"><h3>自适应适配 <em>v3.5.0</em></h3><p>自动检测设备性能与使用习惯，闲置模块建议关闭；新手模式隐藏高级项，高阶模式全量开放。</p></div>
-      <div class="card"><h3>轻量 Token 测量器 <em>v3.4.0</em></h3><p>实时反馈每次调用成本，云端与本地模型一键对比，高成本任务自动提示本地优先。</p></div>
-      <div class="card"><h3>解压即用 <em>始终</em></h3><p>单文件二进制，无需容器、无需数据库；中文管理面板，浏览器自动打开。</p></div>
+<section class="section" id="features">
+  <div class="section-head reveal">
+    <div class="section-tag">Why TSG</div>
+    <h2 data-i18n="features.title">不只是网关，<br>还是替你配好 AI 工具的人</h2>
+    <p data-i18n="features.subtitle">当每个 AI 客户端都自带一套私有模型生态时，TSG 让你只需一个 OpenAI 兼容端点。</p>
+  </div>
+  <div class="bento reveal">
+    <div class="card span-2 tall">
+      <div class="card-icon">🛡️</div>
+      <h3 data-i18n="features.c1.title">Security Core 不可关闭</h3>
+      <p data-i18n="features.c1.desc">WAF、Prompt 注入特征、语义灰区 fail-close、三维限流、本地 IP 信誉、RBAC、hash-chain 审计、PII 脱敏、SSRF 五红线——连接再广，安全链一行不削。「AI 只能加严」单向合并铁律。</p>
+      <span class="card-tag">始终开启</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔌</div>
+      <h3 data-i18n="features.c2.title">Universal Connector</h3>
+      <p data-i18n="features.c2.desc">13 客户端 × 35 provider，新增 provider 只写 JSON。</p>
+      <span class="card-tag">v3.2.0</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚙️</div>
+      <h3 data-i18n="features.c3.title">Extender 配置器</h3>
+      <p data-i18n="features.c3.desc">自动探测本机 OpenClaw / Continue / Aider / Cline / Codex，一键生成接入配置。</p>
+      <span class="card-tag">v3.7.0</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🧠</div>
+      <h3 data-i18n="features.c4.title">能力感知路由</h3>
+      <p data-i18n="features.c4.desc">按 vision / tools / longContext 自动改道换模型。</p>
+      <span class="card-tag">v3.3.0</span>
+    </div>
+    <div class="card span-2">
+      <div class="card-icon">🌐</div>
+      <h3 data-i18n="features.c5.title">Kingdom 分类学架构</h3>
+      <p data-i18n="features.c5.desc">按界门纲目科属种分层：Protectiva 防护 / Functionalis 功能 / Frontend / Backend。零破坏兼容层，老配置不中断。</p>
+      <span class="card-tag">v4.9.0</span>
     </div>
   </div>
 </section>
 
-<section id="quickstart">
-  <div class="wrap">
-    <h2><span class="num">02</span>快速开始 · 一键安装</h2>
-    <p class="os">macOS / Linux（自动识别系统与 CPU 架构）：</p>
-    <pre><code>curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh</code></pre>
-    <p class="os">Windows PowerShell：</p>
-    <pre><code>irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex</code></pre>
-    <p class="os">安装后启动（首次运行自动生成配置与随机密钥）：</p>
-    <pre><code>tsg          # 启动网关，面板自动打开 http://127.0.0.1:18889
-tsg doctor   # 环境自检</code></pre>
-    <p class="os">也可以从 <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">GitHub Releases</a> 手动下载对应平台二进制，或下载统一安装包 tsg-setup.zip（含全平台安装器，运行后自动识别系统）。</p>
+<section class="section" id="install">
+  <div class="section-head centered reveal">
+    <div class="section-tag">Quick Start</div>
+    <h2 data-i18n="install.title">一条命令，解压即用</h2>
+    <p data-i18n="install.subtitle">不需要 Docker，不需要 Postgres，拷到 U 盘里都能跑。</p>
+  </div>
+  <div class="terminal reveal">
+    <div class="term-bar">
+      <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+      <span class="term-title">terminal</span>
+    </div>
+    <div class="term-body">
+<span class="p">$</span> <span>curl -fsSL https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.sh | sh</span>
+<span class="o">→ 检测系统：macOS arm64</span>
+<span class="o">→ SHA256 校验通过 · 安装完成</span>
+<span class="p">$</span> <span>tsg</span>
+<span class="c"># 启动网关，面板自动打开 http://127.0.0.1:18889</span>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:20px;color:var(--text-3);font-size:13px" data-i18n="install.windows">Windows PowerShell：irm https://raw.githubusercontent.com/HP-jh/TarsSecureGuard/main/install.ps1 | iex</p>
+</section>
+
+<section class="section" id="download">
+  <div class="section-head centered reveal">
+    <div class="section-tag">Download</div>
+    <h2 data-i18n="download.title">下载 v{{VERSION}} 二进制</h2>
+    <p data-i18n="download.subtitle">Windows / macOS / Linux / Android，amd64 与 arm64。SHA256 校验随附。</p>
+  </div>
+  <div class="reveal" style="max-width:860px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    <div id="assets-table">{{ASSETS_TABLE}}</div>
+  </div>
+  <div class="reveal" style="max-width:860px;margin:20px auto 0">
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 20px">
+      <summary style="cursor:pointer;font-size:14px;color:var(--text-2);font-weight:500" data-i18n="download.checksum_title">SHA256 校验值</summary>
+      <pre style="margin-top:12px;max-height:260px;overflow:auto;font-size:12px">{{CHECKSUMS}}</pre>
+    </details>
+  </div>
+  <div style="text-align:center;margin-top:28px">
+    <a class="btn btn-ghost btn-sm" href="https://github.com/HP-jh/TarsSecureGuard/releases/tag/v{{VERSION}}" rel="noopener" data-i18n="download.all">查看所有版本</a>
   </div>
 </section>
 
-<section id="roadmap">
-  <div class="wrap">
-    <h2><span class="num">03</span>版本里程碑</h2>
-    <table>
-      <tr><th>版本</th><th>主题</th><th>要点</th></tr>
-      <tr><td>v3.6.0</td><td>小白化部署收官</td><td>统一安装器（自动识别 OS / 架构）+ 官方引流站</td></tr>
-      <tr><td>v3.7.0</td><td>扩展器 / 一键配置器</td><td>AI 工具探测 + 接入片段生成，定位升级「路由器与配置器」</td></tr>
-      <tr><td>v3.5.0</td><td>极致模块化与自适应</td><td>裁剪档案 / 使用埋点 / 建议引擎 / 新手与高阶双模式</td></tr>
-      <tr><td>v3.4.0</td><td>连接器生态</td><td>连接器市场 / 工具链路降耗 / Token 测量器</td></tr>
-      <tr><td>v3.3.0</td><td>转换中枢与模型库</td><td>custom 协议适配器 / 能力库与能力感知路由 / API 申请直达</td></tr>
-      <tr><td>v3.2.x</td><td>治理与性能</td><td>共享记忆 / 审计哈希链 / WAF 合并预筛 / 治理可视化</td></tr>
-    </table>
+<section class="section" id="milestones">
+  <div class="section-head reveal">
+    <div class="section-tag">Milestones</div>
+    <h2 data-i18n="milestones.title">15 天，从安全壳到<br>AI 路由器</h2>
+    <p data-i18n="milestones.subtitle">不是每个版本都是里程碑——这些是定位与架构真正跃迁的时刻。</p>
+  </div>
+  <div class="timeline reveal">
+    <div class="tl-item"><div class="v">v3.0.0 · 2026-09-30</div><h4 data-i18n="milestones.m1.title">Your AI's Safety Belt<span class="tag">起点</span></h4><p data-i18n="milestones.m1.desc">Security Core 强制加载：WAF / Prompt 注入 / PII / 限流 / IP 信誉 / RBAC / 审计，默认开启不可关闭。</p></div>
+    <div class="tl-item"><div class="v">v3.2.0 · 2026-10-04</div><h4 data-i18n="milestones.m2.title">The Router of the AI Era<span class="tag">定位跃迁</span></h4><p data-i18n="milestones.m2.desc">从安全壳变成路由器：13 客户端 × 24 provider，新增 provider 只写配置不改代码；--mcp-stdio 即插即护。</p></div>
+    <div class="tl-item"><div class="v">v3.2.2 · 2026-10-06</div><h4 data-i18n="milestones.m3.title">治理层</h4><p data-i18n="milestones.m3.desc">共享记忆 / OAuth-IdP / 守门人 / hash-chain 审计 v2——从反向代理抬到企业级治理面。</p></div>
+    <div class="tl-item"><div class="v">v3.7.0 · 2026-10-06</div><h4 data-i18n="milestones.m4.title">Extender 配置器</h4><p data-i18n="milestones.m4.desc">替用户探测并配置好 OpenClaw / Continue / Aider / Cline 等已装工具，定位升级"路由器+配置器"。</p></div>
+    <div class="tl-item"><div class="v">v3.8.0 · 2026-10-07</div><h4 data-i18n="milestones.m5.title">Persona 职业系统</h4><p data-i18n="milestones.m5.desc">5 种职业模板自适应模块、链路与模型匹配，全年龄段可用。</p></div>
+    <div class="tl-item"><div class="v">v4.1.0 · 2026-10-08</div><h4 data-i18n="milestones.m6.title">Multi-agent + 设备网</h4><p data-i18n="milestones.m6.desc">multi-agent collaboration、MCP、distributed device mesh——从单机网关走向多 agent 协同。</p></div>
+    <div class="tl-item"><div class="v">v4.7.0 · 2026-10-12</div><h4 data-i18n="milestones.m7.title">对外发布</h4><p data-i18n="milestones.m7.desc">GitHub Pages 三站 + 7 语言 README + 红蓝对抗报告 i18n + SHA256 安装器。</p></div>
+    <div class="tl-item"><div class="v">v4.9.0 · 2026-10-14</div><h4 data-i18n="milestones.m8.title">Kingdom 分类学架构<span class="tag">当前</span></h4><p data-i18n="milestones.m8.desc">界门纲目科属种分层：Protectiva / Functionalis / Frontend / Backend。零破坏兼容层。</p></div>
   </div>
 </section>
 
-<section id="faq">
-  <div class="wrap">
-    <h2><span class="num">04</span>常见问题</h2>
-    <dl class="faq">
-      <dt>支持哪些操作系统？</dt>
-      <dd>Windows、macOS、Linux 的 amd64 / arm64 架构；安装器自动识别，无需手动选版本。</dd>
-      <dt>需要安装运行环境吗？</dt>
-      <dd>不需要。TSG 是单文件原生二进制，无容器、无数据库、无运行时依赖，解压或安装后直接运行。</dd>
-      <dt>支持本地大模型吗？</dt>
-      <dd>支持。自动发现本地推理服务（Ollama 等），配合 Token 测量器可实现云端 / 本地成本对比与本地优先。</dd>
-      <dt>数据会上传吗？</dt>
-      <dd>不会。网关默认零外联可裁剪（「纯本地」档案一键关闭全部对外网络模块），审计与密钥均在本机。</dd>
-      <dt>如何卸载？</dt>
-      <dd>删除安装目录（默认 ~/.tsg/bin 或 %LOCALAPPDATA%\TarsSecureGuard）即可，不残留系统组件。</dd>
-    </dl>
+<section class="section">
+  <div class="section-head centered reveal">
+    <div class="section-tag">Release</div>
+    <h2 data-i18n="release.title">v{{VERSION}} 更新内容</h2>
+  </div>
+  <div class="reveal" style="max-width:780px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px">
+    <pre style="background:transparent;border:none;padding:0;margin:0">{{RELEASE_NOTES}}</pre>
+    <div style="margin-top:20px;text-align:center">
+      <a class="btn btn-ghost btn-sm" href="https://github.com/HP-jh/TarsSecureGuard/releases/tag/v{{VERSION}}" rel="noopener" data-i18n="release.view">查看完整 Release</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="section-head centered reveal">
+    <div class="section-tag">FAQ</div>
+    <h2 data-i18n="faq.title">常见问题</h2>
+  </div>
+  <div class="faq reveal">
+    <details><summary data-i18n="faq.q1">支持哪些操作系统？</summary><dd data-i18n="faq.a1">Windows、macOS、Linux、Android 的 amd64 / arm64；安装器自动识别。</dd></details>
+    <details><summary data-i18n="faq.q2">需要安装运行环境吗？</summary><dd data-i18n="faq.a2">不需要。TSG 是单文件原生二进制，go.mod 零第三方依赖，无容器、无数据库。</dd></details>
+    <details><summary data-i18n="faq.q3">支持本地大模型吗？</summary><dd data-i18n="faq.a3">支持。自动发现 Ollama / LM Studio / vLLM，配合 Token 测量器做云端/本地成本对比。</dd></details>
+    <details><summary data-i18n="faq.q4">和 LiteLLM 有什么区别？</summary><dd data-i18n="faq.a4">LiteLLM 是 Python 栈，需要 Postgres+Redis，镜像近 1GB。TSG 是零依赖单文件，Security Core 强制开启，--mcp-stdio 即插即护，服务于"今天就想安全地把本地 AI 用起来"的个人与隔离内网。</dd></details>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="reveal">
+    <h2 style="font-size:clamp(28px,4vw,42px);font-weight:700;letter-spacing:-.02em;margin-bottom:16px" data-i18n="cta.title">准备好给 AI 系好安全带？</h2>
+    <p style="color:var(--text-2);margin-bottom:32px" data-i18n="cta.subtitle">MIT 开源，社区版永久免费。</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a class="btn btn-primary" href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="cta.primary">Star on GitHub</a>
+      <a class="btn btn-ghost" href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener" data-i18n="cta.secondary">参与讨论</a>
+    </div>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">
-    <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener">源码</a>
-    <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener">发布版</a>
-    <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener">问题反馈</a>
-    <p style="margin-top:12px">© 2026 TarsSecureGuard · The Router of the AI Era</p>
+  <div class="foot-inner">
+    <div class="foot-links">
+      <a href="https://github.com/HP-jh/TarsSecureGuard" rel="noopener" data-i18n="footer.source">源码</a>
+      <a href="https://github.com/HP-jh/TarsSecureGuard/releases" rel="noopener" data-i18n="footer.releases">发布版</a>
+      <a href="https://github.com/HP-jh/TarsSecureGuard/issues" rel="noopener" data-i18n="footer.issues">问题反馈</a>
+      <a href="./download.html" rel="noopener" data-i18n="footer.download">下载页</a>
+    </div>
+    <p class="foot-copy" data-i18n="footer.copy">© 2026 TarsSecureGuard · The Router of the AI Era · MIT</p>
   </div>
 </footer>
+
+<script>
+(function(){
+  // ===== particle background =====
+  var canvas=document.getElementById('particles');
+  var ctx=canvas.getContext('2d');
+  var particles=[],W,H;
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+  var N=Math.min(55,Math.floor(window.innerWidth/24));
+  for(var i=0;i<N;i++){
+    particles.push({
+      x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5,
+      r:Math.random()*2.2+1.6,
+      phase:Math.random()*Math.PI*2,
+      baseR:Math.random()*2.2+1.6
+    });
+  }
+  var t=0;
+  function tick(){
+    t+=.01;
+    isLight=document.documentElement.getAttribute('data-theme')==='light';
+    ctx.clearRect(0,0,W,H);
+    var dotColor=isLight?'rgba(79,70,229,.55)':'rgba(139,142,249,.7)';
+    for(var i=0;i<particles.length;i++){
+      var p=particles[i];
+      p.x+=p.vx+Math.sin(t+p.phase)*.15;
+      p.y+=p.vy+Math.cos(t+p.phase*.7)*.15;
+      if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+      var breathe=p.baseR+Math.sin(t*1.5+p.phase)*.6;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,breathe,0,Math.PI*2);
+      ctx.fillStyle=dotColor;
+      ctx.shadowBlur=isLight?8:12;
+      ctx.shadowColor=isLight?'rgba(79,70,229,.4)':'rgba(139,142,249,.6)';
+      ctx.fill();
+      ctx.shadowBlur=0;
+      for(var j=i+1;j<particles.length;j++){
+        var q=particles[j];
+        var dx=p.x-q.x,dy=p.y-q.y;
+        var d=dx*dx+dy*dy;
+        if(d<120*120){
+          ctx.beginPath();
+          ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+          ctx.strokeStyle=isLight?
+            'rgba(79,70,229,'+(0.14*(1-Math.sqrt(d)/120))+')':
+            'rgba(139,142,249,'+(0.2*(1-Math.sqrt(d)/120))+')';
+          ctx.lineWidth=.6;ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  // ===== i18n + theme =====
+  var STORAGE='tsg-site-prefs';
+  function load(){try{return JSON.parse(localStorage.getItem(STORAGE)||'{}')}catch(e){return{}}}
+  function save(p){try{localStorage.setItem(STORAGE,JSON.stringify(p))}catch(e){}}
+  function setTheme(mode){
+    var dark=mode==='dark'||(mode==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+  }
+  window.toggleTheme=function(){var p=load();p.theme=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';save(p);setTheme(p.theme)};
+  function resolve(o,k){return k.split('.').reduce(function(a,k){return a&&a[k]},o)||''}
+  function applyI18n(d){
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var v=resolve(d,el.getAttribute('data-i18n'));
+      if(v){if(el.tagName==='TITLE')el.textContent=v;else if(el.tagName==='META')el.setAttribute('content',v);else el.textContent=v}
+    });
+  }
+  window.setLang=function(lang){
+    document.documentElement.lang=lang==='zh-CN'?'zh-CN':'en';
+    fetch('./i18n/'+lang+'.json').then(function(r){return r.json()}).then(function(d){applyI18n(d)}).catch(function(){});
+    var p=load();p.lang=lang;save(p);
+  };
+  var prefs=load();
+  setTheme(prefs.theme||'auto');
+  if(prefs.lang){window.setLang(prefs.lang)}
+
+  // ===== reveal =====
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target)}})},{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
+
+  // ===== card spotlight =====
+  document.querySelectorAll('.bento .card').forEach(function(c){
+    c.addEventListener('mousemove',function(ev){
+      var r=c.getBoundingClientRect();
+      c.style.setProperty('--mx',(ev.clientX-r.left)+'px');
+      c.style.setProperty('--my',(ev.clientY-r.top)+'px');
+    });
+  });
+})();
+</script>
 </body>
 </html>

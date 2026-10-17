@@ -173,6 +173,7 @@ func routeClass(path string) string {
 		strings.HasPrefix(path, "/api/admin/models/stop"),
 		strings.HasPrefix(path, "/api/admin/model/download"),
 		path == "/api/admin/config",
+		path == "/api/admin/config/revert",
 		path == "/api/admin/modules",
 		path == "/api/admin/sidecar/reload",
 		path == "/api/admin/v32/auto-discovery/scan",
@@ -769,6 +770,7 @@ func auditLogT(action, tenant, group, user, detail string) {
 	logMsg("[AUDIT] " + line)
 	// v3.2.2 审计升级：同步落结构化 JSONL 哈希链条目（哈希链防篡改，见 auditv2.go）
 	auditV2Write(action, tenant, group, user, "", detail, "")
+	syslogWrapAudit(action, user, detail)
 }
 
 

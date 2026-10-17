@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -120,27 +119,6 @@ func auditV2SeedFor(day string) (int, string) {
 }
 
 // auditV2Write 写入一条 v2 审计（内部含按天切换 / 续链 / 保留期清理）
-// maskSensitiveInDetail v3.7.1 P1-6：审计日志敏感字段脱敏
-func maskSensitiveInDetail(detail string) string {
-	for _, header := range []string{"Authorization", "X-API-Key", "Cookie"} {
-		re := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(header) + `[:=]\s*[^,]+`)
-		detail = re.ReplaceAllStringFunc(detail, func(match string) string {
-			idx := strings.IndexAny(match, ":=")
-			if idx < 0 {
-				return match
-			}
-			prefix := match[:idx+1]
-			val := strings.TrimSpace(match[idx+1:])
-			if val == "" {
-				return match
-			}
-			h := sha256.Sum256([]byte(val))
-			return prefix + " " + hex.EncodeToString(h[:])[:16] + "..."
-		})
-	}
-	return detail
-}
-
 func auditV2Write(action, tenant, group, user, ip, detail, trace string) {
 	auditV2Mu.Lock()
 	defer auditV2Mu.Unlock()

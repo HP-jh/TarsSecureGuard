@@ -397,7 +397,7 @@ func semanticGuardChat(w http.ResponseWriter, r *http.Request, req *ChatRequest)
 	switch dec.Verdict {
 	case sgBlock:
 		auditLog("SEMANTIC_BLOCK", userFromRequestSafe(r), fmt.Sprintf("fp=%s 来源=%s 原因=%s", dec.Fp, dec.Source, dec.Reason))
-		ipRepPenalty(clientIP(r), 15, "semantic-block")
+		ipRepPenalty(clientIP(r), 15, "semantic-block", "")
 		code := http.StatusForbidden
 		if dec.Source == "fail-close" {
 			code = http.StatusServiceUnavailable // 503 SEMANTIC_ENGINE_UNAVAILABLE（锦衣卫裁定 1）

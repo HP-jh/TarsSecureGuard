@@ -18,6 +18,8 @@ type ChatRequest struct {
 	Model    string    `json:"model"`
 	Search   bool      `json:"search"`
 	Agent    bool      `json:"agent"`
+	// v4.11.5: 多智能体路由
+	AgentID  string    `json:"agentId,omitempty"`
 	// v3.3.0 OpenAI 兼容透传：tools / tool_choice 原样传给支持函数调用的后端
 	// （openai-compat 协议；其余协议忽略并记日志，见 docs/v3.3.0）
 	Tools      json.RawMessage `json:"tools,omitempty"`
@@ -189,6 +191,13 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 			req.Messages = append([]Message{{Role: "system", Content: pack.Text}}, req.Messages...)
 		}
 	}
+	// v4.11.5: 多智能体路由 — 注入 agent system prompt
+	if req.AgentID != "" {
+		sysPrompt := getAgentPrompt(req.AgentID)
+		if sysPrompt != "" {
+			req.Messages = append([]Message{{Role: "system", Content: sysPrompt}}, req.Messages...)
+		}
+	}
 	// PII 脱敏：在路由到后端前对消息内容脱敏
 	req.Messages = maskPIIInMessages(req.Messages)
 	// v3.0.0 B 线：语义分级分流（静态 deny / 灰区送本地小模型 / fail-close）
@@ -322,6 +331,9 @@ func routeChat(model string, msgs []Message, trace ...string) (string, string, e
 // （openai-compat 后端生效）并回传真实 usage 与 tool_calls。
 // 错误路径也返回 ChatResult（至少带 backend），便于调用方观测。
 func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (res ChatResult, err error) {
+	// v4.10.1: 模型别名展开（在路由决策前统一处理）
+	model, _, _ = expandModelAlias(model)
+
 	// v3.4.0：出口统一埋点——所有后端路径（成功/失败）都进 Token 测量器
 	defer func() {
 		meterHook(model, res, err)
@@ -361,7 +373,7 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 		// "providerId/model" 形式优先于既有本地/云端判定
 		spec, _ := providerSpec(pid)
 		if !moduleEnabledByID("cloudModels") && spec.Kind == "cloud" {
-			return fail(pid, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）"))
+			return fail(pid, fmt.Errorf("云端模型已关闭。如需使用，请在「模块」页面开启「云端模型」开关。"))
 		}
 		content, usage, toolCalls, err := callProviderChatFull(spec, rest, msgs, "", obsTr, opts)
 		res = ChatResult{Content: content, Backend: pid, Usage: usage, ToolCalls: toolCalls}
@@ -386,14 +398,14 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 			backend = "llama"
 			target = cur
 		} else {
-			return fail(backend, fmt.Errorf("未知模型 %s", model))
+			return fail(backend, fmt.Errorf("暂时找不到模型「%s」。请检查名称拼写是否正确，或先在「模型」页面添加该模型。", model))
 		}
 	}
 
 	switch backend {
 	case "llama":
 		if !moduleEnabledByID("localModels") {
-			return fail(backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）"))
+			return fail(backend, fmt.Errorf("本地模型已关闭。如需使用，请在「模块」页面开启「本地模型」开关。"))
 		}
 		if running, _ := modelState(); !running {
 			if err := startLocalModel(target); err != nil {
@@ -408,7 +420,7 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 		return callOpenAICompatibleEx(ep, "", target, msgs, opts, obsTr)
 	case "lmstudio", "ollama":
 		if !moduleEnabledByID("localModels") {
-			return fail(backend, fmt.Errorf("本地模型模块已关闭（modules.localModels=false）"))
+			return fail(backend, fmt.Errorf("本地模型已关闭。如需使用，请在「模块」页面开启「本地模型」开关。"))
 		}
 		if backend == "lmstudio" {
 			return callOpenAICompatibleEx(lmStudioBase+"/v1/chat/completions", "", target, msgs, opts, obsTr)
@@ -416,7 +428,7 @@ func routeChatEx(model string, msgs []Message, opts ChatOpts, trace ...string) (
 		return callOllamaChatEx(target, msgs, obsTr)
 	case "cloud":
 		if !moduleEnabledByID("cloudModels") {
-			return fail(backend, fmt.Errorf("云端模型模块已关闭（modules.cloudModels=false）"))
+			return fail(backend, fmt.Errorf("云端模型已关闭。如需使用，请在「模块」页面开启「云端模型」开关。"))
 		}
 		// v3.2.0：注册表 provider 的裸模型名（无 providerId 前缀）在此接管；
 		// 未命中再回落 v3.0.x 的 legacy cloud 配置（config.json cloud 段）

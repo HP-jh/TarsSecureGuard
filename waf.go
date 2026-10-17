@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,10 +23,8 @@ var wafRules = []struct {
 	re     *regexp.Regexp
 	strict bool
 }{
-	// v3.7.1：加入 %5c（编码反斜杠）、%c0%af（UTF-8 编码斜杠绕过）
-	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%5[cC]|%c0%af)`), false},
-	// v3.7.1：加入 | 管道符、\$\(\) 命令替换（与已有反引号 `cmd` 互补）
-	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping)\\b|&&|(?:\\||\\$\\([^)]+\\))|;\\s*\\x60[a-z]+\\x60)"), false},
+	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%c0%af|%c1%9c)`), false},
+	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|&&\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|;\\s*\\x60[a-z]+\\x60)"), false},
 	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
 	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
 	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*)`), true},
@@ -71,8 +70,7 @@ func wafNeedsScan(s string) bool {
 		}
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
 			c == '.' || c == '%' || c == ';' || c == '&' || c == '`' || c == '<' ||
-			c == '=' || c == ':' || c == '@' || c == '/' || c == '*' || c == '(' || c == ')' ||
-			c == '|' || c == '$' || c == '\\' {
+			c == '=' || c == ':' || c == '@' || c == '/' || c == '*' || c == '(' || c == ')' {
 			return true
 		}
 	}
@@ -111,7 +109,11 @@ var scannerUABlacklist = []string{
 	"sqlmap", "nikto", "nmap scripting engine", "masscan", "zgrab",
 	"dirbuster", "gobuster", "ffuf", "nuclei", "wpscan", "acunetix",
 	"nessus", "openvas", "metasploit", "burpsuite", "havij", "hydra",
-	"w3af", "arachni", "whatweb", "dotdotpwn",
+	"w3af", "arachni", "whatweb", "dotdotpwn", "censys", "shodan",
+	// v4.6.3 WAF 盲区补全：脚本化 HTTP 客户端与目录扫描器常见 UA 特征
+	"nmap", "python-requests", "go-http-client", "curl/", "wget",
+	"libwww-perl", "okhttp", "scrapy", "sqlninja",
+	"awfuzz", "wfuzz", "xray", "anchashi",
 }
 
 // sensitivePathPatterns：敏感路径探测特征（小写子串匹配）。
@@ -120,11 +122,12 @@ var scannerUABlacklist = []string{
 // 以保证向后兼容、不破坏现有功能。
 var sensitivePathPatterns = []string{
 	"/.env", "/.git", "/.svn", "/.ssh", "/.aws", "/.ds_store",
-	"/.htaccess", "/.htpasswd", "/.idea",
+	"/.htaccess", "/.htpasswd", "/.idea", "/.dockerenv",
 	"/wp-admin", "/wp-login", "/wp-content", "/xmlrpc.php",
 	"/phpmyadmin", "/pma/",
 	"/admin/", "/administrator",
 	"/server-status", "/actuator", "/.bak", "/.sql",
+	"/proc/", "/sys/", "/swagger-ui", "/api-docs",
 }
 
 // allowedHTTPMethods：允许的 HTTP 方法白名单；
@@ -148,16 +151,33 @@ func isOwnAppRoute(p string) bool {
 }
 
 // scannerUAMatch 检测 User-Agent 是否命中扫描器黑名单，命中返回特征串
+// v4.7.6 性能优化：用预编译的合并正则替代 N 次 strings.Contains 子串循环
+// （一次 FindStringIndex ≈ 30 次 Contains，UA 是每个请求必走的热路径）
+var (
+	scannerUARe      = regexp.MustCompile(`(?i)(` + strings.Join(scannerUABlacklist, "|") + `)`)
+	scannerUACache   sync.Map // ua 小写 → 匹配特征串（命中即返回，省 regex 重跑）
+	scannerUACap     = 4096   // UA 长度上限；超过视为 DoS 攻击候选，直接 miss（不命中也不放入）
+)
+
+// scannerUAMatch 检测 User-Agent 是否命中扫描器黑名单，命中返回特征串
 func scannerUAMatch(ua string) string {
-	if ua == "" {
+	if ua == "" || len(ua) > scannerUACap {
 		return ""
 	}
-	lower := strings.ToLower(ua)
-	for _, s := range scannerUABlacklist {
-		if strings.Contains(lower, s) {
-			return s
-		}
+	// 快路径：缓存
+	if v, ok := scannerUACache.Load(ua); ok {
+		s, _ := v.(string)
+		return s
 	}
+	// 慢路径：合并正则一次匹配
+	m := scannerUARe.FindString(ua)
+	if m != "" {
+		// 正则匹配大小写不敏感，返回原始小写特征串供 UI/审计展示
+		scannerUACache.Store(ua, strings.ToLower(m))
+		return strings.ToLower(m)
+	}
+	// miss 也缓存一份空串，避免重复 UA 反复进 regex
+	scannerUACache.Store(ua, "")
 	return ""
 }
 
@@ -187,19 +207,6 @@ func wafStrict() bool {
 	return cfg.Security.Mode == "strict"
 }
 
-// normalizePath v3.7.1：URL 路径解码与规范化，防双重编码/UTF-8 绕过
-func normalizePath(raw string) string {
-	// 循环解码直到无变化（防双重编码如 %252f）
-	for {
-		decoded, err := url.QueryUnescape(raw)
-		if err != nil || decoded == raw {
-			break
-		}
-		raw = decoded
-	}
-	return raw
-}
-
 func wafCheck(r *http.Request) string {
 	// v2.0.0：security-core 强制加载，无开关；wafEnabled() 保留仅供状态展示
 	// 1) 速率限制
@@ -220,18 +227,46 @@ func wafCheck(r *http.Request) string {
 			return "敏感路径探测: " + hit
 		}
 	}
+	// 4.5) Host 头注入检测（v4.7.1）：拒绝含换行符/空字节的 Host 头，
+	// 防止 HTTP 响应分割、缓存投毒、虚拟主机混淆等攻击向量
+	if host := r.Host; strings.ContainsAny(host, "\r\n\x00") {
+		return "Host 头注入"
+	}
+	// 4.55) 全请求头 CRLF/NULL 注入检测（v4.7.5）：v4.7.1 只检查了 Host，
+	// 但攻击者可通过 X-Forwarded-For / X-Real-IP / Authorization / Cookie 等
+	// 任意头注入 CRLF/NULL，造成响应分割、缓存投毒、日志注入。Go 标准库
+	// 已禁止 header value 含 \r\n，但仍有中间件层/反代层被攻击的可能；
+	// 在 WAF 兜底再检查一次，成本极低。
+	for k, vs := range r.Header {
+		for _, v := range vs {
+			if strings.ContainsAny(v, "\r\n\x00") {
+				return "请求头 CRLF/NULL 注入: " + k
+			}
+		}
+	}
+	// 4.6) HTTP 请求走私检测（v4.7.1）：同时存在 Content-Length 与
+	// Transfer-Encoding 头是经典走私攻击向量，前端可能按一个长度解析、
+	// 后端按另一个解析，导致绕过访问控制
+	if r.ContentLength >= 0 && r.Header.Get("Transfer-Encoding") != "" {
+		return "HTTP 请求走私: CL+TE 双重头"
+	}
 	// 5) 大文件上传检测（新增）：Content-Length 超过 maxBodyBytes 直接拦截
 	if r.ContentLength > maxBodyBytes {
 		return "请求体过大"
 	}
-	// 6) 路径与查询串检测（所有模式都查）
-	if reason := wafMatch(r.URL.Path+" "+r.URL.RawQuery, false); reason != "" {
+	// 6) 路径与查询串检测（所有模式都查；查询串先解码再扫，防编码穿越）
+	scanQuery := r.URL.RawQuery
+	if decoded, err := url.QueryUnescape(scanQuery); err == nil {
+		scanQuery = decoded
+	}
+	if reason := wafMatch(r.URL.Path+" "+scanQuery, false); reason != "" {
 		return reason
 	}
-	// 7) 请求体扫描：工具端点总是扫描；strict 模式下扫描所有端点
+	// 7) 请求体扫描：工具端点总是扫描；chat 端点扫 messages[].content（strict 规则）；strict 模式下扫描所有端点
 	strict := wafStrict()
 	toolEndpoint := strings.Contains(r.URL.Path, "/mcp") || strings.HasPrefix(r.URL.Path, "/api/tools/")
-	if !toolEndpoint && !strict {
+	chatEndpoint := strings.Contains(r.URL.Path, "/v1/chat") || strings.Contains(r.URL.Path, "/api/chat")
+	if !toolEndpoint && !chatEndpoint && !strict {
 		return ""
 	}
 	if r.Body != nil {
@@ -244,19 +279,37 @@ func wafCheck(r *http.Request) string {
 			return ""
 		}
 		r.Body = io.NopCloser(bytes.NewReader(b))
-		if reason := wafScanBody(b, strict); reason != "" {
+		if reason := wafScanBody(b, strict, chatEndpoint); reason != "" {
 			return reason
 		}
 	}
 	return ""
 }
 
-// wafScanBody：normal 模式只扫描工具调用参数中的字符串值（降低聊天内容误报），
+// wafScanBody：normal 模式只扫描工具调用参数中的字符串值（降低聊天内容误报）；
+// chat 端点提取 messages[].content 用 strict 规则扫描（PromptInjection/PII/XSS/SQLi）；
 // strict 模式扫描整个请求体。
-func wafScanBody(b []byte, strict bool) string {
+func wafScanBody(b []byte, strict bool, isChat bool) string {
 	if strict {
 		return wafMatch(string(b), true)
 	}
+	// chat 端点：提取 messages[].content 用 strict 规则扫描（成本极低，已走 ASCII 预筛）
+	if isChat {
+		var req struct {
+			Messages []struct {
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if json.Unmarshal(b, &req) == nil {
+			for _, m := range req.Messages {
+				if reason := wafMatch(m.Content, true); reason != "" {
+					return reason
+				}
+			}
+		}
+		return ""
+	}
+	// 工具端点扫描
 	var m map[string]interface{}
 	if json.Unmarshal(b, &m) != nil {
 		return ""

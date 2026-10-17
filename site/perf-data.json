@@ -1,0 +1,5 @@
+{
+  "version": "{{VERSION}}",
+  "generated_at": "{{RELEASE_DATE}}",
+  "note": "性能数据占位文件，后续版本由 CI 自动填充"
+}

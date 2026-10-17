@@ -13,35 +13,14 @@ import (
 )
 
 // ===================== 配置 =====================
-
-// stripUnderscoreKeys v3.7.1 P0-3：剥离 JSON 中的注释键（_ 前缀）
-func stripUnderscoreKeys(data []byte) []byte {
-	var root map[string]interface{}
-	if err := json.Unmarshal(data, &root); err != nil {
-		return data
-	}
-	strip := func(m map[string]interface{}) {
-		for k := range m {
-			if strings.HasPrefix(k, "_") {
-				delete(m, k)
-			}
-		}
-	}
-	strip(root)
-	for _, sec := range []string{"cloud", "security", "paths", "modules", "providers", "mcp", "direct", "tier1", "sidecar", "circuit", "responseCache", "pool"} {
-		if m, ok := root[sec].(map[string]interface{}); ok {
-			strip(m)
-		}
-	}
-	if cloud, ok := root["cloud"].(map[string]interface{}); ok {
-		for _, sub := range []string{"openai", "deepseek"} {
-			if m, ok := cloud[sub].(map[string]interface{}); ok {
-				strip(m)
-			}
-		}
-	}
-	b, _ := json.Marshal(root)
-	return b
+// V4101Config v4.10.1 Surpass 扩展段（顶层键：modelAliases / stickyRouter）
+type V4101Config struct {
+	ModelAliases []ModelAlias `json:"modelAliases"` // 模型别名表
+	StickyRouter struct {
+		Enabled      bool `json:"enabled"`      // 默认 true
+		PersistSec   int  `json:"persistSec"`   // 状态持久化间隔，默认 60
+		MaxEntries   int  `json:"maxEntries"`   // 内存上限，默认 1024
+	} `json:"stickyRouter"`
 }
 
 type Config struct {
@@ -97,6 +76,12 @@ type Config struct {
 	OAuth      OAuthCfg      `json:"oauth"`
 	Gatekeeper GatekeeperCfg `json:"gatekeeper"`
 	Audit      AuditCfg      `json:"audit"`
+	// v3.8.0 职业系统扩展段（顶层键：persona）
+	V38Config
+	V4101Config
+	// v4.15.1 unified install path + persistent data
+	InstallRoot string `json:"installRoot"` // empty = platform default
+	DataRoot    string `json:"dataRoot"`    // empty = platform default
 }
 
 // FirewallCfg 防火墙策略档位（passive | dynamic-ban | os-link，默认 passive）
@@ -141,6 +126,7 @@ type CloudCfg struct {
 // ProviderOverride v3.2.0 单个 provider 的运行时覆盖（config.json providers 段）
 type ProviderOverride struct {
 	APIKey  string   `json:"apiKey"`
+	APIKeys []string `json:"apiKeys"` // v4.10.1: 多密钥支持（sticky session 区分候选）
 	BaseURL string   `json:"baseUrl"`
 	Enabled *bool    `json:"enabled"`
 	Models  []string `json:"models"`
@@ -243,23 +229,6 @@ func loadConfig() {
 	// 默认值兜底
 	if cfg.Security.APIKey == "" {
 		cfg.Security.APIKey = apiKeyDefault
-	}
-	// v3.7.1 P1-7：环境变量可覆盖敏感 Key（防止明文落盘）
-	if v := os.Getenv("TARS_API_KEY"); v != "" {
-		cfg.Security.APIKey = v
-	}
-	if v := os.Getenv("TARS_OPENAI_KEY"); v != "" {
-		cfg.Cloud.OpenAI.APIKey = v
-	}
-	if v := os.Getenv("TARS_DEEPSEEK_KEY"); v != "" {
-		cfg.Cloud.DeepSeek.APIKey = v
-	}
-	if v := os.Getenv("TARS_SEARCH_KEY"); v != "" {
-		cfg.Search.APIKey = v
-	}
-	// v3.7.1：config 解析失败告警（中危修复）
-	if !parsed && !freshInstall {
-		logMsg("[SECURITY] config.json 解析失败，已回退到默认配置。请检查文件格式。")
 	}
 	if cfg.Security.Mode == "" {
 		cfg.Security.Mode = "normal"
@@ -526,7 +495,9 @@ func setJSONPath(root map[string]interface{}, path string, value interface{}) {
 // 采用轮询 + 文件内容哈希的方式监听 config.json 变化（不引入外部依赖），
 // 检测到变化且文件可完整解析时自动调用 loadConfig 重载，无需重启服务。
 
-var lastCfgHash string // 上次加载时 config.json 的 SHA-256 指纹
+var lastCfgHash string   // 上次加载时 config.json 的 SHA-256 指纹
+var prevCfgJSON []byte   // 热重载前一份合法配置的 JSON 快照（供回滚）
+var prevCfgHash string   // 回滚基线的指纹
 
 // configHash 计算配置文件的 SHA-256 指纹；读取失败返回空串
 func configHash() string {
@@ -555,6 +526,76 @@ func configParsable() bool {
 	return json.Unmarshal(data, &probe) == nil
 }
 
+// configDiff 生成两段 JSON 的字段级差异摘要（扁平键值对）
+func configDiff(oldJSON, newJSON []byte) string {
+	var oldM, newM map[string]interface{}
+	json.Unmarshal(oldJSON, &oldM)
+	json.Unmarshal(newJSON, &newM)
+	var changes []string
+	flattenDiff("", oldM, newM, &changes)
+	if len(changes) == 0 {
+		return "无字段级差异"
+	}
+	if len(changes) > 20 {
+		changes = append(changes[:20], "...")
+	}
+	return strings.Join(changes, "; ")
+}
+func flattenDiff(prefix string, oldM, newM map[string]interface{}, out *[]string) {
+	allKeys := map[string]bool{}
+	for k := range oldM {
+		allKeys[k] = true
+	}
+	for k := range newM {
+		allKeys[k] = true
+	}
+	for k := range allKeys {
+		path := k
+		if prefix != "" {
+			path = prefix + "." + k
+		}
+		ov, oe := oldM[k]
+		nv, ne := newM[k]
+		if !oe && ne {
+			*out = append(*out, path+"=新增")
+			continue
+		}
+		if oe && !ne {
+			*out = append(*out, path+"=删除")
+			continue
+		}
+		om, oIsMap := ov.(map[string]interface{})
+		nm, nIsMap := nv.(map[string]interface{})
+		if oIsMap && nIsMap {
+			flattenDiff(path, om, nm, out)
+		} else {
+			oldS := fmt.Sprintf("%v", ov)
+			newS := fmt.Sprintf("%v", nv)
+			if oldS != newS {
+				*out = append(*out, path+"="+newS)
+			}
+		}
+	}
+}
+
+// revertConfig 回滚到上一份合法配置
+func revertConfig() error {
+	if len(prevCfgJSON) == 0 {
+		return fmt.Errorf("无可用回滚快照")
+	}
+	var c Config
+	if err := json.Unmarshal(prevCfgJSON, &c); err != nil {
+		return fmt.Errorf("回滚配置解析失败: %w", err)
+	}
+	cfgMu.Lock()
+	cfg = c
+	cfgMu.Unlock()
+	// 回滚后同步持久化并触发对齐
+	saveConfig()
+	loadConfig()
+	return nil
+}
+
 // watchConfig 每 2 秒轮询一次配置文件指纹，变化时自动重载并记录日志。
 // 说明：loadConfig 解析成功后会 saveConfig 回写文件（规范化格式），
 // 重载完成后以回写后的指纹为新基线，避免自我触发循环重载。
@@ -569,9 +610,20 @@ func watchConfig() {
 		if !configParsable() {
 			continue // 文件写入未完成（半写状态），等下一轮再试
 		}
+		// 保存当前合法配置作为回滚基线
+		cfgMu.RLock()
+		oldJSON, _ := json.Marshal(cfg)
+		cfgMu.RUnlock()
 		logMsg("[CONFIG] 检测到配置文件变化，自动重载...")
-		auditLog("CONFIG_HOT_RELOAD", "system", "外部 config.json 变更已热重载（含模块/防火墙对齐）") // v3.0.0 B 线：热重载审计
 		loadConfig()
+		// 生成差异并审计
+		cfgMu.RLock()
+		newJSON, _ := json.Marshal(cfg)
+		cfgMu.RUnlock()
+		diff := configDiff(oldJSON, newJSON)
+		prevCfgJSON = oldJSON
+		prevCfgHash = lastCfgHash
+		auditLog("CONFIG_CHANGE", "system", "外部 config.json 变更已热重载；差异: "+diff)
 		// v3.0.1 Tier 1：配置热重载触发缓存全量失效
 		//（[TIER1_CACHE_DEGRADE] 条件 3：热重载 / 安全级别变更 / 开关切换 / POLICY_VIOLATION）
 		tier1CacheInvalidate("config_hot_reload")

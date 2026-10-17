@@ -1,3 +1,91 @@
+# TarsSecureGuard v4.7.0 · 官方三站 + 多语言文档 + 安装器加固 —— GitHub Pages / i18n / SHA256
+
+> 对应项：GitHub Pages 介绍站与实时性能监控站、下载页、6 语言 README、红蓝对抗报告、安装器防篡改与桌面快捷方式。
+
+## 一、GitHub Pages 官方三站（site/）
+
+- **介绍站**（index.html）：极光动效 Hero、核心数据带（32 模型源 / 13 客户端 / 243+ 测试 / 7 平台）、9 大特性卡片、**竞品对比表**（vs LiteLLM / One API / OpenRouter × 7 项能力）、性能速览、FAQ、多语言页脚；附「小白推荐」手绘风印章（盖章动画）
+- **下载站**（download.html）：自动识别 OS/CPU，直连 GitHub Releases API 一键下载对应资产；API 不可达时优雅降级到 Releases 页；中英双语；SHA256 校验指引
+- **性能监控站**（perf.html + perf-data.json）：11 项基准指标（计算/网络/存储三维度）跨版本趋势图 + 可筛选指标表 + 里程碑时间线 + 测量方法学卡片；60 秒自动刷新（缓存穿透）；每次发版由 `scripts/perf-site-update.sh` 追加真实测量数据点
+- sitemap.xml / robots.txt 同步更新三站 URL
+
+## 二、多语言文档（i18n 分支并入）
+
+- README 新增 6 语言版本：English / Русский / العربية / Français / 日本語 / 한국어（顶部导航互链）
+- 红蓝对抗渗透测试报告 7 语言版（docs/i18n/red-blue-battle-2026-10-11/）
+
+## 三、安装器加固（install.sh / install.ps1）
+
+- **修复资产命名**：统一使用 `tsg-vX.Y.Z-<os>-<arch>` 真实资产名（latest 自动解析真实 tag，API + 302 跳转双兜底）
+- **SHA256 校验**：下载后对照 SHA256SUMS.txt 校验，不匹配即中止安装（TSG_NO_VERIFY / -NoVerify 可关）
+- **桌面快捷方式**：Linux 建 .desktop（应用菜单+桌面）、macOS 建 .command、Windows 建 .lnk —— 双击即启动网关面板
+
+## 四、基准死锁修复（crownext/bench/harness.go）
+
+- 修复 B8 遗留缺陷：Harness.Run 嵌套 testing.Benchmark 触发全局 benchmarkLock 死锁（真实 `go test -bench` 下聚合基准挂死）；改为手动计时 + runtime.MemStats 统计，单测与基准均可正常运行
+
+## 五、版本与配套
+
+- 版本号 4.6.6 → 4.7.0（main / security engine / Tauri 壳 / 版本锁测试同步）
+- Release 资产：7 平台二进制 + android-arm64 + SHA256SUMS.txt
+- 新增 `scripts/perf-site-update.sh` 发版数据点采集脚本
+
+---
+
+# TarsSecureGuard v3.8.0 · 职业系统 —— 人性化 / 少点击 / 全年龄段 / 自动配置
+
+> 对应项：人性化交互升级、内置职业、调用链优化、模型库自动匹配。
+
+## 一、内置职业系统（5 种角色）
+
+- **学生**：稳定性优先、低功耗模式、最大并发 2、缓存优先、教育类快捷标签（作业/复习/查资料/笔记）
+- **文字创作者**：文字生成链路优化、悬浮框、质量优先、最大并发 4、快捷标签（写作/润色/大纲/翻译/灵感）
+- **开发者**：工具调用优先、悬浮框、函数调用能力必需、快捷标签（代码/调试/API/文档/Review）
+- **研究者**：长上下文优先、深度搜索、多源聚合、快捷标签（文献/综述/对比/引用/分析）
+- **通用**：均衡配置、适合日常对话与通用任务
+
+## 二、职业自动配置
+
+- 选择职业后自动应用模块开关（学生自动关闭 localModels/modelDownload/autoDiscovery 等重资源模块）
+- 自动选择推荐 MCP 工具（学生默认 filesystem + fetch）
+- 自动修改 AI 全局记忆：写入共享记忆（global 命名空间 `persona_current` / `persona_memory_prompt`）+ 共享信息（preference 类型知识条目）
+
+## 三、调用链优化
+
+- **文字创作者**：降低 temperature 提升确定性、增加 max_tokens、启用悬浮框、激进重试策略、超时增益 10s
+- **学生**：保守参数（temperature 0.3）、稳定性优先、温和重试、超时增益 5s、并发信号量限制
+- **开发者**：工具链优先、激进重试、超时增益 8s
+- **研究者**：深度链路、温和重试、超时增益 15s
+
+## 四、模型库自动匹配
+
+- 扫描已配置模型（云端 provider / 自定义 / 本地）生成功能矩阵
+- 按当前职业需求标注：匹配必需能力 / 缺失项 / 上下文窗口是否满足
+- 自动排序：suitable 优先 → matchedRequired 多优先
+- 预热接口：一键预热当前职业推荐模型，落审计 MODEL_PREHEAT
+
+## 五、UX 改造
+
+- **减少点击**：职业页卡片式选择，一键切换即自动配置全部
+- **快捷按钮**：每个职业自带快捷标签栏，点击直达 AI 对话并预填提示词
+- **悬浮框**：文字创作者/开发者启用右下角悬浮助手，显示当前角色与快捷入口
+- **全年龄段适配**：学生年龄范围 12-25、通用 all、其他 18-60/22-70
+
+## 六、API
+
+- `GET /api/admin/v38/personas` — 职业列表 + 当前职业
+- `POST /api/admin/v38/persona/select` — 选择职业（自动应用配置 + 写记忆）
+- `GET /api/admin/v38/persona/current` — 当前职业详情
+- `GET /api/admin/v38/model-matrix` — 模型功能矩阵（按当前职业 enriched）
+- `POST /api/admin/v38/model-preheat` — 预热推荐模型
+- `GET /api/admin/v38/chainopt/status` — 当前调用链优化状态
+
+## 七、质量
+
+- 测试：v380_test.go 6 组（版本锁 3.8.0 / 职业列表 / 切换与 current / 模型矩阵 / 调用链状态 / 模块注册）；全量 -race 绿
+
+---
+
 # TarsSecureGuard v3.6.0 · 统一安装包 + 官方引流站 —— 11 项纵深路线图收官
 
 > 对应项 8（极致小白化部署）/ 项 9（官方引流站），功能明细见 `docs/v3.6.0-installer-site.md`。

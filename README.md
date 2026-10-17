@@ -1,3 +1,7 @@
+🌐 **多语言版本**：[🇨🇳 简体中文](README.md) · [🇺🇸 English](README.en.md) · [🇷🇺 Русский](README.ru.md) · [🇸🇦 العربية](README.ar.md) · [🇫🇷 Français](README.fr.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md)
+
+---
+
 <div align="center">
 
 # 🛡️ TarsSecureGuard
@@ -12,16 +16,20 @@
 一个零依赖、单文件、纯静态的<b>本地 AI 网关</b>：左边把 13 种 AI 软件客户端接进来（Claude Desktop / Cursor / Cline / Continue / Windsurf / Codex CLI / Warp / Cody / JetBrains / Tabnine / Zed / Roo Code / VS Code Copilot），<br/>
 右边把 <b>24 家云端模型商 + 8 种本地推理运行时</b>连出去（OpenAI / Anthropic / Gemini / DeepSeek / 通义 / 文心 / GLM / 豆包 / Kimi / MiniMax / 混元 / 星火 / Groq / Ollama / LM Studio / vLLM …），<br/>
 中间强制开启 WAF、语义防护、分层限流、IP 信誉、RBAC、审计与 PII 脱敏——<b>连得多，更要守得住</b>。
+
+> 📊 <b>和其他 AI 网关对比？</b> 见 [COMPARISON.md](COMPARISON.md) —— TSG vs Bifrost / LiteLLM / Portkey / promptward / ClawVault。
+
+> 🔐 <b>本地 AI 安全网关（LLM 代理）</b>：提示词注入防护、越狱检测、SSRF 五红线、PII 脱敏、hash-chain 审计。当企业 AI 网关还在围墙外，TSG 是你本机先跑起来的安全壳。
 </p>
 
 <p>
-<b>不只是网关，还是配置器（v3.7.0 Extender）</b>：别的 AI 工具环境配置繁琐？TSG 反过来替你配好它们——内置探测器扫出本机已装的 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>，
+<b>不只是网关，还是配置器（v4.7.7 Extender）</b>：别的 AI 工具环境配置繁琐？TSG 反过来替你配好它们——内置探测器扫出本机已装的 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>，
 一键生成把该工具指向 TSG 端点的接入配置片段（密钥可选内嵌并全程审计），复制粘贴即完成。所有目标均为 MIT / Apache 生态，<b>零 GPL 污染、零外部依赖</b>。
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.7.0-success">
-<img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
+<img alt="Version" src="https://img.shields.io/badge/version-4.7.7-success">
+<img alt="Go" src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
 <img alt="Platforms" src="https://img.shields.io/badge/platform-6%20targets-blueviolet">

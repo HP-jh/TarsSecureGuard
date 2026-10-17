@@ -1,5 +1,4 @@
 package main
-
 import (
 	"context"
 	"crypto/subtle"
@@ -18,11 +17,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/HP-jh/TarsSecureGuard/kingdom"
+	"github.com/HP-jh/TarsSecureGuard/pkg/data"
+	pkgkb "github.com/HP-jh/TarsSecureGuard/pkg/kb"
+	"github.com/HP-jh/TarsSecureGuard/pkg/interop"
+	"github.com/HP-jh/TarsSecureGuard/pkg/mcp"
+	"github.com/HP-jh/TarsSecureGuard/pkg/obsidian"
+	"github.com/HP-jh/TarsSecureGuard/pkg/voicecorrection"
 )
-
 //go:embed frontend/index.html
 var frontendFS embed.FS
-
 // ===================== 常量 =====================
 const (
 	port          = 18889
@@ -30,7 +34,6 @@ const (
 	lmStudioBase  = "http://127.0.0.1:1234"
 	ollamaBase    = "http://127.0.0.1:11434"
 	apiKeyDefault = "tars-gateway-key"
-
 	// 安全边界常量
 	maxBodyBytes          = 5 << 20  // 单个 API 请求体上限 5MB
 	maxFetchBytes         = 2 << 20  // 网页抓取/搜索单次读取上限 2MB
@@ -41,27 +44,16 @@ const (
 	wafLogLimit           = 500
 	memoryLimit           = 1024
 )
-
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "3.7.1"
-
+var version = "4.16.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
 	llamaDir   string
 	configPath string
 )
-
-// v3.7.1：TLS / 监听地址参数
-var (
-	listenAddr string
-	tlsCert    string
-	tlsKey     string
-)
-
 // 授权读写根（文件工具安全边界，由 resolvePaths 依据配置与默认布局填充）
 var allowedRoots []string
-
 // ===================== 全局状态 =====================
 var (
 	mu           sync.Mutex
@@ -81,20 +73,28 @@ var (
 	cfgMu        sync.RWMutex
 	memory       = map[string]string{}
 	memoryMu     sync.Mutex
-
 	// 本地模型启动互斥（防止并发重复拉起 llama-server）
 	starting bool
-
 	// WAF 速率限制状态
 	rlMu   sync.Mutex
 	rlHits = map[string]*rlEntry{}
-
 	// 可复用的 HTTP 客户端（避免每次请求新建连接）
+	// v4.6.3 SSRF 统一防护：出站按「目标是否用户/模型可控」分两池——
+	//   fetchClient / downloadClient：目标 URL 来自工具参数 / API 请求体，
+	//     走 ssrfGuardedClient（连接时实际 IP 校验 + 禁自动重定向）；
+	//   httpClientShort / httpClientLong：固定端点（127.0.0.1 运行时、云端
+	//     provider baseURL 由运维配置决定），保留共享连接池，但 Transport
+	//     接入 ssrfSafeDialContext(true,true)——仅放行回环+私网，链路本地/
+	//     云元数据/组播/未指定仍拒绝。
 	httpClientShort = &http.Client{Timeout: 30 * time.Second}
 	httpClientLong  = &http.Client{Timeout: 300 * time.Second}
-	downloadClient  = &http.Client{} // 模型下载专用：超时由请求 context 控制
+	fetchClient     = ssrfGuardedClient(30 * time.Second) // 网页抓取 / OpenAPI 文档 / 搜索源
+	downloadClient  = ssrfGuardedClient(0)                // 模型下载专用：超时由请求 context 控制
+	// v4.9.0 kingdom：动物分类学架构注册中心
+	kingdomRegistry *kingdom.Registry
+	// v4.16.0 MCP Marketplace
+	mcpMarketplace *mcp.Marketplace
 )
-
 // ===================== HTTP 主入口 =====================
 func main() {
 	// v3.0.5：self-diagnostic 子命令（tsg doctor）——不启动网关，检查后退出
@@ -103,6 +103,9 @@ func main() {
 		case "doctor":
 			runDoctor(os.Args[2:])
 			return
+		case "update":
+			runUpdate(os.Args[2:])
+			return
 		case "version", "-v", "--version":
 			fmt.Println("TarsSecureGuard v" + version)
 			return
@@ -110,29 +113,8 @@ func main() {
 	}
 	// v3.2.1：桌面客户端模式标记——由 Tauri 壳以 sidecar 方式拉起时传 --no-browser，抑制自动打开浏览器
 	noBrowser = scanNoBrowserFlag(os.Args)
-	// v3.7.1：命令行参数解析（TLS / 监听地址）
-	for i := 1; i < len(os.Args); i++ {
-		switch os.Args[i] {
-		case "--listen":
-			if i+1 < len(os.Args) {
-				listenAddr = os.Args[i+1]
-				i++
-			}
-		case "--tls-cert":
-			if i+1 < len(os.Args) {
-				tlsCert = os.Args[i+1]
-				i++
-			}
-		case "--tls-key":
-			if i+1 < len(os.Args) {
-				tlsKey = os.Args[i+1]
-				i++
-			}
-		}
-	}
-	if listenAddr == "" {
-		listenAddr = "127.0.0.1"
-	}
+	// v4.6.0：客户端下载器主线——优先调起本地 Tauri 客户端（--launch-client）
+	launchClient = scanLaunchClientFlag(os.Args)
 	// v3.0.0 D 线：MCP stdio 模式（--mcp-stdio）—— 任何本地 agent 的安全带
 	if mcpIsStdioFlag(os.Args[1:]) {
 		initFileLogging()
@@ -149,6 +131,19 @@ func main() {
 	initFileLogging()
 	resolveConfigPath()
 	loadConfig()
+	// v4.15.1 unified install path + persistent data
+	resolveInstallDataRoots()
+	// v4.9.0 kingdom：初始化动物分类学注册中心并迁移现有配置
+	kingdomRegistry = kingdom.NewRegistry()
+	_ = kingdomRegistry.MigrateFromV4(cfg.Modules, nil, nil, nil, nil, nil, nil)
+	logMsg(fmt.Sprintf("[KINGDOM] Taxonomy loaded: %d taxons", len(kingdomRegistry.Taxonomy().Flatten())))
+	// v4.16.0 MCP Marketplace
+	mcpMarketplace = mcp.NewMarketplace(installRoot, dataRoot)
+	if err := mcpMarketplace.ScanOnBoot(); err != nil {
+		logMsg(fmt.Sprintf("[MCP] boot scan error: %v", err))
+	} else {
+		logMsg("[MCP] Marketplace initialized")
+	}
 	// v3.0.1 Tier 1：进程重启 = 缓存全量失效（HMAC 密钥仅存内存，重启后旧缓存必校验失败；
 	// 启动即删除，把「正常重启」与「运行中篡改」区分开，后者才落 AUDIT_TIER1_CACHE_TAMPER）
 	tier1StartupClear()
@@ -181,19 +176,40 @@ func main() {
 	loadSharedInfo()   // v3.2.2 共享信息恢复
 	firewallReconcile() // 防火墙策略档位（passive/dynamic-ban/os-link，默认 passive）
 	quotaLoad()         // v3.0.4 [MT_QUOTA]：恢复上一次运行的日配额用量（data/quota-usage.json）
-
+	// v3.9.0 初始化：知识库 + 动态防护 + 稳定性增强
+	if err := initKnowledgeBase(filepath.Join(filepath.Dir(configPath), "knowledge")); err != nil {
+		logMsg(fmt.Sprintf("知识库初始化失败: %v", err))
+	}
+	initDynadef(DynadefConfig{
+		Enabled: true,
+		ShadowRules: []ShadowRule{
+			{ID: "shadow-sqli", Name: "影子-SQL注入探测", Pattern: "UNION SELECT", Enabled: true},
+			{ID: "shadow-xss", Name: "影子-XSS探测", Pattern: "<script", Enabled: true},
+		},
+		HoneyTokens: HoneyTokenCfg{Enabled: true, HTMLComment: "ht", CSSHidden: "ht-hidden", CookieName: "__ht_session"},
+		DecodePerturb: DecodePerturbCfg{Enabled: true, MaxRounds: 3, Techniques: []string{"url", "base64", "html"}, TriggerScore: 0.5},
+		HoneypotRoutes: []string{"/admin.php", "/wp-login.php", "/.env", "/config.json"},
+		HoneypotDelay:  2 * time.Second,
+	})
+	initStability()
+	syslogInit()
+	initSelfProtect()
+	initAVCompat()
+	syslogWrapStartup()
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
-
 	// v2.0.0 模块化路由：路由启动时注册一次，经 moduleRoute 包装——
 	// 模块关闭时该路由返回 503 + 开启提示（2 秒热重载生效），无需重启服务。
 	// security-core 的中间件链（WAF/鉴权/RBAC/审计）硬编码在 gatewayMiddleware，不在此列。
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleFrontend)
 	mux.HandleFunc("/health", handleHealth) // 健康检查（免鉴权）
+	mux.HandleFunc("/ws/events", handleWSEvents) // v4.11.0 SSE 实时事件流
 	mux.HandleFunc("/api/status", handleStatus)
 	mux.HandleFunc("/api/stats", moduleRoute("stats", handleStats))                // 统计面板
 	mux.HandleFunc("/api/stats/history", moduleRoute("stats", handleStatsHistory)) // 24 小时请求量
 	mux.HandleFunc("/api/chat/completions", moduleRoute("chatApi", handleChat))
+	mux.HandleFunc("/api/chat/test", moduleRoute("chatApi", handleChatTest))
+	mux.HandleFunc("/api/chat/test/history", moduleRoute("chatApi", handleChatTestHistory))
 	mux.HandleFunc("/api/urgent/chat", moduleRoute("urgentChat", handleUrgent))
 	mux.HandleFunc("/api/admin/models", moduleRoute("localModels", handleModels))
 	mux.HandleFunc("/api/admin/models/start", moduleRoute("localModels", handleModelStart))
@@ -205,8 +221,15 @@ func main() {
 	mux.HandleFunc("/api/admin/model/download/status", moduleRoute("modelDownload", handleModelDownloadStatus))
 	mux.HandleFunc("/api/admin/models/open", moduleRoute("localModels", handleOpenModels))
 	mux.HandleFunc("/api/admin/fallback/status", handleFallback)
-	mux.HandleFunc("/api/admin/security/status", handleSecurity)
+	mux.HandleFunc("/api/admin/security/status", handleSecurity360Summary)
 	mux.HandleFunc("/api/admin/security/waf-logs", handleWAFLogs)
+	mux.HandleFunc("/api/admin/security/scan", handleSecurity360Scan)
+	mux.HandleFunc("/api/admin/security/threats", handleSecurity360Threats)
+	mux.HandleFunc("/api/admin/security/resolve", handleSecurity360ResolveThreat)
+	mux.HandleFunc("/api/admin/security/quarantine", handleSecurity360Quarantine)
+	mux.HandleFunc("/api/admin/security/quarantine/restore", handleSecurity360QuarantineRestore)
+	mux.HandleFunc("/api/admin/security/mcp/servers", handleSecurity360MCPServers)
+	mux.HandleFunc("/api/admin/security/mcp/validate", handleSecurity360MCPValidate)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
 	mux.HandleFunc("/api/admin/audit-logs", handleAuditLogs)
 	// v3.0.4 多租户 / 零信任面板：租户状态（含配额用量、按组 audit 视图）、白名单注册表
@@ -214,7 +237,7 @@ func main() {
 	mux.HandleFunc("/api/admin/whitelist/status", handleWhitelistStatus)
 	mux.HandleFunc("/api/admin/audit/group-summary", handleAuditGroupSummary)
 	mux.HandleFunc("/api/admin/config", handleConfig)
-	mux.HandleFunc("/api/admin/key-rotate", moduleRoute("security", handleKeyRotate)) // v3.7.1 P2-10
+	mux.HandleFunc("/api/admin/config/revert", handleConfigRevert) // v4.6.2：配置回滚
 	mux.HandleFunc("/api/admin/modules", handleModules)                                                        // v2.0.0 模块管理
 	mux.HandleFunc("/api/admin/hardware/assessment", moduleRoute("hardwareAdvisor", handleHardwareAssessment)) // v2.0.0 硬件评估
 	// v3.0.0 B 线：IP 信誉查询与 admin 解封（裁定 6）
@@ -228,21 +251,52 @@ func main() {
 	mux.HandleFunc("/api/admin/iprep/unban", handleIPRepUnban)
 	// v3.0.0 A 线：资源守护器面板数据
 	mux.HandleFunc("/api/admin/guard/status", handleGuardStatus)
+	// v3.9.0 知识库 API
+	mux.HandleFunc("/api/kb/list", handleKBList)
+	mux.HandleFunc("/api/kb/get", handleKBGet)
+	mux.HandleFunc("/api/kb/setkey", handleKBSetKey)
+	// v4.15.0 知识库 v2（pkg/kb 倒排索引 + chunk）
+	mux.HandleFunc("/api/kb/ingest", pkgkb.HandleIngest)
+	mux.HandleFunc("/api/kb/query", pkgkb.HandleQuery)
+	mux.HandleFunc("/api/kb/docs", pkgkb.HandleListDocs)
+	mux.HandleFunc("/api/kb/delete", pkgkb.HandleDeleteDoc)
+	mux.HandleFunc("/api/kb/stats", pkgkb.HandleStats)
+	// v4.15.0 Obsidian Vault 同步
+	mux.HandleFunc("/api/obsidian/sync", obsidian.HandleSync)
+	mux.HandleFunc("/api/obsidian/parse", obsidian.HandleParseNote)
+	// v4.15.0 语音输入纠错
+	mux.HandleFunc("/api/voicecorrection/correct", voicecorrection.HandleCorrect)
+	// v4.15.0 TSG ↔ TarsEnterprise 互操作
+	mux.HandleFunc("/api/v1/interop/receive-command", interop.HandleReceiveCommand)
+	mux.HandleFunc("/api/v1/interop/events", interop.HandleEvents)
+	// v4.15.0 auto-update admin endpoints
+	mux.HandleFunc("/api/admin/update/check", handleUpdateCheck)
+	mux.HandleFunc("/api/admin/update/apply", handleUpdateApply)
+	mux.HandleFunc("/api/admin/update/rollback", handleUpdateRollback)
+	mux.HandleFunc("/api/admin/update/status", handleUpdateStatus)
+	// v4.16.0 MCP Marketplace endpoints
+	mux.HandleFunc("/api/v1/mcp/marketplace", mcpMarketplace.HandleList)         // GET list
+	mux.HandleFunc("/api/v1/mcp/marketplace/check-all", mcpMarketplace.HandleCheckAll) // POST check-all
+	mux.HandleFunc("/api/v1/mcp/marketplace/", mcpMarketplace.HandleDispatch)    // /:name and /:name/:action
 	mux.HandleFunc("/api/search", moduleRoute("webSearch", handleSearch))
 	mux.HandleFunc("/api/feishu/", handleFeishu)
 	mux.HandleFunc("/mcp", moduleRoute("mcpExternal", handleMCP))
 	mux.HandleFunc("/api/admin/v32/auto-discovery/scan", moduleRoute("autoDiscovery", handleDiscoveryScan))
 	mux.HandleFunc("/api/admin/v32/auto-discovery/results", moduleRoute("autoDiscovery", handleDiscoveryResults))
 	mux.HandleFunc("/api/agents/", moduleRoute("chatApi", handleAgent))
+	mux.HandleFunc("/api/agents", moduleRoute("chatApi", handleAgentList))
+	mux.HandleFunc("/api/chat/team", moduleRoute("chatApi", handleAgentTeam))
 	mux.HandleFunc("/api/tools/", moduleRoute("builtinTools", handleToolCall))
 	mux.HandleFunc("/v1/", moduleRoute("chatApi", handleV1))
 	mux.HandleFunc("/v1", moduleRoute("chatApi", handleV1Root))
 	// v3.0.5 可观测性端点：
 	//   /metrics —— Prometheus 拉取（经 gatewayMiddleware 鉴权；RBAC 归 app 类全角色可读）
 	//   /api/admin/traces —— 最近 trace 与 span 时间线（admin.read 类，admin/审计角色可读）
+	// v4.10.1 Surpass: 多协议透传（Anthropic / Gemini）
+	mux.HandleFunc("/v1/messages", moduleRoute("chatApi", handleV1AnthropicMessages))
+	mux.HandleFunc("/v1beta/models/", moduleRoute("chatApi", handleV1BetaGeminiGenerate))
 	mux.HandleFunc("/metrics", handleMetrics)
 	mux.HandleFunc("/api/admin/traces", handleTraces)
-
 	// v3.2.0 连接性管理端点（admin.read 类，RBAC 沿用 /api/admin 前缀矩阵）：
 	//   /api/admin/v32/providers         —— provider 注册表（keySet 布尔，永不回显密钥）
 	//   /api/admin/v32/providers/probe   —— 主动健康探测（POST，admin.write 类）
@@ -252,7 +306,6 @@ func main() {
 	mux.HandleFunc("/api/admin/v32/providers/probe", moduleRoute("cloudModels", handleV32ProvidersProbe))
 	mux.HandleFunc("/api/admin/v32/pool", moduleRoute("stats", handleV32Pool))
 	mux.HandleFunc("/api/admin/v32/cache", moduleRoute("stats", handleV32Cache))
-
 	// v3.2.2 治理层：共享记忆 / 共享信息 / 上下文组装（contextGov 模块，
 	// 业务面端点——租户用户经 API Key / OAuth 会话均可访问，隔离在 handler 内）
 	mux.HandleFunc("/api/context/memory", moduleRoute("contextGov", handleSharedMemoryREST))
@@ -271,6 +324,20 @@ func main() {
 	mux.HandleFunc("/api/admin/v35/ui-mode", moduleRoute("adaptive", handleV35UIMode))
 	// v3.7.0 扩展器 / 一键配置器：探测本机 AI 工具 + 生成接入片段
 	mux.HandleFunc("/api/admin/v37/extender", moduleRoute("extender", handleV37Extender))
+	// v3.8.0 职业系统：内置职业 + 自动模块/连接器/工具 + 全局记忆 + 调用链优化 + 模型匹配
+	mux.HandleFunc("/api/admin/v38/personas", moduleRoute("persona", handleV38Personas))
+	mux.HandleFunc("/api/admin/v38/persona/select", moduleRoute("persona", handleV38PersonaSelect))
+	mux.HandleFunc("/api/admin/v38/persona/current", moduleRoute("persona", handleV38PersonaCurrent))
+	mux.HandleFunc("/api/admin/v38/model-matrix", moduleRoute("persona", handleV38ModelMatrix))
+	mux.HandleFunc("/api/admin/v38/model-preheat", moduleRoute("persona", handleV38ModelPreheat))
+	mux.HandleFunc("/api/admin/v38/chainopt/status", moduleRoute("persona", handleV38ChainOptStatus))
+	// v4.9.0 六国语言 i18n 全栈引擎
+	mux.HandleFunc("/api/i18n/bundle", handleI18nBundle)
+	mux.HandleFunc("/api/i18n/t", handleI18nTranslate)
+	mux.HandleFunc("/api/i18n/languages", handleI18nLanguages)
+	mux.HandleFunc("/api/i18n/dashboard", handleI18nDashboard)
+	mux.HandleFunc("/api/admin/i18n/reload", handleAdminI18nReload)
+	mux.HandleFunc("/api/i18n/stream", handleI18nSSE)
 	// v3.2.2 治理层：审计 v2（verify 需全局审计视野；export 租户行级过滤）
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)
@@ -281,24 +348,30 @@ func main() {
 	mux.HandleFunc("/oauth/callback", handleOAuthCallback)
 	mux.HandleFunc("/oauth/logout", handleOAuthLogout)
 	mux.HandleFunc("/api/admin/oauth/status", handleOAuthStatus)
+	// v4.6.0：客户端下载器——安装器元信息查询（供前端"打开本地客户端"按钮决策）
+	mux.HandleFunc("/api/admin/installer-info", handleInstallerInfo)
+	// v4.7.3 B15：客户端稳定性——防自关保护 / 安全软件兼容 / 系统日志
+	mux.HandleFunc("/api/admin/selfprotect/status", handleSelfProtectStatus)
+	mux.HandleFunc("/api/admin/av-compat/status", handleAVCompatStatus)
+	mux.HandleFunc("/api/admin/shutdown", handleShutdown)
+	// v4.9.0 kingdom：
 
+	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
-	// v3.7.1 P0-1：启动时密钥策略强制校验
-	enforceBootstrapKeyPolicy()
-
 	server := &http.Server{
-		Addr:           fmt.Sprintf("%s:%d", listenAddr, port),
-		Handler:        obsMiddleware(gatewayMiddleware(mux)),
-		ReadTimeout:    60 * time.Second,
-		WriteTimeout:   600 * time.Second,
-		IdleTimeout:    120 * time.Second,
-		MaxHeaderBytes: 1 << 20,
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
+		Handler: obsMiddleware(gatewayMiddleware(mux)),
+		// v4.7.2：ReadHeaderTimeout 限制 header 读取时间（防 Slowloris 慢连接
+		// 拖死 listener；与 ReadTimeout/WriteTimeout 配合形成三层超时）
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      600 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 	registerServer(server) // v3.0.0 A 线：L3 drain 时关闭 listener 用
-
-	logMsg(fmt.Sprintf("Listening on http://%s:%d", listenAddr, port))
-
+	logMsg(fmt.Sprintf("Listening on http://127.0.0.1:%d", port))
 	// v2.0.0 模块后台工作者：随模块开关启停（context 取消即停，热重载切换无泄漏）
 	moduleWorkerFns["autoStartModel"] = func(ctx context.Context) {
 		select {
@@ -335,46 +408,35 @@ func main() {
 		providerHealthWorker(ctx.Done())
 	}
 	reconcileModuleWorkers()
-
+	// v4.15.0: auto-update startup check (non-blocking) + 24h daemon
+	startAutoUpdateCheck()
+	startUpdateDaemon()
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
 	go watchConfig()
-
-	// 打开浏览器（v3.2.1：--no-browser 桌面客户端模式下抑制——窗口由 Tauri 壳承载，不再依赖浏览器）
-	if !noBrowser {
+	// v4.6.0：智能打开——优先本地客户端 → 回退浏览器（--no-browser 桌面客户端模式下仍抑制）
+	if !noBrowser && !isDesktopClientMode() {
 		go func() {
 			time.Sleep(1 * time.Second)
-			openBrowser(fmt.Sprintf("http://127.0.0.1:%d", port))
+			openBrowserOrClient(fmt.Sprintf("http://127.0.0.1:%d", port))
 		}()
 	}
-
-	log.Printf("TarsSecureGuard v%s running at http://%s:%d", version, listenAddr, port)
-
-	if tlsCert != "" && tlsKey != "" {
-		logMsg(fmt.Sprintf("[SECURITY] TLS 已启用（cert=%s key=%s）", tlsCert, tlsKey))
-		if err := server.ListenAndServeTLS(tlsCert, tlsKey); err != nil {
-			log.Fatalf("Server failed: %v", err)
-		}
-	} else {
-		if err := server.ListenAndServe(); err != nil {
-			log.Fatalf("Server failed: %v", err)
-		}
+	log.Printf("TarsSecureGuard v%s running at http://127.0.0.1:%d", version, port)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
 }
-
-// enforceBootstrapKeyPolicy v3.7.1 P0-1：启动时检测默认密钥 + 绑定地址策略
-func enforceBootstrapKeyPolicy() {
-	cfgMu.RLock()
-	key := cfg.Security.APIKey
-	cfgMu.RUnlock()
-	if key == apiKeyDefault {
-		if listenAddr != "127.0.0.1" && listenAddr != "localhost" && listenAddr != "::1" {
-			panic(fmt.Sprintf("[SECURITY] 默认密钥（%s）禁止绑定非 localhost 地址（当前 %s）。请轮换密钥或显式绑定 127.0.0.1", apiKeyDefault, listenAddr))
-		}
-		logMsg("[SECURITY] 警告：当前使用默认网关密钥（" + apiKeyDefault + "）。生产环境请务必轮换。")
-	}
-}
-
 // ===================== 中间件：WAF / 鉴权 / CORS / 统计 =====================
+// v4.11.0：判定是否首次运行（config.json 不存在，或 cloud providers 全部未填 key）
+func isFirstRun() bool {
+	if _, err := os.Stat(configPath); err != nil {
+		return true
+	}
+	cfgMu.RLock()
+	defer cfgMu.RUnlock()
+	noKey := cfg.Cloud.OpenAI.APIKey == "" && cfg.Cloud.DeepSeek.APIKey == ""
+	return noKey
+}
+
 func gatewayMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// v3.0.0 E 线：panic recovery 全覆盖（handler panic 不再拖垮进程）
@@ -385,14 +447,27 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 				writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "internal error（已恢复并审计）"})
 			}
 		}()
+		// v3.9.0 动态防护：蜜罐路由优先拦截
+		if dyna != nil && dyna.cfg.Enabled && dyna.isHoneypotPath(r.URL.Path) {
+			dyna.handleHoneypot(w, r)
+			return
+		}
+		// v3.9.0 影子规则流水线（只记录不阻断）
+		if dyna != nil && dyna.cfg.Enabled {
+			hits := dyna.runShadowPipeline(r)
+			for _, h := range hits {
+				auditLog("SHADOW_HIT", h.ClientIP, fmt.Sprintf("%s:%s", h.RuleID, h.Path))
+			}
+		}
 		// 请求量按小时统计（新增）：供 /api/stats/history 查询
 		recordHourlyRequest()
 		setSecurityHeaders(w, r)
 		if r.Body != nil {
-			r.Body = &maxBytesBody{ReadCloser: r.Body, maxBytes: maxBodyBytes, w: w}
+			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		}
 		// 0) dynamic-ban / os-link 档位：处于封禁期的 IP 直接拒绝
 		if isBanned(clientIP(r)) {
+			sseEmitIntercept("block", "IP封禁拦截", "IP处于动态封禁期（security.firewall.policy）", clientIP(r), r.URL.Path)
 			blockRequest(w, r, "IP 处于动态封禁期（security.firewall.policy）")
 			return
 		}
@@ -400,16 +475,18 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// v3.0.0 B 线：WAF 命中联动 IP 信誉扣分（-30，锦衣卫裁定 6）
 		if reason := wafCheck(r); reason != "" {
 			ip := clientIP(r)
-			ipRepPenalty(ip, 30, "waf")
+			ipRepPenalty(ip, 30, "waf", reason)
 			markIPBanned(ip)
 			firewallBanIP(ip) // 按防火墙档位施加封禁副作用（passive 档为 no-op）
+			syslogWrapWAF(ip, reason)
+			sseEmitIntercept("block", "WAF拦截", reason, ip, r.URL.Path)
 			blockRequest(w, r, reason)
 			return
 		}
 		// 2) 跨域预检：仅放行受信任同源
 		if r.Method == http.MethodOptions {
 			if o := r.Header.Get("Origin"); o != "" && !isTrustedOrigin(o) {
-				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -429,9 +506,9 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			mu.Lock()
 			failReq++
 			mu.Unlock()
-			mAuthFailTotal.Inc()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
-			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized: 需要 X-API-Key 或 Authorization: Bearer <key>"})
+			// v4.7.4 小白化：401 走 i18n + hint 字段，告诉用户怎么填密钥
+			i18nErrorJSONWithHint(w, r, http.StatusUnauthorized, "err.unauthorized", "err.unauthorized.hint")
 			return
 		}
 		// v3.0.4 RBAC 矩阵（[RBAC_MATRIX]：角色×端点类逐格判定，替换 v3.0.0 的
@@ -465,23 +542,20 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(sw, r)
 			// v3.0.0 B 线：扫描型 404 突发联动 IP 信誉扣分（每分钟至多 -10）
 			if sw.status == http.StatusNotFound {
-				ipRepPenalty(clientIP(r), 10, "scan404")
+				ipRepPenalty(clientIP(r), 10, "scan404", "")
 			}
 		})
 	})
 }
-
 // statusWriter v3.0.0：记录下游 handler 状态码（404 扫描检测用）
 type statusWriter struct {
 	http.ResponseWriter
 	status int
 }
-
 func (s *statusWriter) WriteHeader(code int) {
 	s.status = code
 	s.ResponseWriter.WriteHeader(code)
 }
-
 // recordResponseTime（新增）：包裹业务处理并累计耗时，供 /api/stats 计算平均响应时间
 func recordResponseTime(start time.Time, serve func()) {
 	serve()
@@ -490,7 +564,6 @@ func recordResponseTime(start time.Time, serve func()) {
 	respSamples++
 	mu.Unlock()
 }
-
 func isPublicRoute(p string) bool {
 	// /health 为健康检查端点（新增），与前端页面一样免鉴权
 	// v3.2.2：OAuth 登录回调为浏览器跳转入口，登录前必然没有凭据——
@@ -498,9 +571,8 @@ func isPublicRoute(p string) bool {
 	if p == "/oauth/login" || p == "/oauth/callback" {
 		return true
 	}
-	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health"
+	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health" || p == "/ws/events"
 }
-
 func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	// CORS：只对受信任同源回显，绝不使用 *
 	if o := r.Header.Get("Origin"); isTrustedOrigin(o) {
@@ -511,10 +583,17 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	// v3.7.1 P1-5：Content-Security-Policy 基础策略（防御 XSS 窃取 sessionStorage）
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self';")
+	// v4.6.4 内容安全策略（CSP）：纵深防御最后一道墙——即使将来被注入，
+	// 也禁止外联数据外泄与插件执行。前端为单文件内联脚本/样式，故 script/style
+	// 保留 'unsafe-inline'（无外部 CDN 依赖）；connect-src 放行 Tauri 桌面端
+	// 本机回环（页面由 tauri:// 提供、API 走 http://127.0.0.1:18889）。
+	w.Header().Set("Content-Security-Policy",
+		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "+
+			"img-src 'self' data:; connect-src 'self' http://127.0.0.1:*; font-src 'self' data:; "+
+			"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
+	// v4.6.4 权限策略：管理界面声明不需要摄像头/麦克风/定位/USB 等敏感能力
+	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
 }
-
 func isTrustedOrigin(o string) bool {
 	if o == "" {
 		return false
@@ -541,7 +620,6 @@ func isTrustedOrigin(o string) bool {
 	}
 	return false
 }
-
 func gatewayAPIKey() string {
 	cfgMu.RLock()
 	defer cfgMu.RUnlock()
@@ -550,7 +628,6 @@ func gatewayAPIKey() string {
 	}
 	return cfg.Security.APIKey
 }
-
 func validKey(r *http.Request) bool {
 	key := r.Header.Get("X-API-Key")
 	if key == "" {
@@ -564,68 +641,68 @@ func validKey(r *http.Request) bool {
 	}
 	return subtle.ConstantTimeCompare([]byte(key), []byte(want)) == 1
 }
-
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		host = r.RemoteAddr
-	}
-	// v3.7.1 P0-2：默认以 socket 对端 IP 为限速键，仅可信代理才采信 X-Forwarded-For
-	c := v3Config()
-	if len(c.TrustedProxies) > 0 {
-		for _, trusted := range c.TrustedProxies {
-			if host == trusted {
-				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-					parts := strings.Split(xff, ",")
-					if len(parts) > 0 {
-						return strings.TrimSpace(parts[0])
-					}
-				}
-				break
-			}
-		}
+		return r.RemoteAddr
 	}
 	return host
 }
-
 type rlEntry struct {
 	count    int
 	winStart time.Time
 }
-
+// rateLimitWindowDynamic / rateLimitMaxDynamic 从配置读取全局滑窗参数（热重载生效）
+func rateLimitWindowDynamic() time.Duration {
+	cfgMu.RLock()
+	sec := cfg.V3Config.RateLimit.WindowSec
+	cfgMu.RUnlock()
+	if sec <= 0 {
+		return 10 * time.Second
+	}
+	return time.Duration(sec) * time.Second
+}
+func rateLimitMaxDynamic() int {
+	cfgMu.RLock()
+	m := cfg.V3Config.RateLimit.MaxReq
+	cfgMu.RUnlock()
+	if m <= 0 {
+		return 120
+	}
+	return m
+}
 func allowRequest(ip string) bool {
 	now := time.Now()
+	win := rateLimitWindowDynamic()
+	maxReq := rateLimitMaxDynamic()
 	rlMu.Lock()
 	defer rlMu.Unlock()
 	e, ok := rlHits[ip]
-	if !ok || now.Sub(e.winStart) >= rateLimitWindow {
+	if !ok || now.Sub(e.winStart) >= win {
 		rlHits[ip] = &rlEntry{count: 1, winStart: now}
 		return true
 	}
 	e.count++
-	if e.count > rateLimitMax {
+	if e.count > maxReq {
 		return false
 	}
 	// 定期清理过期条目，防止 map 无限增长
 	if len(rlHits) > 1024 {
 		for k, v := range rlHits {
-			if now.Sub(v.winStart) >= rateLimitWindow {
+			if now.Sub(v.winStart) >= win {
 				delete(rlHits, k)
 			}
 		}
 	}
 	return true
 }
-
 // ===================== 通用工具 =====================
-
 // modelState 返回本地模型运行状态与当前模型 id（并发安全快照）
 func modelState() (bool, string) {
 	mu.Lock()
 	defer mu.Unlock()
 	return modelRunning, currentModel
 }
-
 // sanitizedConfig 返回脱敏后的配置（所有 API Key 一律 ***）
 func sanitizedConfig() map[string]interface{} {
 	b, _ := json.Marshal(cfg)
@@ -654,7 +731,6 @@ func sanitizedConfig() map[string]interface{} {
 	}
 	return m
 }
-
 // 允许通过 API 修改的配置白名单（防止结构破坏与任意配置注入）
 func isConfigPathAllowed(path string) bool {
 	allowed := []string{
@@ -677,9 +753,7 @@ func isConfigPathAllowed(path string) bool {
 	}
 	return false
 }
-
 // ===================== RBAC 与审计日志 =====================
-
 // userFromRequest 从请求中提取用户身份（多用户模式优先，否则回退单管理员）
 func userFromRequest(r *http.Request) (name string, role string, ok bool) {
 	key := extractAPIKey(r)
@@ -701,7 +775,6 @@ func userFromRequest(r *http.Request) (name string, role string, ok bool) {
 	}
 	return "", "", false
 }
-
 // extractAPIKey 从请求头提取 API Key（与 validKey 逻辑一致，但返回 key 本身）
 func extractAPIKey(r *http.Request) string {
 	key := r.Header.Get("X-API-Key")
@@ -712,14 +785,14 @@ func extractAPIKey(r *http.Request) string {
 	}
 	return key
 }
-
 // requireRole 中间件：拒绝无所需角色的请求
 func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name, role, ok := userFromRequest(r)
 		if !ok {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
-			writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			// v4.7.4 小白化：401 走 i18n + hint 字段，告诉用户怎么填密钥
+			i18nErrorJSONWithHint(w, r, http.StatusUnauthorized, "err.unauthorized", "err.unauthorized.hint")
 			return
 		}
 		for _, allowed := range roles {
@@ -732,13 +805,22 @@ func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: 需要 " + strings.Join(roles, "/")})
 	}
 }
-
+// sanitizeAuditField v4.6.3：审计字段防注入清洗——剔除 CR/LF/TAB（防止外部输入
+// 伪造审计行），保证「一条记录一行」的日志格式不变量。
+func sanitizeAuditField(s string) string {
+	s = strings.NewReplacer("\n", " ", "\r", " ", "\t", " ").Replace(s)
+	return strings.TrimSpace(s)
+}
 // isAdminRoute 判断是否为仅 admin 可访问的管理端点
 func isAdminRoute(path string) bool {
 	adminPaths := []string{
 		"/api/admin/models/start", "/api/admin/models/stop",
-		"/api/admin/model/download", "/api/admin/config",
+		"/api/admin/model/download", "/api/admin/config", "/api/admin/config/revert",
 		"/api/admin/security/status", "/api/admin/security/waf-logs",
+		"/api/admin/security/scan", "/api/admin/security/threats",
+		"/api/admin/security/resolve", "/api/admin/security/quarantine",
+		"/api/admin/security/quarantine/restore",
+		"/api/admin/security/mcp/servers", "/api/admin/security/mcp/validate",
 		"/api/admin/logs", "/api/admin/v32/auto-discovery/scan",
 		"/api/admin/modules", "/api/admin/hardware/assessment", // v2.0.0 模块管理 / 硬件评估
 		"/api/admin/sidecar/reload", // v3.0.1 sidecar 全量重载（状态查询 /api/admin/sidecar/status 保留普通登录态可读）
@@ -750,8 +832,8 @@ func isAdminRoute(path string) bool {
 	}
 	return false
 }
-
 // auditLog 写入审计日志：audit-YYYY-MM-DD.log + 内存日志
+
 func auditLog(action, user, detail string) {
 	cfgMu.RLock()
 	enabled := cfg.Security.AuditLogEnabled
@@ -759,19 +841,20 @@ func auditLog(action, user, detail string) {
 	if !enabled {
 		return
 	}
+	// v4.6.3：user/detail 可被请求体/工具参数影响——落盘前统一清洗
 	line := fmt.Sprintf("[%s] ACTION=%s USER=%s IP=%s DETAIL=%s",
-		time.Now().Format("2006-01-02 15:04:05"), action, user, "-", detail)
+		time.Now().Format("2006-01-02 15:04:05"),
+		sanitizeAuditField(action), sanitizeAuditField(user), "-", sanitizeAuditField(detail))
 	fileLog("audit", line)
 	logMsg("[AUDIT] " + line)
 	// v3.2.2 审计升级：同步落结构化 JSONL 哈希链条目（tenant 感知变体见 auditLogT）
 	auditV2Write(action, "*", "", user, "", detail, "")
+	syslogWrapAudit(action, user, detail)
 }
-
 func isHTTPURL(s string) bool {
 	u, err := url.Parse(s)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
-
 func logMsg(s string) {
 	line := fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), s)
 	mu.Lock()
@@ -783,20 +866,16 @@ func logMsg(s string) {
 	// 运行日志同步落盘：logs/tars-YYYY-MM-DD.log（新增，内存仍保留最近 500 条）
 	fileLog("tars", line)
 }
-
 func writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(data)
 }
-
 func writeJSONStatus(w http.ResponseWriter, code int, data interface{}) {
 	w.WriteHeader(code)
 	writeJSON(w, data)
 }
-
 // v3.2.1：桌面客户端模式标记——true 时不自动打开浏览器（Tauri 壳以 sidecar 拉起网关并传 --no-browser）
 var noBrowser = false
-
 // scanNoBrowserFlag 扫描参数中的 --no-browser / -no-browser 标记（布尔开关，无值）
 func scanNoBrowserFlag(args []string) bool {
 	for _, a := range args {
@@ -806,7 +885,6 @@ func scanNoBrowserFlag(args []string) bool {
 	}
 	return false
 }
-
 func openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -819,15 +897,38 @@ func openBrowser(url string) {
 	}
 	cmd.Start()
 }
-
+// sensitiveGatewayFiles v4.6.3（锦衣卫红线）：网关自身安全资产 denylist。
+// tars_file_read/write、OpenAPI 本地文档等模型可控路径即使落在 allowedRoots
+// 内也不得触及这些文件——否则「写 config.json → watchConfig 2s 热重载」即构成
+// 提权/RCE 链路（可打开 defaultKeyAllowed、注入 customTools 端点、关 WAF），
+// 读取则泄露 gateway-key.txt 中的轮换密钥。判定基于 Clean 后的绝对路径尾段。
+var sensitiveGatewayFiles = []string{"config.json", "gateway-key.txt"}
+func isSensitiveGatewayPath(abs string) bool {
+	// 统一处理 Windows 路径分隔符（测试用例含 C:\Tars\gateway-key.txt）
+	normalized := strings.ReplaceAll(abs, "\\", "/")
+	lower := strings.ToLower(filepath.Clean(normalized))
+	base := filepath.Base(lower)
+	for _, name := range sensitiveGatewayFiles {
+		if base == name {
+			return true
+		}
+	}
+	// logs/ 目录整体保护（审计日志完整性：防篡改/伪造审计记录）
+	d := filepath.Dir(lower)
+	if filepath.Base(d) == "logs" {
+		return true
+	}
+	return false
+}
 func isPathAllowed(path string, write bool) bool {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return false
 	}
-	// v3.7.1：解析符号链接，防止符号链接逃逸到授权根目录之外
-	abs, err = filepath.EvalSymlinks(abs)
-	if err != nil {
+	// v4.6.3：先过 denylist——模型可控文件工具禁止读写网关安全资产
+	if isSensitiveGatewayPath(abs) {
+		auditLog("POLICY_VIOLATION", "system(path-guard)",
+			fmt.Sprintf("拒绝访问敏感路径 %s (write=%v) [FILE_GUARD]", abs, write))
 		return false
 	}
 	lower := strings.ToLower(abs)
@@ -844,4 +945,44 @@ func isPathAllowed(path string, write bool) bool {
 		}
 	}
 	return false
+}
+// handleKingdomStatus v4.9.0：返回动物分类学架构状态
+func handleKingdomStatus(w http.ResponseWriter, r *http.Request) {
+	if kingdomRegistry == nil {
+		writeJSON(w, map[string]interface{}{"error": "kingdom not initialized"})
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"taxonomy": kingdomRegistry.Taxonomy().ToJSON(),
+		"legacy":   kingdomRegistry.ToLegacyModules(),
+		"version":  version,
+	})
+}
+
+
+// resolveInstallDataRoots sets installRoot and dataRoot from config or defaults.
+// v4.15.1
+func resolveInstallDataRoots() {
+	installRoot = cfg.InstallRoot
+	if installRoot == "" {
+		installRoot = os.Getenv("TARS_INSTALL_ROOT")
+	}
+	if installRoot == "" {
+		home, _ := os.UserHomeDir()
+		installRoot = filepath.Join(home, ".tars", "install")
+	}
+	dataRoot = cfg.DataRoot
+	if dataRoot == "" {
+		dataRoot = os.Getenv("TARS_DATA_ROOT")
+	}
+	if dataRoot == "" {
+		home, _ := os.UserHomeDir()
+		dataRoot = filepath.Join(home, ".tars", "data")
+	}
+	// Ensure data dirs exist and migrate
+	dm := data.New(dataRoot)
+	_ = dm.EnsureAll()
+	_ = dm.Migrate()
+	// Ensure install root exists
+	_ = os.MkdirAll(installRoot, 0755)
 }

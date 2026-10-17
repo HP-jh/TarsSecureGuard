@@ -32,6 +32,9 @@ func TestV360InstallerSh(t *testing.T) {
 		"TSG_BASE_URL",      // 镜像/本地目录覆盖（可测性）
 		"TSG_INSTALL_DIR",   // 安装目录可覆盖
 		"install.ps1",       // Windows 引导
+		"SHA256SUMS",        // 防篡改校验
+		"tsg.desktop",       // Linux 桌面快捷方式
+		".command",          // macOS 桌面快捷方式
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("install.sh 缺少关键逻辑标记 %q", want)
@@ -47,10 +50,12 @@ func TestV360InstallerPs1(t *testing.T) {
 	s := string(b)
 	for _, want := range []string{
 		"PROCESSOR_ARCHITECTURE", // 架构识别
-		"tsg-windows-",           // 资产命名
-		"HP-jh/TarsSecureGuard",  // GitHub Release 源
+		"windows-$Arch.exe",     // 资产命名（含版本号 tsg-vX.Y.Z-windows-arch.exe）
+		"HP-jh/TarsSecureGuard", // GitHub Release 源
 		"SetEnvironmentVariable", // PATH 写入
-		"latest/download",        // latest 版本解析
+		"releases/latest",       // latest 版本解析（API + 302 双兜底）
+		"SHA256",                // 防篡改校验
+		"CreateShortcut",        // 桌面快捷方式
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("install.ps1 缺少关键逻辑标记 %q", want)

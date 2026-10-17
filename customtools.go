@@ -2,11 +2,9 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -41,13 +39,15 @@ type CustomTool struct {
 // v3.2.2 性能升级 v1：Transport 保留独立（SSRF 拨号校验必须与主池隔离），
 // 但连接复用参数对齐全局池——此前默认 MaxIdleConnsPerHost=2 导致 web fetch
 // 工具对同一站点连续抓取时频繁关连接重建。
+// v4.6.3：DialContext 统一接入 ssrfguard 工厂（严格模式 false,false），
+// 同时保留性能参数不变。
 var customToolClient = &http.Client{
 	Timeout: 30 * time.Second,
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse // 禁用重定向跟随（防 3xx 跳内网绕过）
 	},
 	Transport: &http.Transport{
-		DialContext:           ssrfSafeDialContext(), // 连接时校验实际 IP（防 DNS 重绑定）
+		DialContext:           ssrfSafeDialContext(false, false), // v4.6.3：统一 SSRF 拨号工厂
 		MaxIdleConns:          64,
 		MaxIdleConnsPerHost:   8,
 		IdleConnTimeout:       90 * time.Second,
@@ -55,45 +55,6 @@ var customToolClient = &http.Client{
 		ExpectContinueTimeout: 1 * time.Second,
 		ForceAttemptHTTP2:     true,
 	},
-}
-
-// ssrfSafeDialContext 仅允许连接公网地址；解析出的任一 IP 落入私网/保留段即拒绝
-func ssrfSafeDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
-	return func(ctx context.Context, network, addr string) (net.Conn, error) {
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, fmt.Errorf("SSRF 防护: 非法地址 %s", addr)
-		}
-		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-		if err != nil {
-			return nil, err
-		}
-		var public net.IP
-		for _, ip := range ips {
-			if !isPublicIP(ip.IP) {
-				return nil, fmt.Errorf("SSRF 防护: 拒绝非公网地址 %s（%s）", host, ip.IP)
-			}
-			if public == nil {
-				public = ip.IP
-			}
-		}
-		if public == nil {
-			return nil, fmt.Errorf("SSRF 防护: %s 无可解析公网地址", host)
-		}
-		d := &net.Dialer{Timeout: 10 * time.Second}
-		// 用已校验的 IP 直连（域名解析结果与实际连接目标一致）
-		return d.DialContext(ctx, network, net.JoinHostPort(public.String(), port))
-	}
-}
-
-// isPublicIP 校验 IP 是否公网：拒绝回环/RFC1918/链路本地(含 169.254.169.254 云元数据)/组播/未指定
-func isPublicIP(ip net.IP) bool {
-	if ip == nil {
-		return false
-	}
-	return !(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() ||
-		ip.IsMulticast() || ip.IsUnspecified())
 }
 
 // customToolList 当前配置的自定义工具（仅 customTools 模块开启时对外可见）

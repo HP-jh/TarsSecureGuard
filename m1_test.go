@@ -127,14 +127,14 @@ func TestEndpointClass(t *testing.T) {
 
 func TestIPRepPenaltyAndBan(t *testing.T) {
 	ipRepTable = map[string]*ipRepEntry{}
-	ipRepPenalty("9.9.9.9", 30, "waf")
-	ipRepPenalty("9.9.9.9", 30, "waf")
+	ipRepPenalty("9.9.9.9", 30, "waf", "路径穿越")
+	ipRepPenalty("9.9.9.9", 30, "waf", "命令注入")
 	if s := ipRepScore("9.9.9.9"); s != 40 {
 		t.Fatalf("两次 -30 后应为 40，实际 %f", s)
 	}
 	// 白名单与本地回环不扣分
 	ipRepTable = map[string]*ipRepEntry{}
-	ipRepPenalty("127.0.0.1", 30, "waf")
+	ipRepPenalty("127.0.0.1", 30, "waf", "")
 	if s := ipRepScore("127.0.0.1"); s != 100 {
 		t.Fatalf("回环不应扣分，实际 %f", s)
 	}
@@ -143,9 +143,9 @@ func TestIPRepPenaltyAndBan(t *testing.T) {
 func TestIPRep404WindowPerMinute(t *testing.T) {
 	ipRepTable = map[string]*ipRepEntry{}
 	// 同一分钟内多次 404 只扣一次
-	ipRepPenalty("8.8.8.8", 10, "scan404")
-	ipRepPenalty("8.8.8.8", 10, "scan404")
-	ipRepPenalty("8.8.8.8", 10, "scan404")
+	ipRepPenalty("8.8.8.8", 10, "scan404", "")
+	ipRepPenalty("8.8.8.8", 10, "scan404", "")
+	ipRepPenalty("8.8.8.8", 10, "scan404", "")
 	if s := ipRepScore("8.8.8.8"); s != 90 {
 		t.Fatalf("每分钟窗口内应只扣一次（期望 90，实际 %f）", s)
 	}
@@ -156,7 +156,7 @@ func TestIPRepTickRecovery(t *testing.T) {
 	// 恢复场景：被封禁且 24h 无新扣分 → 恢复 60
 	ipRepTable["7.7.7.7"] = &ipRepEntry{
 		Score: 30, LastPenalty: time.Now().Add(-25 * time.Hour),
-		BannedAt: time.Now().Add(-25 * time.Hour), distinctSrcs: map[string]bool{},
+		BannedAt: time.Now().Add(-25 * time.Hour), distinctSrcs: map[string]bool{}, wafRules: map[string]bool{},
 	}
 	ipRepTick()
 	if s := ipRepScore("7.7.7.7"); s != 60 {
@@ -165,7 +165,7 @@ func TestIPRepTickRecovery(t *testing.T) {
 	// 每小时回升：低分条目 1 小时后 +2
 	ipRepTable["6.6.6.6"] = &ipRepEntry{
 		Score: 80, LastPenalty: time.Now().Add(-90 * time.Minute),
-		distinctSrcs: map[string]bool{},
+		distinctSrcs: map[string]bool{}, wafRules: map[string]bool{},
 	}
 	ipRepTick()
 	if s := ipRepScore("6.6.6.6"); s != 82 {
@@ -175,7 +175,7 @@ func TestIPRepTickRecovery(t *testing.T) {
 
 func TestIPRepUnban(t *testing.T) {
 	ipRepTable = map[string]*ipRepEntry{}
-	ipRepPenalty("5.5.5.5", 70, "waf")
+	ipRepPenalty("5.5.5.5", 70, "waf", "")
 	ipRepUnban("tester", "5.5.5.5")
 	if s := ipRepScore("5.5.5.5"); s != 100 {
 		t.Fatalf("解封后应恢复 100，实际 %f", s)

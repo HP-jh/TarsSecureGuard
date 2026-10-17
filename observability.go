@@ -413,9 +413,6 @@ func (m *obsMetric) renderLabels(vals []string) string {
 // ===================== 指标实例 =====================
 
 var (
-	// v3.7.1 P2-11：鉴权失败计数
-	mAuthFailTotal = obsNewCounter("tsg_auth_failures_total",
-		"鉴权失败次数（X-API-Key 或 Bearer 校验不通过）")
 	mHTTPReqTotal = obsNewCounter("tsg_http_requests_total",
 		"网关处理的 HTTP 请求总数（标签为低基数枚举，绝不包含 user/token/api key）", "class", "method", "code")
 	mHTTPDuration = obsNewHistogram("tsg_http_request_duration_ms",

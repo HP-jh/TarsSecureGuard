@@ -1,0 +1,73 @@
+# 自动维护 CHANGELOG.md
+# 触发：Release published 时自动追加新版本节
+name: Update Changelog
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Append release to CHANGELOG.md
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          NAME: ${{ github.event.release.name }}
+          BODY: ${{ github.event.release.body }}
+          DATE: ${{ github.event.release.published_at }}
+        run: |
+          set -e
+          # Extract date (YYYY-MM-DD)
+          PUBLISH_DATE=$(echo "$DATE" | cut -dT -f1)
+
+          # Build new section
+          {
+            echo ""
+            echo "## [$TAG] - $PUBLISH_DATE"
+            echo ""
+            # If body is not empty, include a summary line
+            if [ -n "$BODY" ]; then
+              # Take first non-empty line as summary
+              SUMMARY=$(echo "$BODY" | grep -v '^\s*$' | head -1 || true)
+              if [ -n "$SUMMARY" ]; then
+                echo "> $SUMMARY"
+                echo ""
+              fi
+            fi
+            echo "### Release Notes"
+            echo "- 详见 [$NAME](${{ github.event.release.html_url }})"
+            echo ""
+          } > /tmp/new_section.md
+
+          # Insert after the "## [Unreleased]" block (before the first "## [" line after it)
+          awk '
+            BEGIN { in_unreleased=0; inserted=0 }
+            /^## \[Unreleased\]/ { in_unreleased=1; print; next }
+            in_unreleased && /^## \[/ && !inserted {
+              while ((getline line < "/tmp/new_section.md") > 0) print line
+              inserted=1
+              in_unreleased=0
+            }
+            { print }
+          ' CHANGELOG.md > /tmp/CHANGELOG_new.md
+
+          mv /tmp/CHANGELOG_new.md CHANGELOG.md
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet || {
+            git commit -m "docs: auto-update CHANGELOG.md for $TAG"
+            git push
+          }
