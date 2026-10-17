@@ -306,6 +306,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-item nav-adv" onclick="pg('obsidian',this)"><span class="ic">📝</span> Obsidian</div>
 <div class="nav-item nav-adv" onclick="pg('voice',this)"><span class="ic">🎤</span> 语音纠错</div>
 <div class="nav-item nav-adv" onclick="pg('interop',this)"><span class="ic">🔗</span> 企业互联</div>
+<div class="nav-item nav-adv" onclick="pg('update',this)"><span class="ic">🔄</span> 自动更新</div>
 <div class="nav-item nav-adv" onclick="pg('dynadef',this)"><span class="ic">🛡️</span> 动态防护</div></div>
 <div class="nav-group"><div class="nav-title">治理</div>
 <div class="nav-item nav-adv" onclick="pg('gov',this)"><span class="ic"><svg><use href="#i-gov"/></svg></span> Governance</div>
@@ -818,6 +819,28 @@ center"><button class="btn btn-d" onclick="shutdownGateway(this)">关闭网关</
 </div>
 </div>
 </div>
+<div class="page" id="p-update">
+<div class="topbar"><div><h2>自动更新</h2><div class="crumb">系统 / 自动更新与版本管理</div></div></div>
+<div class="grid-2">
+<div class="card"><div class="card-title"><span class="d"></span>版本状态</div>
+<div class="stats-grid" style="margin-bottom:0">
+<div class="stat"><div class="l">当前版本</div><div class="v" id="update-cur">-</div></div>
+<div class="stat"><div class="l">已知稳定版</div><div class="v" id="update-stable">-</div></div>
+</div>
+<div class="fg" style="margin-top:14px"><button class="btn btn-p" onclick="updateCheck()">检查更新</button></div>
+<pre id="update-check-res" style="margin-top:12px;font-size:11px;background:var(--bg0);padding:10px;border-radius:8px;min-height:60px"></pre>
+</div>
+<div class="card"><div class="card-title"><span class="d"></span>操作</div>
+<div class="fg">
+<button class="btn btn-s" onclick="updateApply()">下载并应用更新</button>
+<button class="btn btn-d" onclick="updateRollback()">回退到上一版本</button>
+</div>
+<div class="fg"><label class="lbl">更新日志</label>
+<div class="log-box" id="update-log" style="max-height:200px;font-size:11px">点击「检查更新」查看最新版本信息...</div>
+</div>
+</div>
+</div>
+</div>
 <div class="page" id="p-dynadef">
 <div class="topbar"><div><h2>动态防护</h2><div class="crumb">防护 / Dynadef 四子能力</div></div></div>
 <div class="grid-2">
@@ -892,7 +915,7 @@ function cfmNo(){$('cfm').classList.remove('show');cfmCb=null;}
 function toggleSide(){var s=$('sidebar'),m=$('side-mask');var open=!s.classList.contains('open');s.classList.toggle('open',open);m.classList.toggle('show',open);}
 function closeSide(){$('sidebar').classList.remove('open');$('side-mask').classList.remove('show');}
 /* ============ 页面路由 ============ */
-var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],meter:['Token 测量器','系统 / 成本实时反馈'],conn:['连接器','扩展 / 连接器生态'],ext:['扩展器','扩展 / 一键配置器'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息'],persona:['职业','工作区 / 角色与场景'],kbv2:['KB 检索 v2','防护 / 倒排索引 + Chunk'],obsidian:['Obsidian 同步','防护 / Vault 双向同步'],voice:['语音纠错','防护 / 语音输入纠错'],interop:['企业互联','防护 / TSG ↔ TarsEnterprise 互操作']};
+var PT={dashboard:['仪表盘','总览 / 实时监控'],chat:['AI 对话','工作区 / 会话'],models:['模型','模型管理'],caps:['能力库','模型 / 能力矩阵 · API 直达'],meter:['Token 测量器','系统 / 成本实时反馈'],conn:['连接器','扩展 / 连接器生态'],ext:['扩展器','扩展 / 一键配置器'],agents:['智能体','内置智能体'],urgent:['紧急','优先通道'],fallback:['回退','自动降级'],search:['网页搜索','扩展 / 搜索'],feishu:['飞书','扩展 / Lark'],mcp:['MCP 工具','扩展 / 中继'],discovery:['自动发现','扩展 / 自动扫描'],security:['安全','安全 / 总览'],waf:['WAF 日志','安全 / WAF'],gov:['治理总览','治理 / v3.2.2 治理层'],memory:['共享记忆','治理 / 三层命名空间'],sinfo:['共享信息','治理 / 知识条目'],audit2:['审计链 v2','治理 / hash chain'],modules:['模块','系统 / 模块管理'],device:['设备','系统 / 硬件'],logs:['日志','系统 / 日志'],settings:['设置','系统 / 配置'],about:['关于','系统 / 信息'],persona:['职业','工作区 / 角色与场景'],kbv2:['KB 检索 v2','防护 / 倒排索引 + Chunk'],obsidian:['Obsidian 同步','防护 / Vault 双向同步'],voice:['语音纠错','防护 / 语音输入纠错'],interop:['企业互联','防护 / TSG ↔ TarsEnterprise 互操作'],update:['自动更新','系统 / 自动更新与版本管理']};
 var curPage='dashboard';
 function pg(p,el){document.querySelectorAll('.page').forEach(function(x){x.classList.remove('active')});document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});var e=$('p-'+p);if(e)e.classList.add('active');if(el)el.classList.add('active');var t=PT[p]||['',''];$('pt').textContent=t[0];$('pc').textContent=t[1];curPage=p;closeSide();
   if(p==='dashboard'){updStats();loadHw();}if(p==='modules'){loadModules();loadAdapt();}if(p==='models'){loadModels();loadModelMonitor();}if(p==='caps')loadCaps();if(p==='meter')loadMeter();if(p==='conn')loadConn();if(p==='ext')loadExt();if(p==='agents')loadAgents();if(p==='fallback')loadFallback();if(p==='mcp')loadMcp();if(p==='security')loadSec();if(p==='waf')loadWaf();if(p==='device')loadDev();if(p==='logs')loadLogs();if(p==='settings'){loadSettings();loadAVCompat();}if(p==='discovery')loadDiscovery();if(p==='gov')loadGov();if(p==='memory')loadMem();if(p==='sinfo')loadSInfo();if(p==='audit2')loadAudit2();if(p==='persona')loadPersona();
@@ -2123,7 +2146,7 @@ function runChatTest(){
       out.innerHTML=`<div class="apitest-result"><pre>Error: ${e.message}</pre></div>`;
     });
 }
-/* ============ v4.13.0 KB v2 ============ */
+/* ============ v4.14.0 KB v2 ============ */
 function loadKBv2(){
   fetch('/api/kb/stats').then(r=>r.json()).then(function(d){
     var el=$('kv2-stats'); if(el) el.innerHTML='文档: '+(d.documents||0)+' &nbsp;|&nbsp; 分块: '+(d.chunks||0)+' &nbsp;|&nbsp; 索引词: '+(d.terms||0);
@@ -2155,7 +2178,7 @@ function kbv2Query(){
       el.innerHTML=html;
     }).catch(function(e){el.innerHTML='<div style="color:var(--red)">检索失败</div>';});
 }
-/* ============ v4.13.0 Obsidian ============ */
+/* ============ v4.14.0 Obsidian ============ */
 function loadObsidian(){}
 function obsSync(){
   var path=$('obs-path').value;if(!path){toast('请输入 Vault 路径','err');return;}
@@ -2176,7 +2199,7 @@ function obsSync(){
       html+='</div>';out.innerHTML=html;
     }).catch(function(e){el.innerHTML='<span style="color:var(--red)">同步失败: '+esc(e.message)+'</span>';});
 }
-/* ============ v4.13.0 Voice Correction ============ */
+/* ============ v4.14.0 Voice Correction ============ */
 function loadVoice(){}
 function voiceCorrect(){
   var text=$('vc-text').value;if(!text){toast('请输入文本','err');return;}
@@ -2220,6 +2243,38 @@ function interopDisconnect(){
   if(interopES){interopES.close();interopES=null;}
   $('interop-connect').disabled=false;$('interop-disconnect').disabled=true;
   var box=$('interop-events');var line=document.createElement('div');line.className='log-line';line.textContent='[info] 已断开';box.appendChild(line);
+}
+
+function updateCheck(){
+  fetch('/api/admin/update/status').then(r=>r.json()).then(s=>{
+    $('update-cur').textContent=s.current||'-';
+    $('update-stable').textContent=s.stable_known||'-';
+  });
+  fetch('/api/admin/update/check').then(r=>r.json()).then(d=>{
+    $('update-check-res').textContent=JSON.stringify(d,null,2);
+    var box=$('update-log');box.innerHTML='';
+    if(d.hasUpdate){
+      var line=document.createElement('div');line.className='log-line';line.textContent='[发现更新] '+d.current+' -> '+d.latest;box.appendChild(line);
+    }else if(d.error){
+      var line=document.createElement('div');line.className='log-line e';line.textContent='[错误] '+d.error;box.appendChild(line);
+    }else{
+      var line=document.createElement('div');line.className='log-line';line.textContent='[最新] 已是最新版本 '+d.current;box.appendChild(line);
+    }
+  }).catch(e=>{$('update-check-res').textContent='Error: '+e;});
+}
+function updateApply(){
+  if(!confirm('确定下载并应用最新更新？服务将自动重启。'))return;
+  fetch('/api/admin/update/apply',{method:'POST'}).then(r=>r.json()).then(d=>{
+    toast(d.message||d.error||'ok',d.error?'err':'ok');
+    var box=$('update-log');var line=document.createElement('div');line.className='log-line';line.textContent='[apply] '+(d.message||d.error);box.appendChild(line);
+  }).catch(e=>toast('Apply failed: '+e,'err'));
+}
+function updateRollback(){
+  if(!confirm('确定回退到上一版本？'))return;
+  fetch('/api/admin/update/rollback',{method:'POST'}).then(r=>r.json()).then(d=>{
+    toast(d.message||d.error||'ok',d.error?'err':'ok');
+    var box=$('update-log');var line=document.createElement('div');line.className='log-line';line.textContent='[rollback] '+(d.message||d.error);box.appendChild(line);
+  }).catch(e=>toast('Rollback failed: '+e,'err'));
 }
 </script>
 </body></html>

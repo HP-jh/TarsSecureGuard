@@ -1,5 +1,5 @@
 // Package interop provides TSG ↔ TarsEnterprise interoperability endpoints.
-// v4.13.0: receive-command + SSE events stream for TE subscription.
+// v4.14.0: receive-command + SSE events stream for TE subscription.
 package interop
 
 import (
@@ -116,7 +116,7 @@ func dispatchCommand(cmd InteropCommand) InteropCommandResult {
 	case "ping":
 		return InteropCommandResult{Success: true, Message: "pong", Data: map[string]interface{}{"ts": time.Now().Unix()}}
 	case "status":
-		return InteropCommandResult{Success: true, Message: "TSG running", Data: map[string]interface{}{"version": "4.13.0", "uptime": time.Since(time.Now().Add(-time.Hour)).String()}}
+		return InteropCommandResult{Success: true, Message: "TSG running", Data: map[string]interface{}{"version": "4.14.0", "uptime": time.Since(time.Now().Add(-time.Hour)).String()}}
 	case "sync_role":
 		// TE pushes role definition; TSG acknowledges
 		roleID, _ := cmd.Payload["role_id"].(string)
@@ -155,7 +155,7 @@ func HandleEvents(w http.ResponseWriter, r *http.Request) {
 	defer bus.unsubscribe(ch)
 
 	// Send initial connection event
-	fmt.Fprintf(w, "event: connected\ndata: %s\n\n", mustJSON(InteropEvent{Type: "connected", Payload: map[string]interface{}{"version": "4.13.0"}, Timestamp: time.Now()}))
+	fmt.Fprintf(w, "event: connected\ndata: %s\n\n", mustJSON(InteropEvent{Type: "connected", Payload: map[string]interface{}{"version": "4.14.0"}, Timestamp: time.Now()}))
 	flusher.Flush()
 
 	ticker := time.NewTicker(30 * time.Second)

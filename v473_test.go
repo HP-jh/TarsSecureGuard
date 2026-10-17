@@ -9,8 +9,8 @@ import (
 )
 
 func TestV470VersionBumped(t *testing.T) {
-	if version != "4.13.0" {
-		t.Fatalf("version expected 4.13.0, got %s", version)
+	if version != "4.14.0" {
+		t.Fatalf("version expected 4.14.0, got %s", version)
 	}
 }
 
