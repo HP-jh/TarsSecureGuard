@@ -141,7 +141,11 @@ func loadOrCreateMasterKey(basePath string, salt []byte) ([]byte, error) {
 
 	passphrase := os.Getenv("TSG_VAULT_PASSPHRASE")
 	if passphrase == "" {
-		passphrase = generatePassphrase()
+		var err error
+		passphrase, err = generatePassphrase()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	mk := pbkdf2Derive([]byte(passphrase), salt, 100000, 32)
@@ -151,12 +155,12 @@ func loadOrCreateMasterKey(basePath string, salt []byte) ([]byte, error) {
 	return mk, nil
 }
 
-func generatePassphrase() string {
+func generatePassphrase() (string, error) {
 	b := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		panic("vault: failed to generate passphrase: " + err.Error())
+		return "", fmt.Errorf("vault: failed to generate passphrase: %w", err)
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }
 
 func seal(key, plaintext []byte) ([]byte, error) {

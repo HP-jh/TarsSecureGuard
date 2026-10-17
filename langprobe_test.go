@@ -32,7 +32,7 @@ func TestSelectBestLangs(t *testing.T) {
 		{Lang: "python3", Score: 95, Features: []string{"linux-firewall", "process-monitor", "log-parser"}},
 		{Lang: "bash", Score: 60, Features: []string{"shell-script", "unix-pipe", "log-rotate"}},
 	}
-	m := selectBestLangs(avail)
+	m, _ := selectBestLangs(avail)
 	if m["firewall"] != "python3" {
 		t.Errorf("firewall should select python3, got %s", m["firewall"])
 	}
@@ -41,7 +41,7 @@ func TestSelectBestLangs(t *testing.T) {
 	}
 
 	// 无可用时回退 go
-	empty := selectBestLangs(nil)
+	empty, _ := selectBestLangs(nil)
 	if empty["firewall"] != "go" {
 		t.Errorf("fallback should be go, got %s", empty["firewall"])
 	}
