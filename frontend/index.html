@@ -334,6 +334,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <div class="nav-item nav-adv" onclick="pg('search',this)"><span class="ic"><svg><use href="#i-search"/></svg></span> Web Search</div>
 <div class="nav-item nav-adv" onclick="pg('feishu',this)"><span class="ic"><svg><use href="#i-feishu"/></svg></span> Feishu</div>
 <div class="nav-item nav-adv" onclick="pg('mcp',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> MCP Tools</div>
+<div class="nav-item nav-adv" onclick="pg('mcpmarket',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> MCP 市场</div>
 <div class="nav-item nav-adv" onclick="pg('conn',this)"><span class="ic"><svg><use href="#i-mcp"/></svg></span> Connectors</div>
 <div class="nav-item nav-adv" onclick="pg('ext',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Extender</div>
 <div class="nav-item nav-adv" onclick="pg('discovery',this)"><span class="ic"><svg><use href="#i-disc"/></svg></span> Discovery</div></div>
@@ -899,6 +900,13 @@ center"><button class="btn btn-d" onclick="shutdownGateway(this)">关闭网关</
 </div>
 </div>
 </div>
+<!-- ===== MCP Marketplace (v4.16.0) ===== -->
+<div class="page" id="p-mcpmarket">
+<div class="topbar"><div><h2>MCP 市场</h2><div class="crumb">扩展 / 一键下载与启用 MCP 集成</div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>集成状态 <span class="right"><span id="mcpm-count" style="font-size:12px;color:var(--muted)">加载中…</span><button class="btn btn-s btn-sm" onclick="loadMcpMarketplace()">刷新</button><button class="btn btn-p btn-sm" onclick="mcpCheckAll()">检查更新</button></span></div>
+<div id="mcpm-list"><div class="skel skel-row" style="width:80%"></div><div class="skel skel-row" style="width:60%"></div></div>
+<div style="color:var(--text2);font-size:11px;margin-top:10px">从 GitHub Releases 自动拉取二进制；启用后作为子进程运行（stdio 模式）。崩溃自动重启（最多 3 次/小时），每 30 秒健康检查。</div></div>
+</div>
 <script>
 /* ============ 前端运行时监控 ============ */
 (function(){
@@ -1215,6 +1223,43 @@ function loadDiscovery(){api('/api/admin/v32/auto-discovery/results').then(funct
     h+='</tbody></table>';$('disc-content').innerHTML=h;}
   else $('disc-content').innerHTML='<div class="empty"><div class="ic">*</div>未发现工具。点击“扫描网络”进行搜索。</div>';
 }).catch(function(){$('disc-content').innerHTML='<div class="empty">未发现工具。</div>';});}
+/* ============ MCP Marketplace (v4.16.0) ============ */
+function loadMcpMarketplace(){api('/api/v1/mcp/marketplace').then(function(d){
+  var list=Array.isArray(d)?d:[];
+  var enabled=0,installed=0;
+  list.forEach(function(x){if(x.enabled)enabled++;if(x.installed)installed++;});
+  $('mcpm-count').textContent='已启用 '+enabled+' / '+list.length+' · 已下载 '+installed;
+  if(!list.length){$('mcpm-list').innerHTML='<div class="empty">暂无 MCP 集成</div>';return;}
+  var h='<table><thead><tr><th style="text-align:left">集成</th><th>版本</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(function(x){
+    var statusTag='<span class="tag off">未下载</span>';
+    if(x.enabled&&x.running)statusTag='<span class="tag on">运行中</span>';
+    else if(x.enabled)statusTag='<span class="tag clo">已启用</span>';
+    else if(x.installed)statusTag='<span class="tag">已下载</span>';
+    if(x.hasUpdate)statusTag+=' <span class="tag warn">有更新</span>';
+    var btns='';
+    if(!x.installed)btns='<button class="btn btn-p btn-sm" onclick="mcpDownload(\''+esc(x.name)+'\',this)">下载</button>';
+    else if(!x.enabled)btns='<button class="btn btn-g btn-sm" onclick="mcpEnable(\''+esc(x.name)+'\',this)">启用</button>';
+    else btns='<button class="btn btn-s btn-sm" onclick="mcpDisable(\''+esc(x.name)+'\',this)">禁用</button>';
+    if(x.installed)btns+=' <button class="btn btn-s btn-sm" onclick="mcpUpdate(\''+esc(x.name)+'\',this)">更新</button>';
+    h+='<tr><td style="text-align:left"><div style="font-weight:600;font-size:13px">'+esc(x.name)+'</div><div style="font-size:11px;color:var(--text2)">'+esc(x.description)+'</div><div style="font-size:10px;color:var(--muted)">'+esc(x.repo)+'</div></td><td>'+esc(x.version||'-')+'</td><td>'+statusTag+'</td><td>'+btns+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  $('mcpm-list').innerHTML=h;
+}).catch(function(e){$('mcpm-list').innerHTML='<div class="empty">加载失败：'+esc(e&&e.message||e)+'</div>';});}
+function mcpAction(name,action,btn){if(btn)btnLoad(btn,true);
+  api('/api/v1/mcp/marketplace/'+esc(name)+'/'+action,{method:'POST'}).then(function(d){
+    toast(esc(name)+' '+action+' 成功','ok');if(btn)btnLoad(btn,false);loadMcpMarketplace();
+  }).catch(function(e){toast(esc(name)+' '+action+' 失败：'+esc(e&&e.message||e),'err');if(btn)btnLoad(btn,false);});}
+function mcpDownload(name,btn){mcpAction(name,'download',btn);}
+function mcpEnable(name,btn){mcpAction(name,'enable',btn);}
+function mcpDisable(name,btn){mcpAction(name,'disable',btn);}
+function mcpUpdate(name,btn){mcpAction(name,'update',btn);}
+function mcpCheckAll(){api('/api/v1/mcp/marketplace/check-all',{method:'POST'}).then(function(d){
+  var arr=Array.isArray(d)?d:[];
+  var cnt=arr.filter(function(x){return x.hasUpdate==='true';}).length;
+  toast('检查完成：'+cnt+' 个集成有更新','ok');loadMcpMarketplace();
+}).catch(function(e){toast('检查更新失败：'+esc(e&&e.message||e),'err');});}
 function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('请输入搜索关键词','err');return;}
   $('se-result').textContent='[i] 正在搜索：'+q+'…';btnLoad(btn,true);
   api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){

@@ -4,6 +4,8 @@
 *.exe
 *.test
 *.out
+dist/
+/tsg-v4.*
 
 # 运行时与冒烟产物
 smoke/*.pid
