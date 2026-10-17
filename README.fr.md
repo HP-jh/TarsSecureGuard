@@ -19,16 +19,17 @@ active au milieu obligatoirement le WAF, la protection sémantique, la limitatio
 </p>
 
 <p>
-<b>Pas seulement une passerelle, mais aussi un configurateur (v3.7.0 Extender)</b> : La configuration de l'environnement des autres outils d'IA est fastidieuse ? TSG les configure pour vous à l'envers —— Le détecteur intégré scanne les <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b> déjà installés sur votre machine,
+<b>Pas seulement une passerelle, mais aussi un configurateur (v4.11.0 Extender)</b> : La configuration de l'environnement des autres outils d'IA est fastidieuse ? TSG les configure pour vous à l'envers —— Le détecteur intégré scanne les <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b> déjà installés sur votre machine,
 génère en un clic le fragment de configuration d'accès qui pointe l'outil vers le point de terminaison TSG (la clé peut être intégrée et auditée tout au long du processus), il suffit de copier-coller pour terminer. Toutes les cibles font partie de l'écosystème MIT / Apache, <b>aucune pollution GPL, aucune dépendance externe</b>.
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.7.0-success">
+<img alt="Version" src="https://img.shields.io/badge/version-4.11.0-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
-<img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
-<img alt="Platforms" src="https://img.shields.io/badge/platform-6%20targets-blueviolet">
+<img alt="Providers" src="https://img.shields.io/badge/providers-13clients%C3%9724cloud-blue">
+<img alt="Platforms" src="https://img.shields.io/badge/platforms-7%20native%20targets-blueviolet">
+<img alt="MCP" src="https://img.shields.io/badge/MCP-stdio%20%2B%20HTTP%20%2B%20auto--include-22d3ee">
 <img alt="Tests" src="https://img.shields.io/badge/tests-race%20green">
 <img alt="License" src="https://img.shields.io/badge/license-MIT-orange">
 </p>
@@ -43,7 +44,7 @@ génère en un clic le fragment de configuration d'accès qui pointe l'outil ver
 >
 > Téléchargez un archive compressée, décompressez-la, double-cliquez dessus —— le service démarre sur le port local `18889` et le panneau d'administration en chinois s'ouvre automatiquement dans le navigateur. Ce n'est pas une nouvelle "passerelle lourde" qui vous oblige à tirer une image de 1 Go et à installer MySQL, mais une passerelle de sécurité **sans dépendance, purement statique, qui fonctionne même si vous la copiez sur une clé USB**.
 >
-> La version v3.2.0 pousse la "connexion" à l'extrême —— **Une seule clé d'abonnement Coding Plan ouvre tous les modèles** ; la feuille de route de 50 intégrations est déjà établie ; trois modes d'intégration : open source / closed source / CLI (**embed intégration / federate fédération / wrap-cli-as-mcp empaquetage**) ; pour les services qui ne peuvent pas être connectés temporairement, vous recevez une liste de connexion exécutable.
+> La version v4.11.0 pousse la "connexion" à l'extrême —— **Une seule clé d'abonnement Coding Plan ouvre tous les modèles** ; la feuille de route de 50 intégrations est déjà établie ; trois modes d'intégration : open source / closed source / CLI (**embed intégration / federate fédération / wrap-cli-as-mcp empaquetage**) ; pour les services qui ne peuvent pas être connectés temporairement, vous recevez une liste de connexion exécutable.
 >
 > Alors que d'autres passerelles vous obligent encore à configurer des fichiers YAML et à déboguer les règles de routage, TarsSecureGuard a déjà attaché votre ceinture de sécurité, connecté les clients et vous a remis la clé en main.
 
@@ -55,7 +56,7 @@ TarsSecureGuard est une **passerelle IA privilégiant le fonctionnement local (l
 
 > Le routeur chez vous ne produit pas de câbles réseau ni de sites web —— il permet à chaque appareil de naviguer sur Internet en toute sécurité. TarsSecureGuard ne produit pas de modèles et ne vous oblige pas à utiliser un client particulier —— **Il permet à chaque client d'IA d'utiliser chaque modèle en toute sécurité.** Nous prévoyons de pousser cette mission à l'extrême : connecter ce qui peut être connecté, et pour ce qui ne peut pas l'être temporairement, vous fournir une liste de connexion exécutable (voir `docs/v3.2.0-unconnectable.md`).
 
-### Nouveauté de la v3.2.0 · Feuille de route du Connecteur Universel
+### Nouveauté de la v4.11.0 · Feuille de route du Connecteur Universel
 
 > **Une seule clé d'abonnement Coding Plan = la clé de tous les modèles**. TSG cache les différences entre les fournisseurs derrière la couche de compatibilité OpenAI, les clients d'IA n'ont pas besoin d'être réécrits et les utilisateurs n'ont pas besoin de changer d'outil.
 
@@ -67,13 +68,13 @@ Intégrer tous les logiciels d'IA du monde (y compris les outils open source / c
 | **federate (fédération)** | Services distants / passerelles API | Orchestration unifiée via le proxy inverse TSG + adaptation de protocole (tous les hubs MCP, plates-formes API tierces) |
 | **wrap-cli-as-mcp (empaqueter CLI en MCP)** | Tout outil en ligne de commande | Empaquetage sans code en serveur MCP, l'IA l'appelle indirectement via TSG (comme ripgrep / fd / magika / jq) |
 
-**Progrès actuel** : 24 fournisseurs cloud + 8 environnements locaux (enregistrement intégré, un fichier lisible par machine par fournisseur), guides d'intégration de 13 clients, liste de 17 éléments temporairement non connectables (objectif de 50 intégrations pour la v3.3.0). **L'ajout d'un nouveau fournisseur ne nécessite que l'écriture de configuration, pas de modification du code** —— c'est pourquoi la v3.2.0 peut assumer le rôle de "routeur".
+**Progrès actuel** : 24 fournisseurs cloud + 8 environnements locaux (enregistrement intégré, un fichier lisible par machine par fournisseur), guides d'intégration de 13 clients, liste de 17 éléments temporairement non connectables (objectif de 50 intégrations pour la v3.3.0). **L'ajout d'un nouveau fournisseur ne nécessite que l'écriture de configuration, pas de modification du code** —— c'est pourquoi la v4.11.0 peut assumer le rôle de "routeur".
 
 ### Cinq caractéristiques principales
 
 | Caractéristique | Description |
 |------|------|
-| 🔌 **Connecte tout** | Registre des fournisseurs de la v3.2.0 : enregistrement intégré de 24 fournisseurs cloud + 8 environnements locaux (un fichier lisible par machine par fournisseur), guides d'intégration de 13 types de clients d'IA ; l'ajout d'un nouveau fournisseur **ne nécessite que l'écriture de configuration, pas de modification du code**. |
+| 🔌 **Connecte tout** | Registre des fournisseurs de la v4.11.0 : enregistrement intégré de 24 fournisseurs cloud + 8 environnements locaux (un fichier lisible par machine par fournisseur), guides d'intégration de 13 types de clients d'IA ; l'ajout d'un nouveau fournisseur **ne nécessite que l'écriture de configuration, pas de modification du code**. |
 | 📦 **Utilisable directement après décompression** | Aucune installation, aucun conteneur, aucune base de données requise. Décompressez l'archive, double-cliquez sur `start.bat` / `start.sh`, le service démarre immédiatement et le panneau d'administration en chinois s'ouvre automatiquement dans le navigateur. |
 | 🔒 **Haute sécurité** | Noyau de sécurité chargé obligatoirement, **impossible à désactiver** : WAF (traversée de chemin / injection de commande / SQLi / XSS / **injection de Prompt** / **détection de PII**), **routage hiérarchique par détection sémantique (échec-fermeture)** , **limitation de débit à trois dimensions par seau à jetons**, **notation de réputation IP locale**, trois rôles RBAC, audit structuré, désensibilisation des PII, cinq lignes rouges SSRF, liaison à trois niveaux du pare-feu. Peu importe l'étendue des connexions, la chaîne de sécurité ne sera jamais affaiblie. |
 | 🚀 **Performances optimales** | Pool de connexions partagé (taux de réutilisation mesuré à 98,5 %), coupure de circuit et dégradation des fournisseurs, cache à deux niveaux (adaptation de protocole + cache de réponse isolé par locataire) ; la latence P99 des requêtes sortantes est **réduite de 27 % à 40 %** par rapport à la base de référence de la v3.0.x (le benchmark reproductible est fourni avec le code source, voir `docs/v3.2.0-performance.md` pour plus de détails). |
@@ -146,6 +147,18 @@ L'abonnement vous donne droit à **des mises à jour continues de la protection 
 ```
 
 ---
+
+
+### Capacités avancées v4.11+
+
+- **🖥️ Client bureau Tauri** : barre système permanente + fenêtre de démarrage + privilèges admin + auto-mise à jour + WebSocket + 7 plateformes
+- **🔌 Pont MCP auto-include** : une ligne dans `config.json` pour monter automatiquement les serveurs MCP externes
+- **🖱️ Contrôle de bureau ByteDance UI-TARS** : intègre UI-TARS-1.5-7B / Doubao vision, l'IA contrôle le bureau via MCP
+- **🛡️ 360 Security UI** : navigation gauche + panneau droit, style 360 Security Guard
+- **🧠 Routage multi-appareils LobeHub** : collaboration multi-agent
+- **📊 Tableau de bord utilisation Token** : statistiques par fournisseur / app / jour
+- **🔑 Système de clés virtuelles vKey** : clés virtuelles indépendantes avec quota et audit
+- **🎯 Stratégie de routage modèles** : requêtes simples → petits modèles, complexes → grands modèles
 
 ## 🚀 Démarrage rapide
 
@@ -249,7 +262,7 @@ Le fossé est divisé en trois couches, de la plus superficielle à la plus prof
 
 ## 📚 Documentation
 
-- [CHANGES.md](./CHANGES.md) —— Modifications complètes de chaque version (y compris la mise à niveau UI de la v3.2.4, la mise à niveau des performances v2 de la v3.2.3, la mise à niveau de la couche de gouvernance + des performances v1 de la v3.2.2, le client bureau de la v3.2.1, la version majeure de connectivité de la v3.2.0)
+- [CHANGES.md](./CHANGES.md) —— Modifications complètes de chaque version (y compris la mise à niveau UI de la v3.2.4, la mise à niveau des performances v2 de la v3.2.3, la mise à niveau de la couche de gouvernance + des performances v1 de la v3.2.2, le client bureau de la v3.2.1, la version majeure de connectivité de la v4.11.0)
 - [docs/v3.2.4-ui.md](./docs/v3.2.4-ui.md) —— **Mise à niveau UI** : Quatre pages de visualisation de la couche de gouvernance / correction des interactions / validation de bout en bout Playwright
 - [docs/v3.2.3-performance.md](./docs/v3.2.3-performance.md) —— **Mise à niveau des performances v2** : Fusion en un seul passage + présélection WAF / traitement en un seul passage PII / verrou par fragment de cache de réponse / référence A-B
 - [docs/v3.2.2-governance.md](./docs/v3.2.2-governance.md) —— **Couche de gouvernance** : Mémoire partagée / informations partagées / extension de contexte MCP / OAuth/IdP / gardien / mise à niveau de l'audit

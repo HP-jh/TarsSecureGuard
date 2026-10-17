@@ -10,6 +10,12 @@
 
 <p>
 <b>압축 해제만으로 사용 가능</b> · <b>높은 보안성</b> · <b>설정 불필요</b> · <b>전 플랫폼 호환</b> · <b>모든 것을 연결</b> · <b>다른 AI 도구까지 대신 설정해줌</b>
+
+> - **🖥️ Tauri 데스크톱 클라이언트**: 시스템 트레이 / 로딩 창 / 관리자 권한 / 자동 업데이터 / WebSocket 이벤트 — 모든 플랫폼에서 일관된 경험
+> - **🔌 auto-include MCP 브리지**: `config.json`에 한 줄만 추가하면 외부 MCP 서버를 마운트할 수 있습니다(ByteDance UI-TARS / 임의의 MCP 도구)
+> - **🌍 7개 네이티브 플랫폼**: linux-amd64/arm64 + darwin-amd64/arm64 + windows-amd64.exe/arm64.exe + android-arm64
+> - **🛡️ Security Core는 비활성화 불가**: WAF / 프롬프트 인젝션 / PII / 속도 제한 / IP 평판 / RBAC / 감사 — 항상 켜짐
+> - **📊 Token 사용량 대시보드**、**🔑 vKey 가상 키 체계**、**🎯 모델 라우팅 전략** — 모두 v4.11+
 </p>
 
 <p>
@@ -19,16 +25,17 @@
 </p>
 
 <p>
-<b>단순한 게이트웨이가 아니라 설정기입니다（v3.7.0 Extender）</b>: 다른 AI 도구의 환경 설정이 복잡한가요? TSG가 대신 설정해드립니다——내장 탐지기가 기기에 설치된 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>를 스캔하고,
+<b>단순한 게이트웨이가 아니라 설정기입니다（v4.11.0 Extender）</b>: 다른 AI 도구의 환경 설정이 복잡한가요? TSG가 대신 설정해드립니다——내장 탐지기가 기기에 설치된 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>를 스캔하고,
 해당 도구를 TSG 엔드포인트에 연결하는 설정 스니펫을 원클릭으로 생성합니다（키는 내장 선택 가능하며 전 과정 감사됨）, 복사 붙여넣기만 하면 완료됩니다. 모든 대상은 MIT / Apache 생태계로, <b>GPL 오염 제로, 외부 의존성 제로</b>입니다.
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.7.0-success">
+<img alt="Version" src="https://img.shields.io/badge/version-4.11.0-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
-<img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
-<img alt="Platforms" src="https://img.shields.io/badge/platform-6%20targets-blueviolet">
+<img alt="Providers" src="https://img.shields.io/badge/providers-13clients%C3%9724cloud-blue">
+<img alt="Platforms" src="https://img.shields.io/badge/platforms-7%20native%20targets-blueviolet">
+<img alt="MCP" src="https://img.shields.io/badge/MCP-stdio%20%2B%20HTTP%20%2B%20auto--include-22d3ee">
 <img alt="Tests" src="https://img.shields.io/badge/tests-race%20green">
 <img alt="License" src="https://img.shields.io/badge/license-MIT-orange">
 </p>
@@ -43,7 +50,7 @@
 >
 > 압축 파일을 다운로드하고 압축을 푼 뒤 더블 클릭만 하면 로컬 포트 `18889`에서 서비스가 시작되고 브라우저에서 자동으로 한국어 관리 패널이 열립니다. 1GB짜리 이미지를 받거나 MySQL을 설치해야 하는 "무거운 게이트웨이"가 아니라 **의존성 제로, 완전 정적, USB에 넣어서도 실행할 수 있는** 가벼운 보안 게이트웨이입니다.
 >
-> v3.2.0에서는 "연결"을 극한으로 끌어올렸습니다——**Coding Plan 하나의 키로 모든 모델에 접근**할 수 있습니다; 50개 통합 로드맵이 이미 마련되어 있습니다; 오픈소스 / 클로즈드소스 / CLI 세 가지 통합 모드를 지원합니다（**embed 내장 / federate 연합 / wrap-cli-as-mcp 래핑**）; 일시적으로 연결할 수 없는 경우 실행 가능한 연동 가이드를 제공합니다.
+> v4.11.0에서는 "연결"을 극한으로 끌어올렸습니다——**Coding Plan 하나의 키로 모든 모델에 접근**할 수 있습니다; 50개 통합 로드맵이 이미 마련되어 있습니다; 오픈소스 / 클로즈드소스 / CLI 세 가지 통합 모드를 지원합니다（**embed 내장 / federate 연합 / wrap-cli-as-mcp 래핑**）; 일시적으로 연결할 수 없는 경우 실행 가능한 연동 가이드를 제공합니다.
 >
 > 다른 게이트웨이가 아직 YAML을 설정하고 라우팅 규칙을 디버깅하라고 요구할 때, TarsSecureGuard는 이미 안전 벨트를 채우고 클라이언트를 연결한 뒤 키를 당신 손에 쥐여줍니다.
 
@@ -55,7 +62,7 @@ TarsSecureGuard는 **로컬 우선(local-first) AI 게이트웨이——AI 시�
 
 > 집에 있는 라우터는 랜선을 생산하지도 않고 웹사이트를 만들지도 않지만, 모든 기기가 안전하게 인터넷을 사용할 수 있게 해줍니다. TarsSecureGuard는 모델을 생산하지도 않고 특정 클라이언트 사용을 강요하지도 않습니다——**모든 AI 클라이언트가 모든 모델을 안전하게 사용할 수 있게 해줄 뿐입니다.** 우리는 이 일을 극한까지 할 계획입니다: 연결할 수 있는 것은 모두 연결하고, 일시적으로 연결할 수 없는 경우 실행 가능한 연동 가이드를 제공합니다（`docs/v3.2.0-unconnectable.md` 참고）.
 
-### v3.2.0 신규 기능 · Universal Connector 로드맵
+### v4.11.0 신규 기능 · Universal Connector 로드맵
 
 > **하나의 Coding Plan 구독 키 = 모든 모델의 열쇠**입니다. TSG는 각 provider의 차이를 OpenAI 호환 레이어 뒤에 숨겨서, AI 클라이언트를 재작성할 필요도 없고 사용자가 도구를 전환할 필요도 없습니다.
 
@@ -67,13 +74,13 @@ TarsSecureGuard는 **로컬 우선(local-first) AI 게이트웨이——AI 시�
 | **federate（연합）** | 원격 서비스 / API 게이트웨이 | TSG 리버스 프록시 + 프로토콜 어댑터를 통해 통합 스케줄링（각 MCP Hub, 서드파티 API 플랫폼）|
 | **wrap-cli-as-mcp（CLI를 MCP로 래핑）** | 모든 명령줄 도구 | 코드 작성 없이 MCP 서버로 래핑하여 AI가 TSG를 통해 간접 호출（예: ripgrep / fd / magika / jq）|
 
-**현재 진행 상황**: 24개 클라우드 provider + 8개 로컬 런타임（내장 등록, 각 provider별 기계 판독 가능 문서 제공）, 13개 클라이언트 연동 가이드, 17개 일시적 미연결 항목（v3.3.0 목표 50개 통합）. **새로운 provider 추가시 코드 수정 없이 설정만으로 가능**합니다——이것이 v3.2.0이 "라우터" 역할을 할 수 있는 이유입니다.
+**현재 진행 상황**: 24개 클라우드 provider + 8개 로컬 런타임（내장 등록, 각 provider별 기계 판독 가능 문서 제공）, 13개 클라이언트 연동 가이드, 17개 일시적 미연결 항목（v3.3.0 목표 50개 통합）. **새로운 provider 추가시 코드 수정 없이 설정만으로 가능**합니다——이것이 v4.11.0이 "라우터" 역할을 할 수 있는 이유입니다.
 
 ### 5대 핵심 특징
 
 | 특징 | 설명 |
 |------|------|
-| 🔌 **모든 것을 연결** | v3.2.0 provider-registry: 24개 클라우드 + 8개 로컬 런타임 내장 등록（각 provider별 기계 판독 가능 문서 제공）, 13종 AI 클라이언트 연동 가이드; 새로운 provider 추가시 **코드 수정 없이 설정만으로 가능**합니다. |
+| 🔌 **모든 것을 연결** | v4.11.0 provider-registry: 24개 클라우드 + 8개 로컬 런타임 내장 등록（각 provider별 기계 판독 가능 문서 제공）, 13종 AI 클라이언트 연동 가이드; 새로운 provider 추가시 **코드 수정 없이 설정만으로 가능**합니다. |
 | 📦 **압축 해제만으로 사용 가능** | 설치 불필요, 컨테이너 불필요, 데이터베이스 불필요. 압축을 풀고 `start.bat` / `start.sh`를 더블 클릭만 하면 서비스가 시작되고 브라우저에서 자동으로 한국어 패널이 열립니다. |
 | 🔒 **높은 보안성** | 보안 코어가 강제로 로드되며 **비활성화 불가**: WAF（경로 탈취 / 명령어 삽입 / SQLi / XSS / **프롬프트 인젝션** / **PII 감지**）、**시맨틱 감지 계층별 분류（fail-close）**、**3차원 토큰 버킷 제한**、**로컬 IP 신뢰도 평가**、RBAC 3가지 역할, 구조화된 감사, PII 익명화, SSRF 5가지 금지 규칙, 방화벽 3단계 연동. 연결이 아무리 넓어도 보안 체인은 한 줄도 줄이지 않습니다. |
 | 🚀 **뛰어난 성능** | 공유 연결 풀（실제 재사용률 98.5%）、provider 서킷 브레이커 및 다운그레이드, 2단계 캐시（프로토콜 어댑터 + 테넌트 격리 응답 캐시）; 아웃바운드 P99가 v3.0.x 기준 대비 **-27% ~ -40%** 개선되었습니다（재현 가능한 벤치마크는 소스 코드와 함께 제공되며, `docs/v3.2.0-performance.md` 참고）. |
@@ -249,7 +256,7 @@ go test -race ./...      # 단위 + 통합 테스트
 
 ## 📚 문서
 
-- [CHANGES.md](./CHANGES.md) —— 각 버전 전체 변경 내역 (v3.2.4 UI 업그레이드, v3.2.3 성능 업그레이드 v2, v3.2.2 거버넌스 계층+성능 업그레이드 v1, v3.2.1 데스크톱 클라이언트, v3.2.0 연결성 대버전 포함)
+- [CHANGES.md](./CHANGES.md) —— 각 버전 전체 변경 내역 (v3.2.4 UI 업그레이드, v3.2.3 성능 업그레이드 v2, v3.2.2 거버넌스 계층+성능 업그레이드 v1, v3.2.1 데스크톱 클라이언트, v4.11.0 연결성 대버전 포함)
 - [docs/v3.2.4-ui.md](./docs/v3.2.4-ui.md) —— **UI 업그레이드**: 거버넌스 계층 시각화 4개 페이지 / 인터랙션 수정 / Playwright 엔드투엔드 검증
 - [docs/v3.2.3-performance.md](./docs/v3.2.3-performance.md) —— **성능 업그레이드 v2**: WAF 단일 패스 병합+사전 스크리닝 / PII 단일 패스화 / 응답 캐시 샤딩 락 / A-B 벤치마크
 - [docs/v3.2.2-governance.md](./docs/v3.2.2-governance.md) —— **거버넌스 계층**: 공유 메모리 / 공유 정보 / 컨텍스트 확장 MCP / OAuth/IdP / 게이트키퍼 / 감사 업그레이드
