@@ -39,7 +39,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.11.4"
+var version = "4.11.5"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -241,6 +241,8 @@ func main() {
 	mux.HandleFunc("/api/admin/v32/auto-discovery/scan", moduleRoute("autoDiscovery", handleDiscoveryScan))
 	mux.HandleFunc("/api/admin/v32/auto-discovery/results", moduleRoute("autoDiscovery", handleDiscoveryResults))
 	mux.HandleFunc("/api/agents/", moduleRoute("chatApi", handleAgent))
+	mux.HandleFunc("/api/agents", moduleRoute("chatApi", handleAgentList))
+	mux.HandleFunc("/api/chat/team", moduleRoute("chatApi", handleAgentTeam))
 	mux.HandleFunc("/api/tools/", moduleRoute("builtinTools", handleToolCall))
 	mux.HandleFunc("/v1/", moduleRoute("chatApi", handleV1))
 	mux.HandleFunc("/v1", moduleRoute("chatApi", handleV1Root))

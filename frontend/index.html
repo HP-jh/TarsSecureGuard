@@ -364,8 +364,8 @@ this)"><span class="ic"><svg><use href="#i-device"/></svg></span> Device</div>
 <div class="chat-box">
 <div class="chat-head">
 <select class="input" id="c-model" style="width:auto"><option value="auto">自动选择</option><option value="local">仅本地</option><option value="cloud">仅云端</option></select>
+<select class="input" id="c-agent-sel" style="width:auto"><option value="">默认助手</option><option value="code-assistant">💻 代码助手</option><option value="security-analyst">🛡️ 安全分析</option><option value="data-analyst">📊 数据分析</option><option value="writing-assistant">✍️ 写作助手</option><option value="translator">🌐 翻译助手</option><option value="summarizer">📝 摘要助手</option></select>
 <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;cursor:pointer;min-height:34px"><input type="checkbox" id="c-search"> Web Search</label>
-<label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px;cursor:pointer;min-height:34px"><input type="checkbox" id="c-agent"> Agent Boost</label>
 <span style="flex:1"></span>
 <button class="btn btn-s btn-sm" id="c-test-toggle" onclick="toggleChatTest()">🧪 API Test</button>
 </div>
@@ -2003,6 +2003,33 @@ function toggleChatTest(){
     btn.style.background='linear-gradient(135deg,var(--blue),var(--purple))';
     btn.style.color='#fff';
   }
+}
+function runAgentTeam(){
+  const btn=document.getElementById('ct-team-btn');
+  const out=document.getElementById('ct-team-output');
+  const prompt=document.getElementById('ct-prompt').value;
+  if(!prompt){err('请输入提示词');return;}
+  const ids=[];
+  document.querySelectorAll('.ct-team:checked').forEach(cb=>ids.push(cb.value));
+  if(ids.length===0){err('请至少选择一个智能体');return;}
+  btn.disabled=true;btn.textContent='协作中...';
+  out.innerHTML='<div class="sec360-empty" style="padding:16px">多智能体协作中...</div>';
+  fetch('/api/chat/team',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify({prompt:prompt,agentIds:ids,model:document.getElementById('ct-model').value||'auto'})})
+    .then(r=>r.json()).then(d=>{
+      btn.disabled=false;btn.textContent='🤝 多智能体执行';
+      let html='<div class="apitest-result">';
+      if(d.results){
+        d.results.forEach(res=>{
+          const col=res.error?'#f85149':'#3fb950';
+          html+=`<div style="margin-bottom:10px;padding:8px;border-radius:6px;background:var(--bg2);border-left:3px solid ${col}"><div style="font-size:12px;font-weight:600;margin-bottom:4px">${res.agentName} <span style="font-size:10px;color:var(--text2)">(${res.latencyMs}ms · ${res.backend})</span></div><div style="font-size:11px;color:var(--text2);white-space:pre-wrap">${res.error?'Error: '+res.error:res.content}</div></div>`;
+        });
+      }
+      html+='</div>';
+      out.innerHTML=html;
+    }).catch(e=>{
+      btn.disabled=false;btn.textContent='🤝 多智能体执行';
+      out.innerHTML=`<div class="apitest-result"><pre>Error: ${e.message}</pre></div>`;
+    });
 }
 function runChatTest(){
   const btn=document.getElementById('ct-run');

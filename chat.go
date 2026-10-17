@@ -18,6 +18,8 @@ type ChatRequest struct {
 	Model    string    `json:"model"`
 	Search   bool      `json:"search"`
 	Agent    bool      `json:"agent"`
+	// v4.11.5: 多智能体路由
+	AgentID  string    `json:"agentId,omitempty"`
 	// v3.3.0 OpenAI 兼容透传：tools / tool_choice 原样传给支持函数调用的后端
 	// （openai-compat 协议；其余协议忽略并记日志，见 docs/v3.3.0）
 	Tools      json.RawMessage `json:"tools,omitempty"`
@@ -187,6 +189,13 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 				Topic:               req.Context.Topic,
 			})
 			req.Messages = append([]Message{{Role: "system", Content: pack.Text}}, req.Messages...)
+		}
+	}
+	// v4.11.5: 多智能体路由 — 注入 agent system prompt
+	if req.AgentID != "" {
+		sysPrompt := getAgentPrompt(req.AgentID)
+		if sysPrompt != "" {
+			req.Messages = append([]Message{{Role: "system", Content: sysPrompt}}, req.Messages...)
 		}
 	}
 	// PII 脱敏：在路由到后端前对消息内容脱敏
