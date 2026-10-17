@@ -39,7 +39,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.11.2"
+var version = "4.11.3"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -206,6 +206,8 @@ func main() {
 	mux.HandleFunc("/api/admin/security/resolve", handleSecurity360ResolveThreat)
 	mux.HandleFunc("/api/admin/security/quarantine", handleSecurity360Quarantine)
 	mux.HandleFunc("/api/admin/security/quarantine/restore", handleSecurity360QuarantineRestore)
+	mux.HandleFunc("/api/admin/security/mcp/servers", handleSecurity360MCPServers)
+	mux.HandleFunc("/api/admin/security/mcp/validate", handleSecurity360MCPValidate)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
 	mux.HandleFunc("/api/admin/audit-logs", handleAuditLogs)
 	// v3.0.4 多租户 / 零信任面板：租户状态（含配额用量、按组 audit 视图）、白名单注册表
@@ -768,6 +770,7 @@ func isAdminRoute(path string) bool {
 		"/api/admin/security/scan", "/api/admin/security/threats",
 		"/api/admin/security/resolve", "/api/admin/security/quarantine",
 		"/api/admin/security/quarantine/restore",
+		"/api/admin/security/mcp/servers", "/api/admin/security/mcp/validate",
 		"/api/admin/logs", "/api/admin/v32/auto-discovery/scan",
 		"/api/admin/modules", "/api/admin/hardware/assessment", // v2.0.0 模块管理 / 硬件评估
 		"/api/admin/sidecar/reload", // v3.0.1 sidecar 全量重载（状态查询 /api/admin/sidecar/status 保留普通登录态可读）
