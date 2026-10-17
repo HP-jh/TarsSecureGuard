@@ -22,6 +22,7 @@ import (
 	pkgkb "github.com/HP-jh/TarsSecureGuard/pkg/kb"
 	"github.com/HP-jh/TarsSecureGuard/pkg/interop"
 	"github.com/HP-jh/TarsSecureGuard/pkg/mcp"
+	"github.com/HP-jh/TarsSecureGuard/pkg/mcp/community"
 	"github.com/HP-jh/TarsSecureGuard/pkg/obsidian"
 	"github.com/HP-jh/TarsSecureGuard/pkg/voicecorrection"
 )
@@ -45,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.16.0"
+var version = "4.17.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -94,6 +95,8 @@ var (
 	kingdomRegistry *kingdom.Registry
 	// v4.16.0 MCP Marketplace
 	mcpMarketplace *mcp.Marketplace
+	// v4.17.0 Community Marketplace
+	mcpCommunity *community.CommunityMarketplace
 )
 // ===================== HTTP 主入口 =====================
 func main() {
@@ -144,6 +147,9 @@ func main() {
 	} else {
 		logMsg("[MCP] Marketplace initialized")
 	}
+	// v4.17.0 Community Marketplace
+	mcpCommunity = community.NewCommunityMarketplace(dataRoot, installRoot)
+	logMsg("[MCP] Community Marketplace initialized")
 	// v3.0.1 Tier 1：进程重启 = 缓存全量失效（HMAC 密钥仅存内存，重启后旧缓存必校验失败；
 	// 启动即删除，把「正常重启」与「运行中篡改」区分开，后者才落 AUDIT_TIER1_CACHE_TAMPER）
 	tier1StartupClear()
@@ -278,6 +284,16 @@ func main() {
 	mux.HandleFunc("/api/v1/mcp/marketplace", mcpMarketplace.HandleList)         // GET list
 	mux.HandleFunc("/api/v1/mcp/marketplace/check-all", mcpMarketplace.HandleCheckAll) // POST check-all
 	mux.HandleFunc("/api/v1/mcp/marketplace/", mcpMarketplace.HandleDispatch)    // /:name and /:name/:action
+	// v4.17.0 Community Marketplace endpoints
+	mux.HandleFunc("/api/v1/mcp/community/sources", mcpCommunity.HandleSourcesList)        // GET list
+	mux.HandleFunc("/api/v1/mcp/community/sources/", mcpCommunity.HandleSourcesCreate)     // POST create
+	mux.HandleFunc("/api/v1/mcp/community/sources/delete/", mcpCommunity.HandleSourcesDelete) // DELETE /:id
+	mux.HandleFunc("/api/v1/mcp/community/sources/refresh/", mcpCommunity.HandleSourceRefresh) // POST /:id/refresh
+	mux.HandleFunc("/api/v1/mcp/community/refresh-all", mcpCommunity.HandleRefreshAll)     // POST refresh-all
+	mux.HandleFunc("/api/v1/mcp/community/packages", mcpCommunity.HandlePackagesList)      // GET list
+	mux.HandleFunc("/api/v1/mcp/community/packages/", mcpCommunity.HandlePackageDetail)    // GET /:id
+	mux.HandleFunc("/api/v1/mcp/community/packages/download/", mcpCommunity.HandlePackageDownload) // POST /:id/download
+	mux.HandleFunc("/api/v1/mcp/community/packages/verify/", mcpCommunity.HandlePackageVerify)     // POST /:id/verify
 	mux.HandleFunc("/api/search", moduleRoute("webSearch", handleSearch))
 	mux.HandleFunc("/api/feishu/", handleFeishu)
 	mux.HandleFunc("/mcp", moduleRoute("mcpExternal", handleMCP))
