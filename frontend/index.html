@@ -900,12 +900,21 @@ center"><button class="btn btn-d" onclick="shutdownGateway(this)">关闭网关</
 </div>
 </div>
 </div>
-<!-- ===== MCP Marketplace (v4.16.0) ===== -->
+<!-- ===== MCP Marketplace (v4.16.0) + Community (v4.17.0) ===== -->
 <div class="page" id="p-mcpmarket">
 <div class="topbar"><div><h2>MCP 市场</h2><div class="crumb">扩展 / 一键下载与启用 MCP 集成</div></div></div>
+<div class="tabs"><button class="tab-btn active" onclick="switchMcpTab('official',this)">官方集成</button><button class="tab-btn" onclick="switchMcpTab('community',this)">社区</button></div>
+<div id="mcp-tab-official" class="mcp-tab active">
 <div class="card"><div class="card-title"><span class="d"></span>集成状态 <span class="right"><span id="mcpm-count" style="font-size:12px;color:var(--muted)">加载中…</span><button class="btn btn-s btn-sm" onclick="loadMcpMarketplace()">刷新</button><button class="btn btn-p btn-sm" onclick="mcpCheckAll()">检查更新</button></span></div>
 <div id="mcpm-list"><div class="skel skel-row" style="width:80%"></div><div class="skel skel-row" style="width:60%"></div></div>
 <div style="color:var(--text2);font-size:11px;margin-top:10px">从 GitHub Releases 自动拉取二进制；启用后作为子进程运行（stdio 模式）。崩溃自动重启（最多 3 次/小时），每 30 秒健康检查。</div></div>
+</div>
+<div id="mcp-tab-community" class="mcp-tab" style="display:none">
+<div class="card"><div class="card-title"><span class="d"></span>社区来源 <span class="right"><button class="btn btn-s btn-sm" onclick="loadCommunitySources()">刷新</button><button class="btn btn-p btn-sm" onclick="showAddSourceDlg()">添加来源</button><button class="btn btn-s btn-sm" onclick="communityRefreshAll()">刷新全部</button></span></div>
+<div id="cm-src-list"><div class="skel skel-row" style="width:80%"></div></div></div>
+<div class="card"><div class="card-title"><span class="d"></span>社区包 <span class="right"><span id="cm-pkg-count" style="font-size:12px;color:var(--muted)">加载中…</span><input id="cm-q" class="input" style="width:160px" placeholder="搜索包…"><button class="btn btn-s btn-sm" onclick="loadCommunityPackages()">搜索</button></span></div>
+<div id="cm-pkg-list"><div class="skel skel-row" style="width:80%"></div></div></div>
+</div>
 </div>
 <script>
 /* ============ 前端运行时监控 ============ */
@@ -1260,6 +1269,39 @@ function mcpCheckAll(){api('/api/v1/mcp/marketplace/check-all',{method:'POST'}).
   var cnt=arr.filter(function(x){return x.hasUpdate==='true';}).length;
   toast('检查完成：'+cnt+' 个集成有更新','ok');loadMcpMarketplace();
 }).catch(function(e){toast('检查更新失败：'+esc(e&&e.message||e),'err');});}
+function switchMcpTab(tab,btn){document.querySelectorAll('.mcp-tab').forEach(function(x){x.style.display='none';x.classList.remove('active');});document.querySelectorAll('#mcp-tab-'+tab).forEach(function(x){x.style.display='block';x.classList.add('active');});document.querySelectorAll('.tab-btn').forEach(function(x){x.classList.remove('active');});if(btn)btn.classList.add('active');if(tab==='community'){loadCommunitySources();loadCommunityPackages();}}
+/* ============ Community Marketplace (v4.17.0) ============ */
+function loadCommunitySources(){api('/api/v1/mcp/community/sources').then(function(d){
+  var list=Array.isArray(d)?d:[];
+  if(!list.length){$('cm-src-list').innerHTML='<div class="empty">暂无来源，点击「添加来源」开始</div>';return;}
+  var h='<table><thead><tr><th style="text-align:left">来源</th><th>类型</th><th>信任等级</th><th>包数</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(function(s){
+    var badge=s.trustLevel==='official'?'tag on':(s.trustLevel==='community'?'tag':'tag clo');
+    var badgeText=s.trustLevel==='official'?'Official':(s.trustLevel==='community'?'Community':'Personal');
+    var status=s.enabled?'<span class="tag on">启用</span>':'<span class="tag">禁用</span>';
+    h+='<tr><td style="text-align:left"><div style="font-weight:600">'+esc(s.name)+'</div><div style="font-size:10px;color:var(--muted)">'+esc(s.id)+' · '+esc(s.url)+'</div></td><td>'+esc(s.type)+'</td><td><span class="'+badge+'">'+badgeText+'</span></td><td>'+(s.packageCount||0)+'</td><td>'+status+'</td><td><button class="btn btn-s btn-sm" onclick="removeSource(\''+esc(s.id)+'\',this)">删除</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  $('cm-src-list').innerHTML=h;
+}).catch(function(e){$('cm-src-list').innerHTML='<div class="empty">加载失败：'+esc(e&&e.message||e)+'</div>';});}
+function loadCommunityPackages(){var q=$('cm-q').value.trim();var url='/api/v1/mcp/community/packages';if(q)url+='?q='+encodeURIComponent(q);
+api(url).then(function(d){
+  var list=Array.isArray(d)?d:[];
+  $('cm-pkg-count').textContent=list.length+' 个包';
+  if(!list.length){$('cm-pkg-list').innerHTML='<div class="empty">暂无包，先添加来源并刷新</div>';return;}
+  var h='<table><thead><tr><th style="text-align:left">包名</th><th>来源</th><th>版本</th><th>信任等级</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(function(p){
+    var badge=p.trustLevel==='official'?'tag on':(p.trustLevel==='community'?'tag':'tag clo');
+    var badgeText=p.trustLevel==='official'?'Official':(p.trustLevel==='community'?'Community':'Personal');
+    h+='<tr><td style="text-align:left"><div style="font-weight:600">'+esc(p.name)+'</div><div style="font-size:11px;color:var(--text2)">'+esc(p.description||'')+'</div></td><td>'+esc(p.sourceId||'')+'</td><td>'+esc(p.version||'-')+'</td><td><span class="'+badge+'">'+badgeText+'</span></td><td><button class="btn btn-p btn-sm" onclick="downloadCommunityPkg(\''+esc(p.name)+'\',this)">下载</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  $('cm-pkg-list').innerHTML=h;
+}).catch(function(e){$('cm-pkg-list').innerHTML='<div class="empty">加载失败：'+esc(e&&e.message||e)+'</div>';});}
+function communityRefreshAll(){btnLoad('refresh-all',true);api('/api/v1/mcp/community/refresh-all',{method:'POST'}).then(function(d){toast('刷新完成：'+(d.packages||0)+' 个包','ok');loadCommunityPackages();btnLoad('refresh-all',false);}).catch(function(e){toast('刷新失败：'+esc(e&&e.message||e),'err');btnLoad('refresh-all',false);});}
+function removeSource(id,btn){if(!confirm('确定删除来源 '+id+'？'))return;btnLoad(btn,true);api('/api/v1/mcp/community/sources/delete/'+esc(id),{method:'DELETE'}).then(function(){toast('来源已删除','ok');loadCommunitySources();btnLoad(btn,false);}).catch(function(e){toast('删除失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
+function downloadCommunityPkg(name,btn){btnLoad(btn,true);api('/api/v1/mcp/community/packages/download/'+esc(name),{method:'POST'}).then(function(d){toast('下载成功：'+esc(name),'ok');btnLoad(btn,false);}).catch(function(e){toast('下载失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
+function showAddSourceDlg(){var name=prompt('来源显示名：');if(!name)return;var url=prompt('来源地址（GitHub: owner/repo，HTTP: URL，Local: 文件路径）：');if(!url)return;var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';var id='src-'+Date.now();api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});}
 function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('请输入搜索关键词','err');return;}
   $('se-result').textContent='[i] 正在搜索：'+q+'…';btnLoad(btn,true);
   api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){
