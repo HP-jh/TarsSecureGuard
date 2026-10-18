@@ -1,3 +1,28 @@
+# TarsSecureGuard v4.36.0 · 版本号对齐与基础稳定性修复
+
+> 对应项：整合历史版本优点前的基线修复，确保编译通过与测试全绿。
+
+## 一、版本号对齐
+
+- `main.go` 默认版本号从 `4.33.0` 修正为 `4.36.0`（与已发布功能匹配）
+- 所有版本测试文件（v321/v371/v380/v390/v433/v436/v464/v465/v466/v471/v472/v473）同步更新期望版本为 `4.36.0`
+
+## 二、编译修复
+
+- `selfprotect.go` / `selfprotect_unix.go` / `selfprotect_windows.go`：`gracefulShutdown` 与 `shutdown.go` 发生重声明冲突，重命名为 `gracefulShutdownWithReason`，消除编译错误
+
+## 三、异常检测测试加固
+
+- `anomaly_test.go` `TestAnomalyDetectorRecordRequest`：预对齐 bucket 时间戳，消除 `time.Now()` 竞态导致的 head 断言失败
+- `anomaly_test.go` `TestAnomalyDetectorBucketRotation`：改为直接构造绕回场景，避免时间敏感断言
+- `anomaly.go` `detectAnomalies`：已包含 std=0 边界处理（历史基线无波动时，只要当前值偏离即触发告警）
+
+## 四、验证
+
+- `go test -race ./...` 全绿（主包 + crownext + kingdom + pkg + tripwire）
+
+---
+
 # TarsSecureGuard v4.33.0 · SQL 注入语义分析层检测增强
 
 > 对应项：SQL 注入检测增强（语义分析层），关键词+语法结构联合判断，显著降低误报。
