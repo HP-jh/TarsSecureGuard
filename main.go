@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.20.0"
+var version = "4.27.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -211,6 +211,11 @@ func main() {
 	mux.HandleFunc("/health", handleHealth) // 健康检查（免鉴权）
 	mux.HandleFunc("/ws/events", handleWSEvents) // v4.11.0 SSE 实时事件流
 	mux.HandleFunc("/api/status", handleStatus)
+	// v4.27.0 首次启动引导 API
+	mux.HandleFunc("/api/onboarding/status", handleOnboardingStatus)
+	mux.HandleFunc("/api/onboarding/apikey", handleOnboardingAPIKey)
+	mux.HandleFunc("/api/onboarding/demo", handleOnboardingDemo)
+	mux.HandleFunc("/api/onboarding/complete", handleOnboardingComplete)
 	mux.HandleFunc("/api/stats", moduleRoute("stats", handleStats))                // 统计面板
 	mux.HandleFunc("/api/stats/history", moduleRoute("stats", handleStatsHistory)) // 24 小时请求量
 	mux.HandleFunc("/api/chat/completions", moduleRoute("chatApi", handleChat))
@@ -585,6 +590,10 @@ func isPublicRoute(p string) bool {
 	// v3.2.2：OAuth 登录回调为浏览器跳转入口，登录前必然没有凭据——
 	// 免鉴权但不过 WAF 之外的任何豁免（state 一次性 + PKCE 防 CSRF/劫持）
 	if p == "/oauth/login" || p == "/oauth/callback" {
+		return true
+	}
+	// v4.27.0 首次启动引导 API 免鉴权（新用户还没有密钥）
+	if strings.HasPrefix(p, "/api/onboarding/") {
 		return true
 	}
 	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health" || p == "/ws/events"

@@ -13,6 +13,30 @@
 - 顶层 `.go` 文件归位分析（`internal/<domain>/` 模式评估）
 
 ---
+## [4.27.0] "Onboarding" - 2026-10-18
+
+### Added
+- **首次启动引导**（小白化 P0）：全新安装后自动弹出 3 步引导页
+  1. 设置网关密钥（自定义 API Key，写入 config.json 并同步到 cloud providers）
+  2. 一键 Demo（自动开启 chatApi / cloudModels / builtinTools / webSearch / stats + WAF normal 档）
+  3. 完成页（确认进入主控制台）
+- 后端 4 个 onboarding API（免鉴权，首次启动专用）：
+  - `GET /api/onboarding/status` — 返回 firstRun / completed / version
+  - `POST /api/onboarding/apikey` — 保存自定义密钥
+  - `POST /api/onboarding/demo` — 一键开启 Demo 模块
+  - `POST /api/onboarding/complete` — 标记引导完成
+- `handleFrontend` 注入 `data-first-run` 标记，前端据此自动渲染引导覆盖层
+- `isPublicRoute` 放行 `/api/onboarding/*`，新用户无需密钥即可配置
+
+### Security
+- 引导流程密钥最小 6 位校验，拒绝空密钥
+- Demo 模式默认启用 WAF + normal 安全档，不降级防护
+
+### UI
+- 暗色主题引导页（与主 UI 风格一致）：步骤指示器 + 输入框 + 动画过渡
+- 引导页自动存储密钥到 localStorage，完成后无缝进入主控制台
+
+---
 ## [4.10.0] "Absorb" - 2026-10-15
 
 ### Added

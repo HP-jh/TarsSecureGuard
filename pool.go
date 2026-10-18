@@ -10,11 +10,15 @@ package main
 //   MaxIdleConns=256 / MaxIdleConnsPerHost=32 / IdleConnTimeout=90s /
 //   TLSHandshakeTimeout=10s / ForceAttemptHTTP2=true
 //
+// v4.25.0 新增：基于 QPS 的自适应扩缩容（5~200 区间），每 5 秒评估一次，
+// 扩容激进、缩容保守，避免连接数抖动。
+//
 // 安全不变量：只改传输层，不改任何安全判定；本池服务所有出站
 // （云端 provider / 本地运行时 / web fetch），超时仍由各 client 控制。
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"net/http/httptrace"
 	"sync"
@@ -30,6 +34,11 @@ var (
 	poolConnNew    atomic.Int64
 	poolConnReused atomic.Int64
 	poolRequests   atomic.Int64
+
+	// v4.25.0 自适应连接池状态
+	poolAdaptiveEnabled atomic.Bool // 默认 true，可经 config 关闭
+	poolCurrentMaxIdle  atomic.Int32 // 当前生效的 MaxIdleConnsPerHost
+	poolAdaptiveStop    chan struct{} // 停止自适应 goroutine
 )
 
 // initPooledClients 幂等初始化：构建共享 Transport 并把 httpClientShort/Long
@@ -59,7 +68,99 @@ func initPooledClients(maxIdlePerHost int) {
 		}
 		httpClientShort = &http.Client{Transport: trackedTransport{sharedTransport}, Timeout: 30 * time.Second}
 		httpClientLong = &http.Client{Transport: trackedTransport{sharedTransport}, Timeout: 300 * time.Second}
+		poolCurrentMaxIdle.Store(int32(maxIdlePerHost))
+		poolAdaptiveEnabled.Store(true)
+		poolAdaptiveStop = make(chan struct{})
+		go poolAdaptiveLoop()
 	})
+}
+
+// poolAdaptiveLoop v4.25.0 自适应扩缩容主循环：每 5 秒评估 QPS 并调整连接数。
+// 扩容阈值低（QPS 上升即扩），缩容阈值高（QPS 持续下降才缩），避免抖动。
+func poolAdaptiveLoop() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var lastRequests int64
+	var lastTime time.Time
+	first := true
+
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			currentReq := poolRequests.Load()
+			if first {
+				lastRequests = currentReq
+				lastTime = now
+				first = false
+				continue
+			}
+
+			deltaReq := currentReq - lastRequests
+			deltaSec := now.Sub(lastTime).Seconds()
+			if deltaSec <= 0 {
+				continue
+			}
+			qps := float64(deltaReq) / deltaSec
+			lastRequests = currentReq
+			lastTime = now
+
+			if !poolAdaptiveEnabled.Load() {
+				continue
+			}
+
+			current := int(poolCurrentMaxIdle.Load())
+			target := poolTargetConns(qps)
+
+			// 扩容：目标 >= 当前 * 1.2（激进）
+			// 缩容：目标 <= 当前 * 0.5（保守，避免频繁缩）
+			shouldScale := false
+			newVal := current
+			if target >= int(float64(current)*1.2) {
+				shouldScale = true
+				newVal = target
+			} else if target <= int(float64(current)*0.5) {
+				shouldScale = true
+				newVal = target
+			}
+
+			if shouldScale && newVal != current && sharedTransport != nil {
+				sharedTransport.MaxIdleConnsPerHost = newVal
+				poolCurrentMaxIdle.Store(int32(newVal))
+				auditLog("POOL_ADAPTIVE", "system", fmt.Sprintf("qps=%.1f old=%d new=%d", qps, current, newVal))
+			}
+		case <-poolAdaptiveStop:
+			return
+		}
+	}
+}
+
+// poolTargetConns 根据 QPS 计算目标连接数：每个连接约服务 2~4 QPS，
+// 结果 clamp 到 [5, 200] 区间。
+func poolTargetConns(qps float64) int {
+	// 经验公式：目标连接数 = QPS / 3（每个连接约 3 QPS）
+	target := int(qps / 3.0)
+	if target < 5 {
+		return 5
+	}
+	if target > 200 {
+		return 200
+	}
+	return target
+}
+
+// poolSetAdaptiveEnabled 动态启停自适应（admin API / 测试用）
+func poolSetAdaptiveEnabled(enabled bool) {
+	poolAdaptiveEnabled.Store(enabled)
+}
+
+// poolSetMaxIdleConnsPerHost 手动设置连接数（覆盖自适应值）
+func poolSetMaxIdleConnsPerHost(n int) {
+	poolCurrentMaxIdle.Store(int32(n))
+	if sharedTransport != nil {
+		sharedTransport.MaxIdleConnsPerHost = n
+	}
 }
 
 // pooledHTTPClient 返回走共享连接池的按需超时客户端（v3.2.2 性能升级 v1：
@@ -99,16 +200,22 @@ func poolStats() map[string]interface{} {
 	if total > 0 {
 		reuseRate = float64(poolConnReused.Load()) / float64(total) * 100
 	}
+	currentMaxIdle := int(poolCurrentMaxIdle.Load())
+	if currentMaxIdle == 0 {
+		currentMaxIdle = 32
+	}
 	// Transport 未暴露空闲/活跃连接计数 API（IdleConnCount 不存在于标准库），
 	// 连接级指标以 trackedTransport 实测的 connNew/connReused 为准。
 	return map[string]interface{}{
-		"requests":        poolRequests.Load(),
-		"connNew":         poolConnNew.Load(),
-		"connReused":      poolConnReused.Load(),
-		"reuseRatePct":    round2(reuseRate),
-		"maxIdlePerHost":  32,
-		"idleConnTimeout": "90s",
-		"http2":           true,
+		"requests":          poolRequests.Load(),
+		"connNew":           poolConnNew.Load(),
+		"connReused":        poolConnReused.Load(),
+		"reuseRatePct":      round2(reuseRate),
+		"maxIdlePerHost":    currentMaxIdle,
+		"idleConnTimeout":   "90s",
+		"http2":             true,
+		"adaptiveEnabled":   poolAdaptiveEnabled.Load(),
+		"adaptiveRange":     "5~200",
 	}
 }
 

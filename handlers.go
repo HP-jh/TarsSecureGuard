@@ -20,9 +20,14 @@ func handleFrontend(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Frontend not found", http.StatusInternalServerError)
 			return
 		}
+		// v4.27.0：首次启动时注入标记，前端据此显示引导页
+		html := string(data)
+		if isFirstRun() && !onboardingCompleted {
+			html = strings.Replace(html, "<body", "<body data-first-run=\"1\"", 1)
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Write(data)
+		w.Write([]byte(html))
 		return
 	}
 	if path == "/i18n.js" {
@@ -65,6 +70,72 @@ func statusPayload() map[string]interface{} {
 }
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, statusPayload())
+}
+
+// ===================== v4.27.0 首次启动引导 =====================
+var onboardingCompleted bool
+
+func handleOnboardingStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]interface{}{
+		"firstRun":   isFirstRun(),
+		"completed":  onboardingCompleted,
+		"version":    version,
+	})
+}
+
+func handleOnboardingAPIKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
+		return
+	}
+	var body struct {
+		Key string `json:"key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		return
+	}
+	if body.Key == "" {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "key required"})
+		return
+	}
+	cfgMu.Lock()
+	cfg.Security.APIKey = body.Key
+	cfg.Cloud.OpenAI.APIKey = body.Key
+	cfg.Cloud.DeepSeek.APIKey = body.Key
+	cfgMu.Unlock()
+	saveConfig()
+	writeJSON(w, map[string]interface{}{"ok": true})
+}
+
+func handleOnboardingDemo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
+		return
+	}
+	// 一键 Demo：开启必要模块 + 触发一次模型发现
+	cfgMu.Lock()
+	cfg.Modules["chatApi"] = true
+	cfg.Modules["cloudModels"] = true
+	cfg.Modules["builtinTools"] = true
+	cfg.Modules["webSearch"] = true
+	cfg.Modules["stats"] = true
+	cfg.Security.WAFEnabled = true
+	cfg.Security.Mode = "normal"
+	cfgMu.Unlock()
+	saveConfig()
+	// 异步触发模型发现（不阻塞响应）
+	go refreshDiscoveredModels()
+	writeJSON(w, map[string]interface{}{"ok": true, "message": "Demo 模式已开启"})
+}
+
+func handleOnboardingComplete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
+		return
+	}
+	onboardingCompleted = true
+	writeJSON(w, map[string]interface{}{"ok": true})
 }
 func handleFallback(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
