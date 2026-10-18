@@ -1,8 +1,8 @@
 package main
 
 import (
+	"strings"
 	"testing"
-	"time"
 )
 
 // TestRoleToTier 验证 role → tier 默认映射
