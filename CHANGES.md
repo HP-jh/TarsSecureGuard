@@ -1,3 +1,36 @@
+# TarsSecureGuard v4.34.0 · XSS 防护增强 —— CSP 策略自动生成
+
+> 对应项：动态 Content-Security-Policy 生成、report-only / enforce 双模式、前端 prompt() 替换小白化弹窗。
+
+## 一、CSP 策略自动生成（pkg/csp.go / csp_test.go）
+
+- **响应拦截器** `cspInterceptWriter`：透明包装 `http.ResponseWriter`，缓冲 HTML 响应体（上限 256KB），超出或已写入 header 时自动降级为静态 CSP fallback
+- **资源提取**：基于正则从 HTML 中解析 `script[src]`、`link[href]`、`img[src]`、`iframe[src]`、`object/data/embed[src]`、`form[action]`、`base[href]`、`source[src]`、`media[src]` 等标签，构建最小化 allowlist
+- **URL 规范化**：相对路径 → `'self'`、绝对 URL → 来源域名、`data:` / `blob:` → 保留 scheme、`javascript:` / `vbscript:` → 丢弃、`about:blank` → 丢弃
+- **策略组装**：按 CSP 指令分组（`default-src`、`script-src`、`style-src`、`img-src`、`connect-src`、`font-src`、`frame-src`、`object-src`、`media-src`、`form-action`、`base-uri`）自动去重排序
+- **FNV-1a 缓存**：64 条缓存避免重复解析相同 HTML 体，提升高频响应性能
+- **静态 fallback**：非 HTML 响应或 API 端点直接输出 `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self';` 作为基线防护
+
+## 二、report-only / enforce 双模式
+
+- 配置项 `security.csp.mode` 支持 `"enforce"`（默认，输出 `Content-Security-Policy`）与 `"report-only"`（输出 `Content-Security-Policy-Report-Only`）
+- `security.csp.report_uri` 可选指定接收违规报告的地址
+- `security.csp.static_only` 设为 `true` 可关闭动态解析，全程使用静态 fallback（极端兼容场景）
+
+## 三、小白化：前端 prompt() 替换为应用内弹窗
+
+- **社区来源添加弹窗** `src-dlg`：替换 `showAddSourceDlg()` 中的浏览器原生 `prompt()`，改为带输入引导的覆盖层弹窗
+- 显示名与来源地址分两行输入，带格式说明（GitHub / HTTP / Local 三种格式提示）
+- 空值校验与错误提示 inline 展示，回车键快捷提交，ESC / 点击遮罩关闭
+
+## 四、版本与配套
+
+- 版本号 4.33.0 → 4.34.0（main / security engine / 版本锁测试同步）
+- 新增 18 项 CSP 专项测试（URL 规范化、资源提取、策略组装、拦截器、中间件集成、缓存、report-only 模式、静态 fallback、JSON 响应、内联脚本检测），`-race` 全绿
+- 前端 v4.6.6 零原生弹窗约束回归通过（`TestV466NoNativeAlertPrompt`）
+
+---
+
 # TarsSecureGuard v4.7.0 · 官方三站 + 多语言文档 + 安装器加固 —— GitHub Pages / i18n / SHA256
 
 > 对应项：GitHub Pages 介绍站与实时性能监控站、下载页、6 语言 README、红蓝对抗报告、安装器防篡改与桌面快捷方式。

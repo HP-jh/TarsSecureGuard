@@ -40,7 +40,8 @@ type Config struct {
 		FirewallLock      *bool       `json:"firewallLock"`    // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
 		AuditLogEnabled   bool        `json:"auditLogEnabled"` // 审计日志开关（默认 true）
 		Firewall          FirewallCfg `json:"firewall"`
-		DefaultKeyAllowed *bool       `json:"defaultKeyAllowed"` // v3.0.4 零信任：默认密钥通道显式 enable（nil=false，见 whitelist.go [ZT_DEFAULT_DENY]）
+		DefaultKeyAllowed *bool       `json:"defaultKeyAllowed"` // v3.0.4
+		CSP               CSPConfig   `json:"csp"`               // v4.34.0 XSS防护：动态CSP策略自动生成
 		PIIMaskEnabled    bool        `json:"piimaskEnabled"`    // v4.31.0：响应流出 PII 自动脱敏开关
 		PIIMaskLevel      string      `json:"piimaskLevel"`      // v4.31.0：脱敏强度 full | partial | hash（默认 full）
 	} `json:"security"`
