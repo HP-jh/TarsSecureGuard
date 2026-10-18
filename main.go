@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.25.0"
+var version = "4.28.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -373,11 +373,16 @@ func main() {
 	// v4.9.0 kingdom：
 
 	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
+	// v4.28.0 请求指纹识别端点
+	mux.HandleFunc("/api/fingerprint/report", handleFingerprintReport)
+	mux.HandleFunc("/api/fingerprint/status", handleFingerprintStatus)
+	mux.HandleFunc("/api/fingerprint/challenge", handleFingerprintChallenge)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
+	// v4.28.0 指纹识别中间件插在 gatewayMiddleware 外层（公共路由免检测，鉴权后检测）
 	server := &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
-		Handler: obsMiddleware(gatewayMiddleware(mux)),
+		Handler: obsMiddleware(fingerprintMiddleware(gatewayMiddleware(mux))),
 		// v4.7.2：ReadHeaderTimeout 限制 header 读取时间（防 Slowloris 慢连接
 		// 拖死 listener；与 ReadTimeout/WriteTimeout 配合形成三层超时）
 		ReadHeaderTimeout: 10 * time.Second,
