@@ -1066,14 +1066,7 @@ center"><button class="btn btn-d" onclick="shutdownGateway(this)">关闭网关</
 </div>
 <div id="mcp-tab-community" class="mcp-tab" style="display:none">
 <div class="card"><div class="card-title"><span class="d"></span>社区来源 <span class="right"><button class="btn btn-s btn-sm" onclick="loadCommunitySources()">刷新</button><button class="btn btn-p btn-sm" onclick="showAddSourceDlg()">添加来源</button><button class="btn btn-s btn-sm" onclick="communityRefreshAll()">刷新全部</button></span></div>
-<div id="cm-src-list"><div class="skel skel-row" style="width:80%"></div></div>
-<div id="cm-add-form" style="display:none;margin-top:10px">
-  <input id="cm-add-name" class="input" style="width:140px" placeholder="显示名">
-  <input id="cm-add-url" class="input" style="width:220px" placeholder="GitHub: owner/repo 或 URL">
-  <button class="btn btn-p btn-sm" onclick="submitAddSource()">确认</button>
-  <button class="btn btn-s btn-sm" onclick="cancelAddSource()">取消</button>
-</div>
-</div>
+<div id="cm-src-list"><div class="skel skel-row" style="width:80%"></div></div></div>
 <div class="card"><div class="card-title"><span class="d"></span>社区包 <span class="right"><span id="cm-pkg-count" style="font-size:12px;color:var(--muted)">加载中…</span><input id="cm-q" class="input" style="width:160px" placeholder="搜索包…"><button class="btn btn-s btn-sm" onclick="loadCommunityPackages()">搜索</button></span></div>
 <div id="cm-pkg-list"><div class="skel skel-row" style="width:80%"></div></div></div>
 </div>
@@ -1463,9 +1456,7 @@ api(url).then(function(d){
 function communityRefreshAll(){btnLoad('refresh-all',true);api('/api/v1/mcp/community/refresh-all',{method:'POST'}).then(function(d){toast('刷新完成：'+(d.packages||0)+' 个包','ok');loadCommunityPackages();btnLoad('refresh-all',false);}).catch(function(e){toast('刷新失败：'+esc(e&&e.message||e),'err');btnLoad('refresh-all',false);});}
 function removeSource(id,btn){if(!confirm('确定删除来源 '+id+'？'))return;btnLoad(btn,true);api('/api/v1/mcp/community/sources/delete/'+esc(id),{method:'DELETE'}).then(function(){toast('来源已删除','ok');loadCommunitySources();btnLoad(btn,false);}).catch(function(e){toast('删除失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
 function downloadCommunityPkg(name,btn){btnLoad(btn,true);api('/api/v1/mcp/community/packages/download/'+esc(name),{method:'POST'}).then(function(d){toast('下载成功：'+esc(name),'ok');btnLoad(btn,false);}).catch(function(e){toast('下载失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
-function showAddSourceDlg(){$('cm-add-form').style.display='block';$('cm-add-name').focus();}
-function cancelAddSource(){$('cm-add-form').style.display='none';$('cm-add-name').value='';$('cm-add-url').value='';}
-function submitAddSource(){var name=$('cm-add-name').value.trim();var url=$('cm-add-url').value.trim();if(!name){toast('请输入显示名','err');return;}if(!url){toast('请输入来源地址','err');return;}var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';var id='src-'+Date.now();api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');cancelAddSource();loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});}
+function showAddSourceDlg(){var name=prompt('来源显示名：');if(!name)return;var url=prompt('来源地址（GitHub: owner/repo，HTTP: URL，Local: 文件路径）：');if(!url)return;var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';var id='src-'+Date.now();api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});}
 function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('请输入搜索关键词','err');return;}
   $('se-result').textContent='[i] 正在搜索：'+q+'…';btnLoad(btn,true);
   api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){

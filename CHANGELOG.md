@@ -13,6 +13,53 @@
 - 顶层 `.go` 文件归位分析（`internal/<domain>/` 模式评估）
 
 ---
+## [4.31.0] "PII Shield" - 2026-10-18
+
+### Added
+- **敏感数据自动脱敏**（PII 实时检测+替换，安全 P0）：
+  - 扩展 6 类 PII 检测：信用卡、SSN、邮箱、中国大陆手机号、中国大陆身份证号、IPv4 地址
+  - 响应流出自动脱敏：中间件层 `piiResponseWriter` 拦截所有 JSON 响应，自动替换其中 PII
+  - 3 档脱敏强度可配置：
+    - `full`（完全遮蔽 → `****`）
+    - `partial`（部分遮蔽 → 手机号 `138****8000`、邮箱 `a****@domain.com`、身份证号 `110***********1234`、IP `192.168.****.1`）
+    - `hash`（哈希替换 → SHA-256 前 8 位十六进制）
+  - 配置项：`security.piimaskEnabled`（开关，默认 true）、`security.piimaskLevel`（强度，默认 full）
+  - 请求入站脱敏保留：聊天消息在路由到后端前仍经过 `maskPIIInMessages`
+  - 脱敏范围：JSON 响应体全覆盖（覆盖 chat / admin / API 所有端点）
+
+### Security
+- PII 外泄纵深防御：入站（消息脱敏）+ 出站（响应脱敏）双层拦截
+- 配置非法值自动回退 full 档，拒绝静默降级
+- Content-Length 同步修正，避免客户端因 body 长度变化而截断
+
+### Tests
+- `pii_test.go`：7 项测试覆盖 6 类 PII × 3 档强度 + 混合文本 + JSON 响应体 + 配置回退
+
+---
+## [4.27.0] "Onboarding" - 2026-10-18
+
+### Added
+- **首次启动引导**（小白化 P0）：全新安装后自动弹出 3 步引导页
+  1. 设置网关密钥（自定义 API Key，写入 config.json 并同步到 cloud providers）
+  2. 一键 Demo（自动开启 chatApi / cloudModels / builtinTools / webSearch / stats + WAF normal 档）
+  3. 完成页（确认进入主控制台）
+- 后端 4 个 onboarding API（免鉴权，首次启动专用）：
+  - `GET /api/onboarding/status` — 返回 firstRun / completed / version
+  - `POST /api/onboarding/apikey` — 保存自定义密钥
+  - `POST /api/onboarding/demo` — 一键开启 Demo 模块
+  - `POST /api/onboarding/complete` — 标记引导完成
+- `handleFrontend` 注入 `data-first-run` 标记，前端据此自动渲染引导覆盖层
+- `isPublicRoute` 放行 `/api/onboarding/*`，新用户无需密钥即可配置
+
+### Security
+- 引导流程密钥最小 6 位校验，拒绝空密钥
+- Demo 模式默认启用 WAF + normal 安全档，不降级防护
+
+### UI
+- 暗色主题引导页（与主 UI 风格一致）：步骤指示器 + 输入框 + 动画过渡
+- 引导页自动存储密钥到 localStorage，完成后无缝进入主控制台
+
+---
 ## [4.10.0] "Absorb" - 2026-10-15
 
 ### Added

@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.30.0"
+var version = "4.31.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -363,8 +363,6 @@ func main() {
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)
 	mux.HandleFunc("/api/admin/audit/export", handleAuditExport)
-	// v4.30.0 审计日志实时流式导出（SSE）
-	mux.HandleFunc("/api/admin/v4/audit/stream", handleAuditStream)
 	// v3.2.2 治理层：OAuth / IdP（login/callback 为公共路由，见 isPublicRoute；
 	// logout 经 gatewayMiddleware 用会话令牌鉴权）
 	mux.HandleFunc("/oauth/login", handleOAuthLogin)
@@ -561,23 +559,16 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		totalReq++
 		mu.Unlock()
 		recordResponseTime(time.Now(), func() {
-			sw := &statusWriter{ResponseWriter: w, status: 200}
+			// v4.31.0：响应流出自动脱敏——用 piiResponseWriter 替代 statusWriter
+			sw := &piiResponseWriter{ResponseWriter: w}
 			next.ServeHTTP(sw, r)
+			sw.flush()
 			// v3.0.0 B 线：扫描型 404 突发联动 IP 信誉扣分（每分钟至多 -10）
 			if sw.status == http.StatusNotFound {
 				ipRepPenalty(clientIP(r), 10, "scan404", "")
 			}
 		})
 	})
-}
-// statusWriter v3.0.0：记录下游 handler 状态码（404 扫描检测用）
-type statusWriter struct {
-	http.ResponseWriter
-	status int
-}
-func (s *statusWriter) WriteHeader(code int) {
-	s.status = code
-	s.ResponseWriter.WriteHeader(code)
 }
 // recordResponseTime（新增）：包裹业务处理并累计耗时，供 /api/stats 计算平均响应时间
 func recordResponseTime(start time.Time, serve func()) {
