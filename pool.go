@@ -163,36 +163,6 @@ func poolSetMaxIdleConnsPerHost(n int) {
 	}
 }
 
-// poolAdaptiveEvalOnce 测试辅助：手动触发一次自适应评估（传入上一周期请求数/时间）
-func poolAdaptiveEvalOnce(lastReq int64, lastT time.Time, now time.Time) (newLastReq int64, newLastT time.Time, scaled bool, oldVal, newVal int) {
-	currentReq := poolRequests.Load()
-	deltaReq := currentReq - lastReq
-	deltaSec := now.Sub(lastT).Seconds()
-	if deltaSec <= 0 || !poolAdaptiveEnabled.Load() {
-		return currentReq, now, false, 0, 0
-	}
-	qps := float64(deltaReq) / deltaSec
-	current := int(poolCurrentMaxIdle.Load())
-	if current == 0 {
-		current = 32
-	}
-	target := poolTargetConns(qps)
-	shouldScale := false
-	newVal = current
-	if target >= int(float64(current)*1.2) {
-		shouldScale = true
-		newVal = target
-	} else if target <= int(float64(current)*0.5) {
-		shouldScale = true
-		newVal = target
-	}
-	if shouldScale && newVal != current && sharedTransport != nil {
-		sharedTransport.MaxIdleConnsPerHost = newVal
-		poolCurrentMaxIdle.Store(int32(newVal))
-	}
-	return currentReq, now, shouldScale, current, newVal
-}
-
 // pooledHTTPClient 返回走共享连接池的按需超时客户端（v3.2.2 性能升级 v1：
 // 补全池覆盖——doctor / 探测等「按超时新建 client」的路径不再旁路共享池，
 // 每次调用复用同一 Transport 的空闲连接而不是重新握手）。

@@ -34,14 +34,15 @@ type Config struct {
 		APIKey string `json:"apiKey"`
 	} `json:"search"`
 	Security struct {
-		WAFEnabled        bool            `json:"wafEnabled"`
-		Mode              string          `json:"mode"` // normal | strict（off 已废弃：安全模块不可关闭）
-		APIKey            string          `json:"apiKey"`
-		FirewallLock      *bool           `json:"firewallLock"`    // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
-		AuditLogEnabled   bool            `json:"auditLogEnabled"` // 审计日志开关（默认 true）
-		Firewall          FirewallCfg     `json:"firewall"`
-		DefaultKeyAllowed *bool           `json:"defaultKeyAllowed"` // v3.0.4 零信任：默认密钥通道显式 enable（nil=false，见 whitelist.go [ZT_DEFAULT_DENY]）
-		Fingerprint       FingerprintCfg  `json:"fingerprint"`       // v4.28.0 请求指纹识别配置
+		WAFEnabled        bool        `json:"wafEnabled"`
+		Mode              string      `json:"mode"` // normal | strict（off 已废弃：安全模块不可关闭）
+		APIKey            string      `json:"apiKey"`
+		FirewallLock      *bool       `json:"firewallLock"`    // v1 兼容字段：默认 true（见 firewallPolicyLegacy）
+		AuditLogEnabled   bool        `json:"auditLogEnabled"` // 审计日志开关（默认 true）
+		Firewall          FirewallCfg `json:"firewall"`
+		DefaultKeyAllowed *bool       `json:"defaultKeyAllowed"` // v3.0.4 零信任：默认密钥通道显式 enable（nil=false，见 whitelist.go [ZT_DEFAULT_DENY]）
+		PIIMaskEnabled    bool        `json:"piimaskEnabled"`    // v4.31.0：响应流出 PII 自动脱敏开关
+		PIIMaskLevel      string      `json:"piimaskLevel"`      // v4.31.0：脱敏强度 full | partial | hash（默认 full）
 	} `json:"security"`
 	Users   []User     `json:"users"`   // 多用户 RBAC（空则回退单管理员模式）
 	Tenants TenantsCfg `json:"tenants"` // v3.0.4 多租户配置（user/group/role 三层，见 tenant.go）

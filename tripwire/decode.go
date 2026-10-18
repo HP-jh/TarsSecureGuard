@@ -15,7 +15,7 @@ type Decoded struct {
 }
 
 var base64RunRe = regexp.MustCompile(`[A-Za-z0-9+/]{16,}={0,2}`)
-var hexRunRe = regexp.MustCompile(`[0-9a-fA-F]{20,}`)
+var hexRunRe = regexp.MustCompile(`[0-9a-fA-F]{32,}`)
 var percentRe = regexp.MustCompile(`(%[0-9A-Fa-f]{2})+`)
 
 func printableRatio(bytes []byte) float32 {

@@ -19,7 +19,7 @@ var exfilSigs = []struct {
 	{regexp.MustCompile(`AIza[0-9A-Za-z_\-]{35}`), "google_api_key", 0.90, SeverityHigh},
 	{regexp.MustCompile(`xox[baprs]-[A-Za-z0-9-]{10,}`), "slack_token", 0.90, SeverityHigh},
 	{regexp.MustCompile(`(?i)(postgres|postgresql|mysql|mongodb|redis|amqp|ftp)://[^\s:@/]+:[^\s:@/]+@`), "credential_in_url", 0.85, SeverityCritical},
-	{regexp.MustCompile(`eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}(?:\.[A-Za-z0-9_\-]{0,})?`), "jwt", 0.80, SeverityHigh},
+	{regexp.MustCompile(`eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{6,}`), "jwt", 0.80, SeverityHigh},
 	{regexp.MustCompile(`-----BEGIN [A-Z ]{0,24}PRIVATE KEY-----`), "private_key_pem", 0.95, SeverityCritical},
 	{regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`), "us_ssn", 0.80, SeverityHigh},
 }

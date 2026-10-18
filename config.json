@@ -24,6 +24,8 @@
     "apiKey": "tars-gateway-key",
     "firewallLock": null,
     "auditLogEnabled": true,
+    "piimaskEnabled": true,
+    "piimaskLevel": "full",
     "firewall": {
       "policy": "passive",
       "banDuration": ""

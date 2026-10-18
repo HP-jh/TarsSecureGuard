@@ -65,7 +65,6 @@ jobs:
           retention-days: 1
   # ===================== Tauri 桌面客户端（原生构建，Linux ARM64 暂不支持 GTK 交叉编译） =====================
   build-tauri:
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -214,4 +213,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

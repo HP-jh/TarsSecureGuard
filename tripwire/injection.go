@@ -37,7 +37,6 @@ var phrases = []phrase{
 	{"you are now dan", "role_impersonation", 0.95},
 	{"you are now in developer mode", "role_impersonation", 0.90},
 	{"enable developer mode", "role_impersonation", 0.80},
-	{"simulation mode", "role_impersonation", 0.75},
 	{"do anything now", "role_impersonation", 0.85},
 	{"pretend you have no restrictions", "role_impersonation", 0.88},
 	{"act as an unrestricted", "role_impersonation", 0.82},
@@ -88,15 +87,12 @@ var structuralPatterns = func() []struct {
 		{`(?i)(from (now|here) on|you are (now|no longer)\b|new (persona|identity|directive)\b|stay in character|do anything now|developer mode)`, "role_impersonation", 0.70},
 		{`(?i)(no (content[ -]?polic|restriction|ethical limit|guideline|filter)|without (refus|restriction)|unfiltered|broken free|safety (guidelines? )?(do not|does not|don'?t) apply|ignore the guardrails|no longer (chatgpt|claude|bound by))`, "jailbreak_marker", 0.72},
 		{`(?i)\b(reveal|repeat|print|output|show|disclose|leak|expose|give me|tell me)\b[^.\n]{0,40}\b((hidden|secret|initial|developer|system)[ -]?(prompt|instruction|config|message)|system\s+prompt|your\s+(initial\s+)?instructions|everything above)`, "prompt_extraction", 0.85},
-		{`(?i)\b(system\s+prompt)\b[^.\n]{0,30}\b(reveal|repeat|print|output|show|disclose|leak|expose|give me|tell me)`, "prompt_extraction", 0.85},
-		{`(?i)\b(what is|tell me|reveal|show)\b[^.\n]{0,20}\b(your\s+system\s+prompt|system\s+prompt|your\s+instructions|initial\s+prompt)`, "prompt_extraction", 0.85},
 		{`(?i)\b(forward|send|email|post|copy|upload|exfiltrate|leak|paste|append|disclose|list|reveal|output|expose)\b[^.\n]{0,45}\b(all (data|emails?|conversation|secret|note)|every (secret|note)|conversation history|the (customer )?database|api[ -]?key|credential|password|secret|\.env\b|/etc/passwd|id_rsa|environment variable|stored secret|audit log)`, "exfil_instruction", 0.82},
 		{`(?i)\b(read|cat|fetch|access|open|print)\b[^.\n]{0,15}(\.env\b|/etc/passwd|/etc/shadow|id_rsa|\.ssh/)`, "sensitive_file_read", 0.82},
 		{`(?i)\b(send|forward|post|copy|upload|email|exfiltrate)\b[^.\n]{0,45}\b(to|at)\b[^.\n]{0,25}https?://`, "exfil_to_url", 0.78},
 		{`(?i)(the user is (an? )?(admin|administrator|developer|verified)|treat .{0,40}\bas (a )?(verified )?(admin|administrator)|i am the developer|i authorize|admin privileges|the user authorized|system override|disable confirmation|bypass confirmation|skip the (usual )?refusal)`, "authority_laundering", 0.62},
 		{`(?i)\b(delete|drop|purge|wipe|destroy)\b[^.\n]{0,25}\b(all|every|the)\b[^.\n]{0,20}\b(record|table|log|file|customer|database|user|account)`, "destructive_command", 0.70},
 		{`(?i)(={2,}\s*ai instructions|assistant[ _-]?(instruction|directive)|system[ -]prompt[ -]update|new directive for the|\{\{\s*ai\s*:|<\s*instructions\s*>|assistant-instruction)`, "embedded_directive", 0.78},
-		{`(?m)^---\s*\n[\s\S]*?\n---\s*(\n|$)`, "yaml_frontmatter", 0.65},
 	}
 	out := make([]struct {
 		re    *regexp.Regexp
@@ -176,10 +172,6 @@ func emitFinding(label string, base float64, spanStart, spanEnd int, text string
 	if score < 0.10 {
 		return nil
 	}
-	detail := text[spanStart:spanEnd]
-	if len(detail) > 60 {
-		detail = detail[:60] + "..."
-	}
 	return &Finding{
 		Kind:     KindInjection,
 		Label:    label,
@@ -188,7 +180,6 @@ func emitFinding(label string, base float64, spanStart, spanEnd int, text string
 		Start:    spanStart,
 		End:      spanEnd,
 		Source:   src,
-		Detail:   detail,
 	}
 }
 

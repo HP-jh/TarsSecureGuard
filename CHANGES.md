@@ -1,34 +1,3 @@
-# TarsSecureGuard v4.30.0 · 审计日志实时流式导出（SSE）
-
-> 对应项：安全基线深化 —— 审计事件实时可视、可订阅、可过滤
-
-## 一、SSE 实时流端点
-
-- **端点**：`GET /api/admin/v4/audit/stream`
-- **协议**：Server-Sent Events（纯 HTTP，零外部依赖）
-- **认证**：X-API-Key（同现有审计端点权限矩阵）
-- **过滤参数**：
-  - `action` — 仅推送指定事件类型（如 `ACCESS_DENIED`）
-  - `user` — 仅推送指定用户
-  - `tenant` — 仅推送指定租户（global 角色可用）
-  - `since` — RFC3339 时间戳，仅推送该时间之后的事件
-  - `history` — 连接建立时先推送最近 N 条（1~1000，默认 0）
-- **心跳保活**：每 30 秒发送注释行 keepalive，防 CDN/代理断开
-- **背压保护**：客户端通道满时丢弃事件，避免慢连接拖垮系统
-
-## 二、实时广播机制
-
-- `auditV2Write` 落盘后同步调用 `auditStreamBroadcast`，零延迟推送
-- 多客户端并行：每个 SSE 连接独立通道 + 独立过滤条件
-- 租户硬隔离：非 global 角色只能收到本租户事件（延续 [MT_AUDIT_ISOLATION]）
-
-## 三、配套
-
-- 版本号 4.27.0 → 4.30.0（main / 版本锁测试同步）
-- 新增 `auditstream.go` + `v430_test.go`（7 测试项）
-
----
-
 # TarsSecureGuard v4.7.0 · 官方三站 + 多语言文档 + 安装器加固 —— GitHub Pages / i18n / SHA256
 
 > 对应项：GitHub Pages 介绍站与实时性能监控站、下载页、6 语言 README、红蓝对抗报告、安装器防篡改与桌面快捷方式。
