@@ -91,6 +91,13 @@ func wafMatch(s string, strict bool) string {
 		merged = wafStrictMerged
 	}
 	if merged != nil && !merged.MatchString(s) {
+		// v4.33.0：正则未命中时，进入 SQL 语义分析层（检测注释绕过/拼接注入/时间盲注）
+		// 仅在 strict 模式或输入明显含 SQL 特征时触发，避免 normal 模式聊天内容误报
+		if strict || wafNeedsSQLSemantic(s) {
+			if reason := sqlSemanticMatch(s); reason != "" {
+				return reason
+			}
+		}
 		return ""
 	}
 	// 命中：按原顺序回查个别规则，返回首个命中名（与逐条扫描语义一致）
@@ -102,7 +109,29 @@ func wafMatch(s string, strict bool) string {
 			return rule.name
 		}
 	}
+	// v4.33.0：正则命中 SQL 注入规则后，也做语义深化（同一输入可能同时触发正则+语义）
+	if strict || wafNeedsSQLSemantic(s) {
+		if reason := sqlSemanticMatch(s); reason != "" {
+			return reason
+		}
+	}
 	return ""
+}
+
+// wafNeedsSQLSemantic 快速判断输入是否值得进入 SQL 语义分析（性能预筛）
+func wafNeedsSQLSemantic(s string) bool {
+	lower := strings.ToLower(s)
+	// 仅当输入含 SQL 相关关键字/符号时才进入语义分析
+	// 注意：注释绕过会把关键字拆碎，所以预筛不能只查完整关键字
+	triggers := []string{"select", "union", "insert", "delete", "drop", "sleep", "benchmark",
+		"concat", "chr(", "char(", "||", "/*!", "--", "#", "waitfor", "pg_sleep",
+		";drop", ";delete", ";insert", "uni", "sel", "ert", "ele", "rop"}
+	for _, t := range triggers {
+		if strings.Contains(lower, t) {
+			return true
+		}
+	}
+	return false
 }
 
 // ===================== 新增检测规则（v1.0.2 功能强化） =====================
