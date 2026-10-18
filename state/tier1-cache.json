@@ -1,0 +1,1 @@
+{"writtenAt":1792311835,"data":{"boardModel":"","cpuModel":"AMD EPYC 9Y24 96-Core Processor","gpuModel":"","source":"tier1: lspci -mm -v / cat /proc/cpuinfo / dmidecode -t"},"hmac":"fd09640e59ee87508df8541a6650c864173562d9ea37bc7deaba344a24162e8d"}

@@ -1,21 +1,39 @@
-# TarsSecureGuard v4.33.0 · SQL注入语义分析层 —— 注释绕过/拼接注入/时间盲注检测
+# TarsSecureGuard v4.34.0 · XSS防护增强：CSP策略自动生成 —— 根据前端资源推导Content-Security-Policy头，支持report-only模式
 
-> 对应项：60版本路线图第7个版本，安全类别。
+> 对应项：v4.34.0 XSS防护增强（CSP策略自动生成）。
 
-## 一、SQL注入语义分析层（sqlsemantic.go + sqlsemantic_test.go）
+## 一、CSP 策略自动生成（csp.go）
 
-在现有正则WAF基础上新增SQL语义分析层，识别传统正则难以捕获的进阶注入手法：
+- **自动扫描前端资源**：根据 `go:embed` 嵌入的 `frontend/*` 文件，分析 `<script>`、`<style>`、`<img>`、`<link>` 等标签，自动推导最小化但充分的 CSP 策略
+- **智能指令推导**：
+  - `default-src 'self'`、`frame-ancestors 'none'`、`object-src 'none'` 等基础指令自动设置
+  - 检测到内联脚本/样式时自动加入 `'unsafe-inline'`（前端为单文件内联场景）
+  - 检测到外部脚本/样式时自动提取来源域名
+  - `connect-src` 自动放行本机回环 `127.0.0.1:*`、`localhost:*`、`tauri://localhost`
+  - 检测到 `eval()` / `new Function()` 时自动加入 `'unsafe-eval'`
+- **report-only 模式**：支持只发送 `Content-Security-Policy-Report-Only` 头，不阻断请求，用于灰度验证策略
+- **自定义策略覆盖**：管理员可通过 API 设置 `customPolicy` 完全覆盖自动推导结果
+- **nonce 支持**：预留 `cspNonceEnabled` 配置项，未来可配合前端使用 nonce 替代 `'unsafe-inline'`
 
-- **注释绕过检测**：`/**/`、`--`、`#`、`/*!50000...*/`（MySQL条件注释）等注释被剥离后检查危险关键词拼接，支持无空格直连形式（如 `uni/**/on sel/**/ect` 识别为 `unionselect`）
-- **拼接注入检测**：`CONCAT()`、`CHR()`/`CHAR()` 编码、`||` 运算符拼接等动态SQL构造手法
-- **时间盲注检测**：`SLEEP()`、`BENCHMARK()`、`pg_sleep()`、`WAITFOR DELAY` 及十六进制编码的时间函数（如 `0x736c656570` → `sleep`）
-- **堆叠查询检测**：多语句 `;DROP`/`;DELETE`/`;INSERT`/`;UNION` 等，需配合注入特征（引号、注释、布尔运算符）降低误报
-- **零依赖**：纯Go标准库实现，通过 `wafMatch` 集成：正则优先命中 → 语义分析二次兜底
+## 二、CSP 管理 API
 
-## 二、测试与验证
+- `GET /api/admin/security/csp` —— 查看当前 CSP 策略、配置状态和违规报告统计
+- `POST /api/admin/security/csp/update` —— 更新 CSP 配置（enabled / reportOnly / customPolicy / reportURI / nonceEnabled）
+- `GET /api/admin/security/csp/reports` —— 查看最近 100 条 CSP 违规报告
+- `POST /api/admin/security/csp-report` —— 浏览器 CSP 违规报告接收端点（浏览器自动上报）
 
-- 新增 9 组测试覆盖全部检测模式 + 误报排除 + 性能基准
-- `go test -race` 全绿（根包 SQL/WAF 相关测试）
+## 三、配置与集成
+
+- `config.security.csp` 新配置段，默认 `enabled: true`（未显式声明时自动开启）
+- `setSecurityHeaders()` 集成 `applyCSPHeaders()`，替代原有硬编码 CSP 策略
+- CSP 策略带缓存机制，配置变更后自动失效重生成
+- 违规报告内存上限 5000 条，自动滚动，超限时写入审计日志
+
+## 四、配套
+
+- 版本号 4.31.0 → 4.34.0（main / 版本锁测试同步）
+- 新增 12 个 CSP 专项测试（策略生成 / 自定义覆盖 / 头应用 / 缓存 / 解析 / API / 报告接收 / nonce / 内存限制 / 集成测试）
+- `go test -race .` 主包全绿
 
 ---
 

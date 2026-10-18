@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.33.0"
+var version = "4.34.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -241,6 +241,11 @@ func main() {
 	mux.HandleFunc("/api/admin/security/quarantine/restore", handleSecurity360QuarantineRestore)
 	mux.HandleFunc("/api/admin/security/mcp/servers", handleSecurity360MCPServers)
 	mux.HandleFunc("/api/admin/security/mcp/validate", handleSecurity360MCPValidate)
+	// v4.34.0 CSP 策略管理端点
+	mux.HandleFunc("/api/admin/security/csp", handleAdminCSPStatus)
+	mux.HandleFunc("/api/admin/security/csp/update", handleAdminCSPUpdate)
+	mux.HandleFunc("/api/admin/security/csp/reports", handleAdminCSPReports)
+	mux.HandleFunc("/api/admin/security/csp-report", handleCSPReport)
 	mux.HandleFunc("/api/admin/logs", handleLogs)
 	mux.HandleFunc("/api/admin/audit-logs", handleAuditLogs)
 	// v3.0.4 多租户 / 零信任面板：租户状态（含配额用量、按组 audit 视图）、白名单注册表
@@ -601,14 +606,8 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	// v4.6.4 内容安全策略（CSP）：纵深防御最后一道墙——即使将来被注入，
-	// 也禁止外联数据外泄与插件执行。前端为单文件内联脚本/样式，故 script/style
-	// 保留 'unsafe-inline'（无外部 CDN 依赖）；connect-src 放行 Tauri 桌面端
-	// 本机回环（页面由 tauri:// 提供、API 走 http://127.0.0.1:18889）。
-	w.Header().Set("Content-Security-Policy",
-		"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "+
-			"img-src 'self' data:; connect-src 'self' http://127.0.0.1:*; font-src 'self' data:; "+
-			"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
+	// v4.34.0 CSP 策略自动生成：由 applyCSPHeaders 根据前端资源推导并设置
+	applyCSPHeaders(w, r)
 	// v4.6.4 权限策略：管理界面声明不需要摄像头/麦克风/定位/USB 等敏感能力
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
 }
