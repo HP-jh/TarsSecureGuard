@@ -85,6 +85,7 @@ jobs:
             target: windows-arm64
             rust_target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.platform }}
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
