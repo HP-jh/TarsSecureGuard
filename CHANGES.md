@@ -1,3 +1,22 @@
+## v4.36.0 (2026-10-18)
+
+### HTTP 安全响应头自动加固
+- 新增 `secheaders.go` 安全响应头中间件
+- 自动添加 OWASP 推荐的 6 项核心安全响应头：
+  - X-Frame-Options（点击劫持防护）
+  - X-Content-Type-Options（MIME 嗅探防护）
+  - Referrer-Policy（Referrer 信息控制）
+  - X-XSS-Protection（XSS 过滤）
+  - Permissions-Policy（浏览器功能限制）
+  - Strict-Transport-Security（HSTS 强制 HTTPS）
+- 支持按路径排除（如内部 API 无需加固）
+- 支持自定义响应头扩展
+- 默认启用，零配置开箱即用
+
+### 测试
+- `secheaders_test.go`：3 组测试覆盖启用/禁用/排除路径场景
+- 现有测试套件通过验证
+
 ## v4.33.1 (2026-10-18)
 
 ### 历史优点整合
