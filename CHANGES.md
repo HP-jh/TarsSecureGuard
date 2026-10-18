@@ -1,71 +1,31 @@
-# TarsSecureGuard v4.27.0 · WAF 规则热重载（无需重启更新规则）
+# TarsSecureGuard v4.30.0 · 审计日志实时流式导出（SSE）
 
-> 对应项：WAF 规则从外部 JSON 文件动态加载，文件变更时自动热重载，加载失败自动回滚旧规则。
+> 对应项：安全基线深化 —— 审计事件实时可视、可订阅、可过滤
 
-## 一、WAF 规则外部化（waf-rules.json）
+## 一、SSE 实时流端点
 
-- 规则文件 `waf-rules.json` 与 `config.json` 同目录，支持独立编辑
-- JSON 格式：`{"rules": [{"name": "...", "pattern": "...", "strict": true/false}]}`
-- 启动时自动检测并加载；文件不存在时回退内置默认规则
+- **端点**：`GET /api/admin/v4/audit/stream`
+- **协议**：Server-Sent Events（纯 HTTP，零外部依赖）
+- **认证**：X-API-Key（同现有审计端点权限矩阵）
+- **过滤参数**：
+  - `action` — 仅推送指定事件类型（如 `ACCESS_DENIED`）
+  - `user` — 仅推送指定用户
+  - `tenant` — 仅推送指定租户（global 角色可用）
+  - `since` — RFC3339 时间戳，仅推送该时间之后的事件
+  - `history` — 连接建立时先推送最近 N 条（1~1000，默认 0）
+- **心跳保活**：每 30 秒发送注释行 keepalive，防 CDN/代理断开
+- **背压保护**：客户端通道满时丢弃事件，避免慢连接拖垮系统
 
-## 二、规则热重载（watchWAFRules）
+## 二、实时广播机制
 
-- 轮询间隔 3 秒，SHA256 指纹比对检测变化
-- 检测到变化自动调用 `loadWAFRules()` 重新编译正则
-- 加载失败时保留旧规则，不中断服务，记录审计日志
+- `auditV2Write` 落盘后同步调用 `auditStreamBroadcast`，零延迟推送
+- 多客户端并行：每个 SSE 连接独立通道 + 独立过滤条件
+- 租户硬隔离：非 global 角色只能收到本租户事件（延续 [MT_AUDIT_ISOLATION]）
 
-## 三、安全与回滚
+## 三、配套
 
-- 正则编译失败：整条规则集拒绝加载，保留旧规则
-- JSON 解析失败 / 空规则数组：同上，保留旧规则
-- 审计事件：`WAF_RULES_LOADED` / `WAF_RULES_LOAD_FAILED` / `WAF_RULES_RELOAD_FAILED`
-
-## 四、性能兼容
-
-- 合并正则预编译保持不变（v3.2.3 性能优化）
-- `wafRulesMu` 读写锁保护规则访问，读操作无阻塞
-
----
-
-# TarsSecureGuard v4.29.0 · 速率限制用户分级 —— personal / lite / pro / enterprise
-
-> 对应项：按用户角色分 4 档速率限制，每档独立 QPS / 日限额 / 并发数，超限返回 429 + 升级提示（小白化）。
-
-## 一、速率限制按用户分级（ratelimit.go）
-
-- **4 档 tier**：`personal`（最严）→ `lite` → `pro` → `enterprise`（最宽）
-- **角色默认映射**：user/readonly → personal；team_lead/auditor → lite；admin/global_auditor → pro；global_admin → enterprise
-- **用户可显式覆盖**：`User.Tier` 字段为空时按 role 映射，非空时优先使用显式值
-- **每档独立配置**：`config.rateLimit.tiers.<tier>` 含 `chatPerMin` / `adminPerMin` / `modelPerMin` / `dailyQuota` / `concurrency`
-- **字段为 0 时继承全局**：未配置项自动回退 `classQuota` 全局默认值
-
-## 二、新增限流维度
-
-- **日限额**：跨端点类合计，按自然日重置（独立令牌桶 `dim=daily`）
-- **并发数**：按用户原子计数器，请求结束自动释放（`defer rateLimitConcurLeave`）
-- **六维判定**：IP×端点类 / Key×端点类 / IP总量 / tier×端点类 / 日限额 / 并发数
-
-## 三、小白化超限提示
-
-- 429 响应体增加 `hint` 字段，按当前 tier 给出个性化升级引导
-- personal → "如需更高额度，请联系管理员升级至 lite / pro / enterprise"
-- enterprise → "已启用最高限额"
-
-## 四、配置与兼容
-
-- `User` 结构体新增 `Tier string` 字段（JSON: `tier`），向后兼容（空 = 自动映射）
-- `Identity` 结构体同步新增 `Tier`，鉴权链路自动透传
-- `V3Config.RateLimit` 新增 `Tiers map[string]RateLimitTier`
-
-## 五、测试覆盖
-
-- `TestRoleToTier`：7 种 role 映射验证
-- `TestTierClassQuota`：4 档 × 3 端点类覆盖/继承验证
-- `TestTierDailyQuota` / `TestTierConcurrency`：日限额与并发数读取
-- `TestConcurEnterLeave`：并发控制边界（max=2）
-- `TestAllowRateLimitedTier`：端到端拦截验证
-- `TestRateLimitUpgradeHint`：升级提示文案
-- `TestResolveTier`：显式 tier > role 映射优先级
+- 版本号 4.27.0 → 4.30.0（main / 版本锁测试同步）
+- 新增 `auditstream.go` + `v430_test.go`（7 测试项）
 
 ---
 

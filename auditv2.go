@@ -171,6 +171,9 @@ func auditV2Write(action, tenant, group, user, ip, detail, trace string) {
 	}
 	auditV2Seq = e.Seq
 	auditV2PrevHash = e.Hash
+
+	// v4.30.0 实时流式推送
+	auditStreamBroadcast(e)
 }
 
 // auditV2EntryHash 规范化序列化后与 prevHash 一起取 SHA-256

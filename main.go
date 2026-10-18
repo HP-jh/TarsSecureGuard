@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.27.0"
+var version = "4.30.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -363,6 +363,8 @@ func main() {
 	mux.HandleFunc("/api/admin/v322/status", handleV322Status)
 	mux.HandleFunc("/api/admin/audit/verify", handleAuditVerify)
 	mux.HandleFunc("/api/admin/audit/export", handleAuditExport)
+	// v4.30.0 审计日志实时流式导出（SSE）
+	mux.HandleFunc("/api/admin/v4/audit/stream", handleAuditStream)
 	// v3.2.2 治理层：OAuth / IdP（login/callback 为公共路由，见 isPublicRoute；
 	// logout 经 gatewayMiddleware 用会话令牌鉴权）
 	mux.HandleFunc("/oauth/login", handleOAuthLogin)
@@ -434,8 +436,6 @@ func main() {
 	startUpdateDaemon()
 	// 配置热重载（新增）：轮询监听 config.json 变化，变化时自动重载
 	go watchConfig()
-	// v4.27.0：WAF 规则热重载——无需重启即可更新规则文件
-	go watchWAFRules()
 	// v4.6.0：智能打开——优先本地客户端 → 回退浏览器（--no-browser 桌面客户端模式下仍抑制）
 	if !noBrowser && !isDesktopClientMode() {
 		go func() {
