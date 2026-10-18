@@ -66,7 +66,7 @@ func (e *ScoreEngine) Evaluate(ctx context.Context) (*Report, error) {
 	report := &Report{
 		Dimensions:   make([]Dimension, 0, len(e.evaluators)),
 		GeneratedAt:  time.Now(),
-		Version:      "4.28.0",
+		Version:      "4.30.0",
 		Recommendations: make([]string, 0),
 	}
 

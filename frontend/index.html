@@ -287,6 +287,161 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-bottom-width:2px
 <script src="i18n.js"></script>
 </head>
 <body>
+<!-- v4.27.0 首次启动引导 -->
+<div id="onboarding" class="onboarding" style="display:none">
+  <div class="onb-backdrop"></div>
+  <div class="onb-wrap">
+    <div class="onb-card">
+      <div class="onb-header">
+        <div class="onb-logo">T</div>
+        <div>
+          <div class="onb-title">欢迎使用 TarsSecureGuard</div>
+          <div class="onb-sub">3 步搞定，30 秒跑起来</div>
+        </div>
+      </div>
+      <div class="onb-steps">
+        <div class="onb-step-dot active" id="onb-dot-1">1</div>
+        <div class="onb-step-line" id="onb-line-1"></div>
+        <div class="onb-step-dot" id="onb-dot-2">2</div>
+        <div class="onb-step-line" id="onb-line-2"></div>
+        <div class="onb-step-dot" id="onb-dot-3">3</div>
+      </div>
+      <!-- Step 1: API Key -->
+      <div class="onb-body" id="onb-step-1">
+        <h3>设置网关密钥</h3>
+        <p class="onb-hint">密钥是访问网关的密码，自己设一个记得住的：</p>
+        <div class="onb-input-wrap">
+          <input type="password" id="onb-key" class="onb-input" placeholder="例如 my-secret-key-2026" autocomplete="off">
+          <button class="onb-eye" onclick="onbToggleKey()">👁</button>
+        </div>
+        <p class="onb-tip">小贴士：这就是以后登录管理后台用的密码，别忘了它。</p>
+        <div class="onb-actions">
+          <button class="btn btn-p" onclick="onbSaveKey()">保存并继续 →</button>
+        </div>
+        <p id="onb-err-1" class="onb-err"></p>
+      </div>
+      <!-- Step 2: One-click Demo -->
+      <div class="onb-body" id="onb-step-2" style="display:none">
+        <h3>一键开启 Demo</h3>
+        <p class="onb-hint">自动打开常用功能，让你马上体验：</p>
+        <ul class="onb-list">
+          <li>AI 对话（Chat）</li>
+          <li>云端模型接入</li>
+          <li>网页搜索</li>
+          <li>WAF 安全防护</li>
+          <li>实时监控看板</li>
+        </ul>
+        <div class="onb-actions">
+          <button class="btn btn-s" onclick="onbBack(1)">← 返回</button>
+          <button class="btn btn-p" onclick="onbStartDemo()">一键开启 🚀</button>
+        </div>
+        <p id="onb-err-2" class="onb-err"></p>
+      </div>
+      <!-- Step 3: Done -->
+      <div class="onb-body" id="onb-step-3" style="display:none">
+        <h3>搞定！</h3>
+        <div class="onb-done-icon">✅</div>
+        <p class="onb-hint">网关已就绪，可以开始用了。</p>
+        <p class="onb-tip">后续随时在「设置」里改密钥、加模型、调安全档。</p>
+        <div class="onb-actions">
+          <button class="btn btn-p" onclick="onbFinish()">进入控制台 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+.onboarding{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif}
+.onb-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px)}
+.onb-wrap{position:relative;z-index:1;width:100%;max-width:460px;padding:20px;animation:onbRise .4s ease both}
+@keyframes onbRise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.onb-card{background:linear-gradient(180deg,#161b22,#0d1117);border:1px solid #2d333b;border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.onb-header{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.onb-logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#58a6ff,#bc8cff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;color:#fff;box-shadow:0 0 20px rgba(88,166,255,.3);flex-shrink:0}
+.onb-title{font-size:16px;font-weight:700;color:#e6edf3}
+.onb-sub{font-size:11px;color:#8b949e;margin-top:3px}
+.onb-steps{display:flex;align-items:center;gap:6px;margin-bottom:24px;padding:0 8px}
+.onb-step-dot{width:28px;height:28px;border-radius:50%;background:#21262d;border:1px solid #30363d;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#8b949e;transition:all .3s}
+.onb-step-dot.active{background:linear-gradient(135deg,#1f6feb,#8957e5);border-color:transparent;color:#fff;box-shadow:0 0 12px rgba(88,166,255,.35)}
+.onb-step-dot.done{background:#238636;border-color:transparent;color:#fff}
+.onb-step-line{flex:1;height:2px;background:#21262d;border-radius:1px;transition:background .3s}
+.onb-step-line.done{background:linear-gradient(90deg,#1f6feb,#238636)}
+.onb-body h3{font-size:15px;font-weight:700;color:#e6edf3;margin-bottom:10px}
+.onb-hint{font-size:12px;color:#8b949e;margin-bottom:14px;line-height:1.6}
+.onb-tip{font-size:11px;color:#545d68;margin-top:10px;line-height:1.5}
+.onb-input-wrap{display:flex;gap:8px}
+.onb-input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:10px 14px;color:#e6edf3;font-size:13px;font-family:inherit;outline:none;transition:border-color .2s,box-shadow .2s}
+.onb-input:focus{border-color:#58a6ff;box-shadow:0 0 0 3px rgba(88,166,255,.12)}
+.onb-eye{width:38px;height:38px;border-radius:10px;border:1px solid #30363d;background:#161b22;color:#8b949e;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.onb-eye:hover{border-color:#58a6ff;color:#e6edf3}
+.onb-list{list-style:none;margin:12px 0;padding:0}
+.onb-list li{position:relative;padding:6px 0 6px 22px;font-size:12px;color:#c9d1d9}
+.onb-list li::before{content:'✓';position:absolute;left:0;color:#3fb950;font-weight:700}
+.onb-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+.onb-err{font-size:11px;color:#f85149;margin-top:10px;min-height:16px}
+.onb-done-icon{text-align:center;font-size:48px;margin:10px 0 16px;animation:onbPop .5s ease both}
+@keyframes onbPop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+</style>
+<script>
+(function(){
+  var curStep=1;
+  function $(id){return document.getElementById(id)}
+  function showStep(n){
+    for(var i=1;i<=3;i++){$('onb-step-'+i).style.display=(i===n)?'block':'none';}
+    for(var i=1;i<=3;i++){
+      var d=$('onb-dot-'+i);
+      d.classList.toggle('active',i===n);
+      d.classList.toggle('done',i<n);
+    }
+    for(var i=1;i<=2;i++){
+      var l=$('onb-line-'+i);
+      if(l)l.classList.toggle('done',i<n);
+    }
+    curStep=n;
+  }
+  window.onbToggleKey=function(){
+    var inp=$('onb-key');
+    inp.type=(inp.type==='password')?'text':'password';
+  };
+  window.onbSaveKey=function(){
+    var k=$('onb-key').value.trim();
+    if(!k){$('onb-err-1').textContent='密钥不能为空';return;}
+    if(k.length<6){$('onb-err-1').textContent='密钥至少 6 位，长一点更安全';return;}
+    $('onb-err-1').textContent='';
+    fetch('/api/onboarding/apikey',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})})
+      .then(function(r){return r.json()})
+      .then(function(d){
+        if(d.ok){localStorage.setItem('tsg_api_key',k);showStep(2);}
+        else{$('onb-err-1').textContent='保存失败：'+(d.error||'未知错误');}
+      })
+      .catch(function(e){$('onb-err-1').textContent='网络错误：'+e.message;});
+  };
+  window.onbBack=function(n){showStep(n);};
+  window.onbStartDemo=function(){
+    $('onb-err-2').textContent='';
+    fetch('/api/onboarding/demo',{method:'POST'})
+      .then(function(r){return r.json()})
+      .then(function(d){
+        if(d.ok){showStep(3);}
+        else{$('onb-err-2').textContent='开启失败：'+(d.error||'未知错误');}
+      })
+      .catch(function(e){$('onb-err-2').textContent='网络错误：'+e.message;});
+  };
+  window.onbFinish=function(){
+    fetch('/api/onboarding/complete',{method:'POST'})
+      .then(function(){if($('onboarding'))$('onboarding').style.display='none';})
+      .catch(function(){if($('onboarding'))$('onboarding').style.display='none';});
+  };
+  // 检测首次启动标记
+  var body=document.body;
+  if(body&&body.getAttribute('data-first-run')==='1'){
+    var ob=$('onboarding');
+    if(ob)ob.style.display='flex';
+  }
+})();
+</script>
+
+
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
 <symbol id="i-persona" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></symbol>
@@ -911,7 +1066,14 @@ center"><button class="btn btn-d" onclick="shutdownGateway(this)">关闭网关</
 </div>
 <div id="mcp-tab-community" class="mcp-tab" style="display:none">
 <div class="card"><div class="card-title"><span class="d"></span>社区来源 <span class="right"><button class="btn btn-s btn-sm" onclick="loadCommunitySources()">刷新</button><button class="btn btn-p btn-sm" onclick="showAddSourceDlg()">添加来源</button><button class="btn btn-s btn-sm" onclick="communityRefreshAll()">刷新全部</button></span></div>
-<div id="cm-src-list"><div class="skel skel-row" style="width:80%"></div></div></div>
+<div id="cm-src-list"><div class="skel skel-row" style="width:80%"></div></div>
+<div id="cm-add-form" style="display:none;margin-top:10px">
+  <input id="cm-add-name" class="input" style="width:140px" placeholder="显示名">
+  <input id="cm-add-url" class="input" style="width:220px" placeholder="GitHub: owner/repo 或 URL">
+  <button class="btn btn-p btn-sm" onclick="submitAddSource()">确认</button>
+  <button class="btn btn-s btn-sm" onclick="cancelAddSource()">取消</button>
+</div>
+</div>
 <div class="card"><div class="card-title"><span class="d"></span>社区包 <span class="right"><span id="cm-pkg-count" style="font-size:12px;color:var(--muted)">加载中…</span><input id="cm-q" class="input" style="width:160px" placeholder="搜索包…"><button class="btn btn-s btn-sm" onclick="loadCommunityPackages()">搜索</button></span></div>
 <div id="cm-pkg-list"><div class="skel skel-row" style="width:80%"></div></div></div>
 </div>
@@ -1301,19 +1463,9 @@ api(url).then(function(d){
 function communityRefreshAll(){btnLoad('refresh-all',true);api('/api/v1/mcp/community/refresh-all',{method:'POST'}).then(function(d){toast('刷新完成：'+(d.packages||0)+' 个包','ok');loadCommunityPackages();btnLoad('refresh-all',false);}).catch(function(e){toast('刷新失败：'+esc(e&&e.message||e),'err');btnLoad('refresh-all',false);});}
 function removeSource(id,btn){if(!confirm('确定删除来源 '+id+'？'))return;btnLoad(btn,true);api('/api/v1/mcp/community/sources/delete/'+esc(id),{method:'DELETE'}).then(function(){toast('来源已删除','ok');loadCommunitySources();btnLoad(btn,false);}).catch(function(e){toast('删除失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
 function downloadCommunityPkg(name,btn){btnLoad(btn,true);api('/api/v1/mcp/community/packages/download/'+esc(name),{method:'POST'}).then(function(d){toast('下载成功：'+esc(name),'ok');btnLoad(btn,false);}).catch(function(e){toast('下载失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
-function showAddSourceDlg(){
-  var dlg=document.getElementById('src-dlg');
-  if(!dlg){dlg=document.createElement('div');dlg.id='src-dlg';dlg.className='overlay';dlg.innerHTML='<div class="dialog" style="width:min(400px,92vw)"><h3>添加社区来源</h3><label>显示名</label><input id="src-name" class="input" placeholder="例如：LobeHub"><label>地址</label><input id="src-url" class="input" placeholder="GitHub: owner/repo 或 HTTP URL 或本地路径"><div style="margin-top:12px;text-align:right"><button class="btn btn-s" onclick="document.getElementById('src-dlg').style.display='none'">取消</button><button class="btn btn-p" onclick="srcDlgSubmit()">确定</button></div></div>';document.body.appendChild(dlg);}
-  dlg.style.display='flex';document.getElementById('src-name').value='';document.getElementById('src-url').value='';document.getElementById('src-name').focus();
-}
-function srcDlgSubmit(){
-  var name=document.getElementById('src-name').value.trim();
-  var url=document.getElementById('src-url').value.trim();
-  if(!name||!url){toast('请填写完整信息','err');return;}
-  var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';
-  var id='src-'+Date.now();document.getElementById('src-dlg').style.display='none';
-  api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});
-}
+function showAddSourceDlg(){$('cm-add-form').style.display='block';$('cm-add-name').focus();}
+function cancelAddSource(){$('cm-add-form').style.display='none';$('cm-add-name').value='';$('cm-add-url').value='';}
+function submitAddSource(){var name=$('cm-add-name').value.trim();var url=$('cm-add-url').value.trim();if(!name){toast('请输入显示名','err');return;}if(!url){toast('请输入来源地址','err');return;}var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';var id='src-'+Date.now();api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');cancelAddSource();loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});}
 function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('请输入搜索关键词','err');return;}
   $('se-result').textContent='[i] 正在搜索：'+q+'…';btnLoad(btn,true);
   api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){
