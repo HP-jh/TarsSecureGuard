@@ -26,7 +26,7 @@ import (
 	"github.com/HP-jh/TarsSecureGuard/pkg/obsidian"
 	"github.com/HP-jh/TarsSecureGuard/pkg/voicecorrection"
 )
-//go:embed frontend/*
+//go:embed frontend
 var frontendFS embed.FS
 // ===================== 常量 =====================
 const (
@@ -46,7 +46,13 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.25.0"
+var version = "4.26.0"
+// v4.19.3: 构建元信息（运行时由 ldflags 注入，源码内为 unknown）
+var (
+	buildCommit = "unknown"
+	buildTime   = "unknown"
+	buildBy     = "unknown"
+)
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -460,7 +466,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			if p := recover(); p != nil {
 				logMsg(fmt.Sprintf("[PANIC] %s %s: %v", r.Method, r.URL.Path, p))
 				auditLog("PANIC_RECOVERED", "system", fmt.Sprintf("%s %s: %v", r.Method, r.URL.Path, p))
-				writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "internal error（已恢复并审计）"})
+				writeHumanizedJSONStatus(w, r, http.StatusInternalServerError, map[string]string{"error": "internal error（已恢复并审计）"})
 			}
 		}()
 		// v3.9.0 动态防护：蜜罐路由优先拦截
@@ -502,7 +508,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// 2) 跨域预检：仅放行受信任同源
 		if r.Method == http.MethodOptions {
 			if o := r.Header.Get("Origin"); o != "" && !isTrustedOrigin(o) {
-				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
+				writeHumanizedJSONStatus(w, r, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -532,7 +538,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		if ok, reason := rbacCheck(id, r.Method, r.URL.Path); !ok {
 			obsStage(r.Context(), "rbac", reason)
 			auditLogT("ACCESS_DENIED", id.Tenant, "", id.Name, r.URL.Path+" "+reason+obsTraceSuffix(r))
-			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: " + reason})
+			writeHumanizedJSONStatus(w, r, http.StatusForbidden, map[string]string{"error": "权限不足: " + reason})
 			return
 		}
 		// v3.0.4 [MT_QUOTA] chat 类请求前置配额检查（租户/用户/组三层日配额）
@@ -540,7 +546,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			if ok, why := quotaCheck(id.Tenant, id.Name, id.Groups); !ok {
 				obsStage(r.Context(), "quota", why)
 				auditLogT("QUOTA_EXCEEDED", id.Tenant, strings.Join(id.Groups, ","), id.Name, why+obsTraceSuffix(r))
-				writeJSONStatus(w, http.StatusTooManyRequests, map[string]string{"error": "配额超限: " + why})
+				writeHumanizedJSONStatus(w, r, http.StatusTooManyRequests, map[string]string{"error": "配额超限: " + why})
 				return
 			}
 		}
@@ -818,7 +824,7 @@ func requireRole(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 			}
 		}
 		auditLog("ACCESS_DENIED", name, fmt.Sprintf("路径 %s 需要角色 %v，当前 %s", r.URL.Path, roles, role))
-		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: 需要 " + strings.Join(roles, "/")})
+		writeHumanizedJSONStatus(w, r, http.StatusForbidden, map[string]string{"error": "权限不足: 需要 " + strings.Join(roles, "/")})
 	}
 }
 // sanitizeAuditField v4.6.3：审计字段防注入清洗——剔除 CR/LF/TAB（防止外部输入
@@ -1002,3 +1008,4 @@ func resolveInstallDataRoots() {
 	// Ensure install root exists
 	_ = os.MkdirAll(installRoot, 0755)
 }
+

@@ -402,7 +402,7 @@ func semanticGuardChat(w http.ResponseWriter, r *http.Request, req *ChatRequest)
 		if dec.Source == "fail-close" {
 			code = http.StatusServiceUnavailable // 503 SEMANTIC_ENGINE_UNAVAILABLE（锦衣卫裁定 1）
 		}
-		writeJSONStatus(w, code, map[string]string{
+		writeHumanizedJSONStatus(w, r, code, map[string]string{
 			"error":  "内容被安全护栏拦截（AI 判定只能加严，不可放宽）",
 			"detail": dec.Reason,
 			"source": dec.Source,
@@ -411,7 +411,7 @@ func semanticGuardChat(w http.ResponseWriter, r *http.Request, req *ChatRequest)
 	case sgGray:
 		// 引擎返回 gray 也按 fail-close 处理（不确定即拒绝）——在 sgClassify 已合并，
 		// 这里兜底：不可能到达（merge 后 gray 视作需拒绝）。保守写 503。
-		writeJSONStatus(w, http.StatusServiceUnavailable, map[string]string{"error": "SEMANTIC_ENGINE_UNAVAILABLE"})
+		writeHumanizedJSONStatus(w, r, http.StatusServiceUnavailable, map[string]string{"error": "SEMANTIC_ENGINE_UNAVAILABLE"})
 		return false
 	}
 	if dec.Source == "engine" || dec.Source == "cache" {
@@ -457,3 +457,4 @@ func sharePct(a, b uint64) float64 {
 	}
 	return float64(a) / float64(b) * 100
 }
+

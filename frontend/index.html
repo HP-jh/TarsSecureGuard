@@ -946,7 +946,14 @@ function api(u,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/j
 /* v4.6.6 小白化：401 不再弹浏览器原生 prompt——改为应用内密钥引导弹窗（见 key-dlg），
    密钥填对后自动重试刚才的请求；填错会再次弹出并提示核对 */
 if(r.status===401){return askGatewayKey(u,o);}
-if(!r.ok){throw new Error(humanErrMsg(r.status));}
+if(!r.ok){
+  /* v4.26.0 人话错误：优先展示后端返回的 human 字段 */
+  return r.clone().json().then(function(body){
+    var msg=(body&&body.human)?body.human:humanErrMsg(r.status);
+    if(body&&body.suggestion){msg+=' \u2022 '+body.suggestion;}
+    throw new Error(msg);
+  }).catch(function(){throw new Error(humanErrMsg(r.status));});
+}
 return r.json();});}
 /* v4.6.6 小白化：常见错误码翻译成人话 */
 var I18N_MSGS={zh:{403:'没有权限做这个操作（当前密钥的角色不够）',404:'接口不存在——网关和页面版本可能不匹配，试试重启网关',429:'操作太快啦，稍等几秒再试',500:'网关内部出了点问题，请稍后重试或查看日志',502:'网关内部出了点问题，请稍后重试或查看日志',503:'网关内部出了点问题，请稍后重试或查看日志',shutdown_ok:'网关已收到关闭指令，正在安全退出…',shutdown_err:'关闭失败：',avcompat_title:'安全软件兼容',avcompat_ok:'未发现冲突',avcompat_warn:'检测到安全软件，建议添加信任'},en:{403:'Permission denied (insufficient role)',404:'Endpoint not found — version mismatch? Try restarting',429:'Too fast, wait a few seconds',500:'Internal error, retry later or check logs',502:'Internal error, retry later or check logs',503:'Internal error, retry later or check logs',shutdown_ok:'Shutdown command received, exiting safely…',shutdown_err:'Shutdown failed: ',avcompat_title:'Security Software Compatibility',avcompat_ok:'No conflicts found',avcompat_warn:'Security software detected, consider adding trust'}};function currentLang(){return localStorage.getItem('tsg_lang')||'zh';}function setLang(l){localStorage.setItem('tsg_lang',l);document.documentElement.lang=(l==='zh'?'zh-CN':'en');}function i18nText(k){var m=I18N_MSGS[currentLang()]||I18N_MSGS.zh;return m[k]!==undefined?m[k]:k;}function humanErrMsg(code){var m=I18N_MSGS[currentLang()]||I18N_MSGS.zh;var key=code;if(m[key]!==undefined)return m[key];if((code>=500&&code<600)&&m['500']!==undefined)return m['500'];return '请求失败（错误码 '+code+'）';}
@@ -2429,3 +2436,4 @@ function updateRollback(){
 }
 </script>
 </body></html>
+

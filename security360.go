@@ -68,7 +68,7 @@ var (
 
 func handleSecurity360Scan(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
+		writeHumanizedJSONStatus(w, r, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
 		return
 	}
 
@@ -164,7 +164,7 @@ func handleSecurity360Threats(w http.ResponseWriter, r *http.Request) {
 
 func handleSecurity360ResolveThreat(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
+		writeHumanizedJSONStatus(w, r, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
 		return
 	}
 
@@ -172,7 +172,7 @@ func handleSecurity360ResolveThreat(w http.ResponseWriter, r *http.Request) {
 		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		writeHumanizedJSONStatus(w, r, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 		return
 	}
 
@@ -197,7 +197,7 @@ func handleSecurity360Quarantine(w http.ResponseWriter, r *http.Request) {
 
 func handleSecurity360QuarantineRestore(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
+		writeHumanizedJSONStatus(w, r, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
 		return
 	}
 
@@ -205,7 +205,7 @@ func handleSecurity360QuarantineRestore(w http.ResponseWriter, r *http.Request) 
 		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		writeHumanizedJSONStatus(w, r, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 		return
 	}
 
@@ -670,14 +670,14 @@ func handleSecurity360MCPServers(w http.ResponseWriter, r *http.Request) {
 
 func handleSecurity360MCPValidate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeJSONStatus(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
+		writeHumanizedJSONStatus(w, r, http.StatusMethodNotAllowed, map[string]string{"error": "POST only"})
 		return
 	}
 	var req struct {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		writeHumanizedJSONStatus(w, r, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
 		return
 	}
 
@@ -692,7 +692,7 @@ func handleSecurity360MCPValidate(w http.ResponseWriter, r *http.Request) {
 	cfgMu.RUnlock()
 
 	if target == nil {
-		writeJSONStatus(w, http.StatusNotFound, map[string]string{"error": "server not found"})
+		writeHumanizedJSONStatus(w, r, http.StatusNotFound, map[string]string{"error": "server not found"})
 		return
 	}
 
@@ -801,3 +801,4 @@ func handleSecurity360Summary(w http.ResponseWriter, r *http.Request) {
 		}(),
 	})
 }
+

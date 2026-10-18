@@ -389,5 +389,6 @@ func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {
 	// WAF 日志同步落盘：logs/waf-YYYY-MM-DD.log（含时间、IP、原因、请求路径）
 	fileLog("waf", line)
 	logMsg(fmt.Sprintf("[WAF] BLOCK %s %s (%s)", r.Method, r.URL.Path, reason))
-	writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "blocked by WAF: " + reason})
+	wafBlockHumanized(w, r, reason)
 }
+
