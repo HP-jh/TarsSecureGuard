@@ -400,7 +400,7 @@ func (d *doctorChecks) checkDeps(c *doctorCfg) {
 			"llama 后端将不可用；下载 llama.cpp 发行版放入该目录，或改用 LM Studio / Ollama 后端"})
 	}
 	// 前端（go:embed 恒在）
-	d.add(doctorCheck{cat, "前端页面", doctorPass, "已内嵌（go:embed frontend/index.html）", ""})
+	d.add(doctorCheck{cat, "前端页面", doctorPass, "已内嵌（go:embed frontend/）", ""})
 }
 
 func countGGUF(dir string) int {
