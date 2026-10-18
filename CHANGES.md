@@ -1,3 +1,104 @@
+# TarsSecureGuard v4.28.0 · 请求指纹识别 —— 安全 · 设备/浏览器指纹防伪造
+
+> 对应项：请求指纹识别系统，检测令牌被盗用后在不同设备上的异常使用，触发阶梯式验证。
+
+## 一、请求指纹识别核心（fingerprint.go）
+
+- **多维指纹采集**：
+  - 服务端维度：User-Agent / Accept-Language / Accept-Encoding / Accept
+  - 前端维度：屏幕分辨率+色深（X-Fingerprint-Screen）/ 时区（X-Fingerprint-Timezone）/ 平台（X-Fingerprint-Platform）
+- **指纹评分体系**（满分 100）：
+  - UA 核心段匹配 30 | Accept-Lang 15 | Accept-Encoding 10 | Accept 10
+  - ScreenInfo 20 | Timezone 10 | Platform 5
+  - 同操作系统不同浏览器得 85 分（UA 部分匹配）
+- **Hash 快速路径**：服务端维度哈希完全一致时直接放行，不受前端维度变化影响
+- **阶梯式处置**：
+  - ≥50（默认）：正常通过
+  - 30-49：中等异常 → 返回 403 + `FINGERPRINT_CHALLENGE`（需用户确认新设备）
+  - <30：严重异常 → 拒绝 + `FINGERPRINT_REJECT`（疑似令牌盗用）
+- **渐进式更新**：用户通过 `/api/fingerprint/challenge` 确认后更新绑定指纹
+- **严格模式**：阈值整体收紧 10 分（配置 `security.fingerprint.strict`）
+
+## 二、API 端点
+
+- `POST /api/fingerprint/report` — 前端提交设备指纹
+- `GET /api/fingerprint/status` — 查询当前令牌指纹绑定状态
+- `POST /api/fingerprint/challenge` — 阶梯式验证响应（confirm / reject）
+
+## 三、配置扩展（config.go）
+
+- `security.fingerprint.enabled` — 开关（默认 true）
+- `security.fingerprint.strict` — 严格模式（默认 false）
+- `security.fingerprint.challengeThreshold` — 挑战阈值 0-100（默认 50）
+- `security.fingerprint.rejectThreshold` — 拒绝阈值 0-100（默认 30）
+
+## 四、集成点
+
+- **gatewayMiddleware**：`fingerprintMiddleware` 插在 `gatewayMiddleware` 外层，公共路由免检测，鉴权后检测
+- **OAuth 会话**：注销时同步清除指纹绑定（`fpRevokeBinding`）
+- **审计日志**：`FINGERPRINT_BIND` / `FINGERPRINT_CHALLENGE` / `FINGERPRINT_REJECT`
+
+## 五、测试覆盖（fingerprint_test.go）
+
+- `TestUaSignature` / `TestUaPartialMatch` — UA 解析与部分匹配
+- `TestFpScore` — 指纹相似度评分（完全匹配/变版本/换时区/完全不同/同 OS 不同浏览器）
+- `TestTokenHash` — 令牌哈希一致性
+- `TestExtractFingerprint` — HTTP 头提取
+- `TestFpCheckFirstBind` — 首次绑定放行 + 相同指纹放行
+- `TestFpCheckAnomaly` — 换设备触发 reject
+- `TestFpCheckChallenge` — 同 OS 不同浏览器正常通过
+- `TestFpRevokeBinding` — 注销清除绑定
+- `TestFingerprintMiddlewarePublicRoute` — 公共路由免检测
+- `TestFingerprintMiddlewareNoToken` — 无令牌免检测
+- `TestFingerprintMiddlewareReject` — 严重异常 403
+- `TestClientFPFromRequest` — 前端指纹头读取
+- `TestFpCleanupExpired` — 30 天过期清理
+- `TestFingerprintEnabledDefault` — 默认开启
+- `TestV428FingerprintVersion` — 版本号锁定 4.28.0
+
+## 六、版本与配套
+
+- 版本号 4.25.0 → 4.28.0
+- Release 资产：linux-amd64 + SHA256SUMS.txt
+
+---
+
+# TarsSecureGuard v4.25.0 · 连接池自适应扩缩容 —— 性能 · QPS 驱动 · 5~200 区间
+
+> 对应项：连接池从固定连接数升级为基于 QPS 的自适应扩缩容。
+
+## 一、自适应连接池（pool.go）
+
+- **QPS 实时监控**：每 5 秒评估一次请求吞吐量（atomic 计数器 + 滑动时间窗口）
+- **动态扩缩容**：`MaxIdleConnsPerHost` 在 5~200 区间自动调整
+  - 扩容阈值：目标 >= 当前 × 1.2（激进，QPS 上升迅速扩容）
+  - 缩容阈值：目标 <= 当前 × 0.5（保守，避免频繁抖动）
+- **经验公式**：目标连接数 = QPS / 3（每个连接约服务 3 QPS）
+- **审计日志**：每次扩缩容记录 `POOL_ADAPTIVE` 审计事件（含 QPS / 旧值 / 新值）
+
+## 二、Admin 端点增强
+
+- `GET /api/admin/v32/pool` 新增字段：
+  - `adaptiveEnabled`：自适应开关状态（默认 true）
+  - `adaptiveRange`：固定值 `"5~200"`
+  - `maxIdlePerHost`：实时显示当前生效值（而非静态 32）
+
+## 三、测试覆盖（v325_test.go）
+
+- `TestV325PoolTargetConns`：QPS→连接数映射边界验证（0/5/15/30/100/300/600/1000）
+- `TestV325PoolAdaptiveScaleUp`：高 QPS（300）触发扩容（5 → 100）
+- `TestV325PoolAdaptiveScaleDown`：低 QPS（10）触发缩容（100 → 5）
+- `TestV325PoolAdaptiveToggle`：启停开关有效性
+- `TestV325PoolStatsFields`：stats 字段完整性
+- `TestV325VersionBumped`：版本号锁定 4.25.0
+
+## 四、版本与配套
+
+- 版本号 4.20.0 → 4.25.0
+- Release 资产：linux-amd64 + SHA256SUMS.txt
+
+---
+
 # TarsSecureGuard v4.7.0 · 官方三站 + 多语言文档 + 安装器加固 —— GitHub Pages / i18n / SHA256
 
 > 对应项：GitHub Pages 介绍站与实时性能监控站、下载页、6 语言 README、红蓝对抗报告、安装器防篡改与桌面快捷方式。
