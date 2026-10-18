@@ -132,7 +132,7 @@ func TestV325PoolStatsFields(t *testing.T) {
 // ---- 6. 版本号锁定 ----
 
 func TestV325VersionBumped(t *testing.T) {
-	if version != "4.25.0" {
-		t.Errorf("version = %s, want 4.25.0", version)
+	if version != "4.28.0" {
+		t.Errorf("version = %s, want 4.28.0", version)
 	}
 }

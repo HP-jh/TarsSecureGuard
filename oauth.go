@@ -73,12 +73,13 @@ func oauthReady() bool {
 // ===================== 会话与 state 存储 =====================
 
 type oauthSession struct {
-	Name     string
-	Role     string
-	Tenant   string
-	Groups   []string
-	Global   bool
-	ExpiresAt time.Time
+	Name        string
+	Role        string
+	Tenant      string
+	Groups      []string
+	Global      bool
+	ExpiresAt   time.Time
+	Fingerprint RequestFingerprint // v4.28.0 绑定的设备指纹
 }
 
 var (
@@ -143,6 +144,8 @@ func oauthSessionRevoke(token string) bool {
 	defer oauthMu.Unlock()
 	_, ok := oauthSessions[token]
 	delete(oauthSessions, token)
+	// v4.28.0 同步清除指纹绑定
+	fpRevokeBinding(token)
 	return ok
 }
 
