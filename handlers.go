@@ -498,10 +498,19 @@ func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 }
 // handleHealth GET /health —— 健康检查端点（免鉴权，供监控/负载均衡探活）
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	// v4.35.0 health 增强：暴露运行时指标（整合历史可观测性 + 性能监控优点）
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
 	writeJSON(w, map[string]interface{}{
-		"status":    "ok",
-		"version":   version,
-		"uptime":    time.Since(startTime).Round(time.Second).String(),
-		"first_run": isFirstRun(), // v4.11.0 首次运行标记
+		"status":       "ok",
+		"version":      version,
+		"uptime":       time.Since(startTime).Round(time.Second).String(),
+		"first_run":    isFirstRun(), // v4.11.0 首次运行标记
+		"goroutines":   runtime.NumGoroutine(),
+		"cpus":         runtime.NumCPU(),
+		"memory_mb":    float64(m.Alloc) / (1024 * 1024),
+		"memory_sys_mb": float64(m.Sys) / (1024 * 1024),
+		"gc_count":     m.NumGC,
 	})
 }
+

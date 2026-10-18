@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.34.0"
+var version = "4.35.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -203,6 +203,9 @@ func main() {
 	initAVCompat()
 	syslogWrapStartup()
 	logMsg(fmt.Sprintf("TarsSecureGuard v%s starting...", version))
+	// v4.35.0 启动自检日志：输出运行时环境摘要（整合历史可观测性优点）
+	logMsg(fmt.Sprintf("  platform: %s/%s | go: %s | pid: %d | cpus: %d",
+		runtime.GOOS, runtime.GOARCH, runtime.Version(), os.Getpid(), runtime.NumCPU()))
 	// v2.0.0 模块化路由：路由启动时注册一次，经 moduleRoute 包装——
 	// 模块关闭时该路由返回 503 + 开启提示（2 秒热重载生效），无需重启服务。
 	// security-core 的中间件链（WAF/鉴权/RBAC/审计）硬编码在 gatewayMiddleware，不在此列。
@@ -1003,3 +1006,4 @@ func resolveInstallDataRoots() {
 	// Ensure install root exists
 	_ = os.MkdirAll(installRoot, 0755)
 }
+

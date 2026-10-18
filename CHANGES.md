@@ -1,3 +1,34 @@
+# TarsSecureGuard v4.35.0 · 历史优点集成 —— 启动自检日志 + Health 运行时指标
+
+> 对应项：v4.35.0 历史优点集成版本，将 v3.x-v4.x 各版本关键可观测性与性能监控能力汇总到当前版本。
+
+## 一、启动自检日志增强（main.go）
+
+- **整合历史可观测性优点**（v3.0.5 Prometheus /metrics、v3.2.2 治理层审计、v4.5.0 性能评价体系）：启动时输出运行时环境摘要
+  - 平台信息：`runtime.GOOS / GOARCH`
+  - Go 运行时版本：`runtime.Version()`
+  - 进程 ID：`os.Getpid()`
+  - CPU 核心数：`runtime.NumCPU()`
+- 日志格式与现有 `logMsg` 管线一致，不经额外存储，零持久化开销
+
+## 二、Health 端点运行时指标（handlers.go）
+
+- **整合历史性能监控优点**（v3.0.5 可观测性、v4.5.0 基准指标、v4.7.0 性能监控站）：`/health` 免鉴权端点新增字段
+  - `goroutines`：当前活跃 goroutine 数
+  - `cpus`：逻辑 CPU 核心数
+  - `memory_mb`：当前堆分配内存（MB）
+  - `memory_sys_mb`：系统向进程分配的内存（MB）
+  - `gc_count`：累计 GC 次数
+- 与既有 `status` / `version` / `uptime` / `first_run` 字段并存，前端与负载均衡器零改造兼容
+
+## 三、配套
+
+- 版本号 4.34.0 → 4.35.0（main / 版本锁测试同步）
+- 新增 `v435_test.go` 2 组测试（版本锁 / health 运行时指标）
+- `go test -race .` 主包全绿
+
+---
+
 # TarsSecureGuard v4.34.0 · XSS防护增强：CSP策略自动生成 —— 根据前端资源推导Content-Security-Policy头，支持report-only模式
 
 > 对应项：v4.34.0 XSS防护增强（CSP策略自动生成）。
@@ -792,3 +823,4 @@ config 分选项 `security.firewall.policy`（`security.firewall.banDuration` �
 - Tier 0-3 能力分层：本版全部 Tier 0（单 exe 零依赖）；Tier 1 系统原生命令参数化调用（红线待锦衣卫补充裁定）；Tier 2 Python/MLX 边车按需；Tier 3 eBPF/ESF 仅记账、v4.0 候选
 - 部署件：systemd unit / Dockerfile / docker-compose（rootless 兼容）/ K8s sidecar 示例 / macOS LaunchDaemon
 - 明确不做：不捆绑 Python；v3.0.0 不做第三套扩展机制，WASM 推迟 v4.0
+
