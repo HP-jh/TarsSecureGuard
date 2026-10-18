@@ -15,6 +15,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -235,13 +237,31 @@ func tryDecode(s, tech string) (string, bool) {
 			return strings.ReplaceAll(strings.ReplaceAll(s, "&lt;", "<"), "&gt;", ">"), true
 		}
 	case "unicode":
-		// 简化：处理 \\uXXXX 编码
-		if strings.Contains(s, "\\u") {
-			// 这里简化处理，实际应使用 strconv.Unquote
-			return s, false
+		// 解码 \\uXXXX Unicode 转义序列
+		if decoded, ok := decodeUnicodeEscapes(s); ok {
+			return decoded, true
 		}
 	}
 	return s, false
+}
+
+
+// decodeUnicodeEscapes 解码字符串中的 \uXXXX 转义序列为实际 Unicode 字符
+func decodeUnicodeEscapes(s string) (string, bool) {
+	if !strings.Contains(s, "\\u") {
+		return s, false
+	}
+	re := regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
+	changed := false
+	result := re.ReplaceAllStringFunc(s, func(match string) string {
+		hex := match[2:]
+		if r, err := strconv.ParseInt(hex, 16, 32); err == nil {
+			changed = true
+			return string(rune(r))
+		}
+		return match
+	})
+	return result, changed
 }
 
 func urlQueryUnescape(s string) (string, error) {

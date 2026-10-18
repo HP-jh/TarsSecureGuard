@@ -46,6 +46,11 @@ var phrases = []phrase{
 	{"ignore all safety", "role_impersonation", 0.80},
 	{"bypass your safety", "role_impersonation", 0.82},
 	{"ignore your safety guidelines", "role_impersonation", 0.85},
+	// v4.18.0 补充短语
+	{"system prompt", "prompt_extraction", 0.88},
+	{"reveal your system prompt", "prompt_extraction", 0.92},
+	{"simulation mode", "role_impersonation", 0.75},
+	{"enter simulation mode", "role_impersonation", 0.78},
 	// 权限洗白
 	{"the user has authorized", "authority_laundering", 0.58},
 	{"the user authorized you", "authority_laundering", 0.58},
@@ -76,6 +81,7 @@ var structuralPatterns = func() []struct {
 		score float64
 	}{
 		{`(?im)^\s*system\s*:\s`, "system_prefix", 0.55},
+		{`(?s)^---\n.*\bignore\b.*\n---$`, "yaml_frontmatter_injection", 0.70},
 		{`(?i)<\s*/?\s*system\s*>`, "system_tag", 0.70},
 		{`(?i)<<\s*sys\s*>>`, "system_tag", 0.70},
 		{`(?i)\[\s*system\s*\]`, "system_tag", 0.55},
@@ -180,6 +186,7 @@ func emitFinding(label string, base float64, spanStart, spanEnd int, text string
 		Start:    spanStart,
 		End:      spanEnd,
 		Source:   src,
+		Detail:   text[spanStart:spanEnd],
 	}
 }
 
