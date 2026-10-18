@@ -91,6 +91,7 @@ var tenantRoles = map[string]bool{
 type Identity struct {
 	Name    string
 	Role    string
+	Tier    string   // v4.29.0 速率限制分级：personal | lite | pro | enterprise
 	Tenant  string   // 租户 ID；全局角色为 "*"
 	Groups  []string // 所属组（组级配额/审计视图用）
 	Global  bool     // global_admin / global_auditor
@@ -117,7 +118,7 @@ func identityFromRequest(r *http.Request) (Identity, bool) {
 	defer cfgMu.RUnlock()
 	for _, u := range cfg.Users {
 		if u.Enabled && constantTimeEq(key, u.APIKey) {
-			id := Identity{Name: u.Name, Role: u.Role, Groups: append([]string(nil), u.Groups...), IsUsers: true}
+			id := Identity{Name: u.Name, Role: u.Role, Tier: u.Tier, Groups: append([]string(nil), u.Groups...), IsUsers: true}
 			switch u.Role {
 			case "global_admin", "global_auditor":
 				id.Global = true

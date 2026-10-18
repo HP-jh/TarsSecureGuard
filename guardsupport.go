@@ -41,12 +41,13 @@ type V3Config struct {
 		MemLimitMB int `json:"memLimitMB"` // 0 = auto（min(物理10%,384MB)，eco 档 128MB）
 	} `json:"resource"`
 	RateLimit struct {
-		ChatPerMin  int `json:"chatPerMin"`  // chat 类默认 60
-		AdminPerMin int `json:"adminPerMin"` // admin 类默认 10
-		ModelPerMin int `json:"modelPerMin"` // 模型操作默认 6
-		PerIPTotal  int `json:"perIpTotal"`  // 单 IP 总量默认 240/分（防洗端点绕过分维度）
-		WindowSec   int `json:"windowSec"`   // 全局滑窗秒数，默认 10
-		MaxReq      int `json:"maxReq"`      // 全局滑窗最大请求数，默认 120
+		ChatPerMin  int                      `json:"chatPerMin"`  // chat 类默认 60
+		AdminPerMin int                      `json:"adminPerMin"` // admin 类默认 10
+		ModelPerMin int                      `json:"modelPerMin"` // 模型操作默认 6
+		PerIPTotal  int                      `json:"perIpTotal"`  // 单 IP 总量默认 240/分（防洗端点绕过分维度）
+		WindowSec   int                      `json:"windowSec"`   // 全局滑窗秒数，默认 10
+		MaxReq      int                      `json:"maxReq"`      // 全局滑窗最大请求数，默认 120
+		Tiers       map[string]RateLimitTier `json:"tiers"`       // v4.29.0 按角色分级限额（key = personal|lite|pro|enterprise）
 	} `json:"rateLimit"`
 	IPReputation struct {
 		Enabled   *bool    `json:"enabled"`   // 默认 true
@@ -76,6 +77,15 @@ type V3Config struct {
 	Sidecar struct {
 		Modules map[string]SidecarPin `json:"modules"`
 	} `json:"sidecar"`
+}
+
+// RateLimitTier v4.29.0 单 tier 限额配置（key = personal|lite|pro|enterprise）
+type RateLimitTier struct {
+	ChatPerMin  int `json:"chatPerMin"`  // chat 类每分钟，0 = 继承全局
+	AdminPerMin int `json:"adminPerMin"` // admin 类每分钟，0 = 继承全局
+	ModelPerMin int `json:"modelPerMin"` // model 类每分钟，0 = 继承全局
+	DailyQuota  int `json:"dailyQuota"`  // 日限额（所有端点合计），0 = 不限
+	Concurrency int `json:"concurrency"` // 最大并发数，0 = 不限
 }
 
 // SidecarPin 单个 sidecar 模块的管理员确认项

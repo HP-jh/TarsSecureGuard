@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.28.0"
+var version = "4.29.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -211,6 +211,11 @@ func main() {
 	mux.HandleFunc("/health", handleHealth) // 健康检查（免鉴权）
 	mux.HandleFunc("/ws/events", handleWSEvents) // v4.11.0 SSE 实时事件流
 	mux.HandleFunc("/api/status", handleStatus)
+	// v4.27.0 首次启动引导 API
+	mux.HandleFunc("/api/onboarding/status", handleOnboardingStatus)
+	mux.HandleFunc("/api/onboarding/apikey", handleOnboardingAPIKey)
+	mux.HandleFunc("/api/onboarding/demo", handleOnboardingDemo)
+	mux.HandleFunc("/api/onboarding/complete", handleOnboardingComplete)
 	mux.HandleFunc("/api/stats", moduleRoute("stats", handleStats))                // 统计面板
 	mux.HandleFunc("/api/stats/history", moduleRoute("stats", handleStatsHistory)) // 24 小时请求量
 	mux.HandleFunc("/api/chat/completions", moduleRoute("chatApi", handleChat))
@@ -373,16 +378,11 @@ func main() {
 	// v4.9.0 kingdom：
 
 	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
-	// v4.28.0 请求指纹识别端点
-	mux.HandleFunc("/api/fingerprint/report", handleFingerprintReport)
-	mux.HandleFunc("/api/fingerprint/status", handleFingerprintStatus)
-	mux.HandleFunc("/api/fingerprint/challenge", handleFingerprintChallenge)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
-	// v4.28.0 指纹识别中间件插在 gatewayMiddleware 外层（公共路由免检测，鉴权后检测）
 	server := &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
-		Handler: obsMiddleware(fingerprintMiddleware(gatewayMiddleware(mux))),
+		Handler: obsMiddleware(gatewayMiddleware(mux)),
 		// v4.7.2：ReadHeaderTimeout 限制 header 读取时间（防 Slowloris 慢连接
 		// 拖死 listener；与 ReadTimeout/WriteTimeout 配合形成三层超时）
 		ReadHeaderTimeout: 10 * time.Second,
@@ -551,10 +551,11 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		}
 		name := id.Name
 		// v3.0.0 B 线：分层速率限制（IP×端点类 / Key×端点类 / IP 总量三维令牌桶，
-		// 超限 429 + 审计 + IP 信誉扣分）
-		if !rateLimitMiddleware(w, r, name, id.Tenant) {
+		// v4.29.0 增 tier×端点类 / 日限额 / 并发数；超限 429 + 审计 + IP 信誉扣分）
+		if !rateLimitMiddleware(w, r, name, id.Role, id.Tenant) {
 			return
 		}
+		defer rateLimitConcurLeave(name)
 		mu.Lock()
 		totalReq++
 		mu.Unlock()
@@ -590,6 +591,10 @@ func isPublicRoute(p string) bool {
 	// v3.2.2：OAuth 登录回调为浏览器跳转入口，登录前必然没有凭据——
 	// 免鉴权但不过 WAF 之外的任何豁免（state 一次性 + PKCE 防 CSRF/劫持）
 	if p == "/oauth/login" || p == "/oauth/callback" {
+		return true
+	}
+	// v4.27.0 首次启动引导 API 免鉴权（新用户还没有密钥）
+	if strings.HasPrefix(p, "/api/onboarding/") {
 		return true
 	}
 	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health" || p == "/ws/events"
