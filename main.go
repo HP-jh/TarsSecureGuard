@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.31.0"
+var version = "4.35.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -198,6 +198,7 @@ func main() {
 		HoneypotDelay:  2 * time.Second,
 	})
 	initStability()
+	initAnomalyDetector() // v4.35.0 异常行为检测
 	syslogInit()
 	initSelfProtect()
 	initAVCompat()
@@ -378,6 +379,9 @@ func main() {
 	// v4.9.0 kingdom：
 
 	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
+	// v4.35.0 异常行为检测面板
+	mux.HandleFunc("/api/admin/anomaly/status", handleAnomalyStatus)
+	mux.HandleFunc("/api/admin/anomaly/alerts", handleAnomalyAlerts)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
 	// 纯观测不改 gatewayMiddleware 判定逻辑。
 	server := &http.Server{
@@ -460,6 +464,7 @@ func isFirstRun() bool {
 
 func gatewayMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now() // v4.35.0：请求开始时间（供异常行为检测用）
 		// v3.0.0 E 线：panic recovery 全覆盖（handler panic 不再拖垮进程）
 		defer func() {
 			if p := recover(); p != nil {
@@ -471,6 +476,9 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// v3.9.0 动态防护：蜜罐路由优先拦截
 		if dyna != nil && dyna.cfg.Enabled && dyna.isHoneypotPath(r.URL.Path) {
 			dyna.handleHoneypot(w, r)
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusForbidden)
+			}
 			return
 		}
 		// v3.9.0 影子规则流水线（只记录不阻断）
@@ -490,6 +498,9 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		if isBanned(clientIP(r)) {
 			sseEmitIntercept("block", "IP封禁拦截", "IP处于动态封禁期（security.firewall.policy）", clientIP(r), r.URL.Path)
 			blockRequest(w, r, "IP 处于动态封禁期（security.firewall.policy）")
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusForbidden)
+			}
 			return
 		}
 		// 1) WAF 检测（含速率限制与请求体扫描；security-core 永远启用，无开关）
@@ -502,15 +513,24 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			syslogWrapWAF(ip, reason)
 			sseEmitIntercept("block", "WAF拦截", reason, ip, r.URL.Path)
 			blockRequest(w, r, reason)
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusForbidden)
+			}
 			return
 		}
 		// 2) 跨域预检：仅放行受信任同源
 		if r.Method == http.MethodOptions {
 			if o := r.Header.Get("Origin"); o != "" && !isTrustedOrigin(o) {
 				writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "origin not allowed"})
+				if anomalyDetector != nil {
+					anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusForbidden)
+				}
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusNoContent)
+			}
 			return
 		}
 		// 3) 入站鉴权（静态前端页面放行，API 一律校验）
@@ -518,7 +538,11 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			mu.Lock()
 			totalReq++
 			mu.Unlock()
-			recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
+			startHandler := time.Now()
+			recordResponseTime(startHandler, func() { next.ServeHTTP(w, r) })
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusOK)
+			}
 			return
 		}
 		id, ok := identityFromRequest(r)
@@ -530,6 +554,9 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
 			// v4.7.4 小白化：401 走 i18n + hint 字段，告诉用户怎么填密钥
 			i18nErrorJSONWithHint(w, r, http.StatusUnauthorized, "err.unauthorized", "err.unauthorized.hint")
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusUnauthorized)
+			}
 			return
 		}
 		// v3.0.4 RBAC 矩阵（[RBAC_MATRIX]：角色×端点类逐格判定，替换 v3.0.0 的
@@ -538,6 +565,9 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			obsStage(r.Context(), "rbac", reason)
 			auditLogT("ACCESS_DENIED", id.Tenant, "", id.Name, r.URL.Path+" "+reason+obsTraceSuffix(r))
 			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: " + reason})
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusForbidden)
+			}
 			return
 		}
 		// v3.0.4 [MT_QUOTA] chat 类请求前置配额检查（租户/用户/组三层日配额）
@@ -546,6 +576,9 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 				obsStage(r.Context(), "quota", why)
 				auditLogT("QUOTA_EXCEEDED", id.Tenant, strings.Join(id.Groups, ","), id.Name, why+obsTraceSuffix(r))
 				writeJSONStatus(w, http.StatusTooManyRequests, map[string]string{"error": "配额超限: " + why})
+				if anomalyDetector != nil {
+					anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusTooManyRequests)
+				}
 				return
 			}
 		}
@@ -553,12 +586,16 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// v3.0.0 B 线：分层速率限制（IP×端点类 / Key×端点类 / IP 总量三维令牌桶，
 		// 超限 429 + 审计 + IP 信誉扣分）
 		if !rateLimitMiddleware(w, r, name, id.Tenant) {
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), http.StatusTooManyRequests)
+			}
 			return
 		}
 		mu.Lock()
 		totalReq++
 		mu.Unlock()
-		recordResponseTime(time.Now(), func() {
+		startHandler := time.Now()
+		recordResponseTime(startHandler, func() {
 			// v4.31.0：响应流出自动脱敏——用 piiResponseWriter 替代 statusWriter
 			sw := &piiResponseWriter{ResponseWriter: w}
 			next.ServeHTTP(sw, r)
@@ -566,6 +603,10 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			// v3.0.0 B 线：扫描型 404 突发联动 IP 信誉扣分（每分钟至多 -10）
 			if sw.status == http.StatusNotFound {
 				ipRepPenalty(clientIP(r), 10, "scan404", "")
+			}
+			// v4.35.0：异常行为检测——记录请求延迟与状态码
+			if anomalyDetector != nil {
+				anomalyDetector.RecordRequest(time.Since(start).Milliseconds(), sw.status)
 			}
 		})
 	})
