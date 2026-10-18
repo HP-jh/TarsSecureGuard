@@ -81,6 +81,8 @@ type Config struct {
 	// v3.8.0 职业系统扩展段（顶层键：persona）
 	V38Config
 	V4101Config
+	// v4.35.0 异常行为检测配置（顶层键：anomalyDetection）
+	AnomalyDetection AnomalyConfig `json:"anomalyDetection"`
 	// v4.15.1 unified install path + persistent data
 	InstallRoot string `json:"installRoot"` // empty = platform default
 	DataRoot    string `json:"dataRoot"`    // empty = platform default
