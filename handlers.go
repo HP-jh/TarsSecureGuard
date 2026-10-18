@@ -13,18 +13,30 @@ import (
 )
 // ===================== 前端 =====================
 func handleFrontend(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" && r.URL.Path != "/index.html" && r.URL.Path != "/admin" {
-		http.NotFound(w, r)
+	path := r.URL.Path
+	if path == "/" || path == "/index.html" || path == "/admin" {
+		data, err := fs.ReadFile(frontendFS, "frontend/index.html")
+		if err != nil {
+			http.Error(w, "Frontend not found", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(data)
 		return
 	}
-	data, err := fs.ReadFile(frontendFS, "frontend/index.html")
-	if err != nil {
-		http.Error(w, "Frontend not found", http.StatusInternalServerError)
+	if path == "/i18n.js" {
+		data, err := fs.ReadFile(frontendFS, "frontend/i18n.js")
+		if err != nil {
+			http.Error(w, "i18n.js not found", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(data)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Write(data)
+	http.NotFound(w, r)
 }
 // ===================== 状态 =====================
 func statusPayload() map[string]interface{} {
