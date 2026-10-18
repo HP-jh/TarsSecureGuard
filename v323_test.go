@@ -107,7 +107,14 @@ func TestV323WAFMatchEquivalence(t *testing.T) {
 		{"mkdir && rm -rf /", false, "命令注入"},
 	}
 	for _, c := range cases {
-		if got := wafMatch(c.in, c.strict); got != c.want {
+		got := wafMatch(c.in, c.strict)
+		if c.want == "SQL 注入" {
+			if !strings.Contains(got, "SQL 注入") {
+				t.Errorf("wafMatch(%q, strict=%v) = %q, want contain SQL 注入", c.in, c.strict, got)
+			}
+			continue
+		}
+		if got != c.want {
 			t.Errorf("wafMatch(%q, strict=%v) = %q, want %q", c.in, c.strict, got, c.want)
 		}
 	}

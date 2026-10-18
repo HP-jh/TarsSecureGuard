@@ -91,6 +91,12 @@ func wafMatch(s string, strict bool) string {
 		merged = wafStrictMerged
 	}
 	if merged != nil && !merged.MatchString(s) {
+		// 正则未命中：strict 模式下启用语义分析层二次检测（捕获变形/编码注入）
+		if strict {
+			if semantic := sqliSemanticWAFCheck(s); semantic != "" {
+				return semantic
+			}
+		}
 		return ""
 	}
 	// 命中：按原顺序回查个别规则，返回首个命中名（与逐条扫描语义一致）
@@ -99,7 +105,21 @@ func wafMatch(s string, strict bool) string {
 			continue
 		}
 		if rule.re.MatchString(s) {
+			// SQL 注入规则命中时，通过语义层确认/降级
+			if rule.name == "SQL 注入" {
+				if semantic := sqliSemanticWAFCheck(s); semantic != "" {
+					return semantic
+				}
+				// 语义层认为是误报 → 降级，继续检查后续规则
+				continue
+			}
 			return rule.name
+		}
+	}
+	// 全规则未命中但 strict 模式下仍有可疑字符：语义层兜底
+	if strict {
+		if semantic := sqliSemanticWAFCheck(s); semantic != "" {
+			return semantic
 		}
 	}
 	return ""

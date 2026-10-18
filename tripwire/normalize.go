@@ -45,8 +45,8 @@ func findingForSmuggle(cat smuggleKind, start, end int) Finding {
 	return Finding{Kind: KindObfuscation, Label: label, Severity: sev, Score: score, Start: start, End: end, Source: SourceUser}
 }
 
-func homoglyphFinding(start, end int) Finding {
-	return Finding{Kind: KindObfuscation, Label: "homoglyph", Severity: SeverityLow, Score: 0.30, Start: start, End: end, Source: SourceUser}
+func homoglyphFinding(start, end int, detail string) Finding {
+	return Finding{Kind: KindObfuscation, Label: "homoglyph", Severity: SeverityLow, Score: 0.30, Start: start, End: end, Source: SourceUser, Detail: detail}
 }
 
 // confusableToASCII 将形似拉丁字母的字符折叠为ASCII
@@ -394,7 +394,7 @@ func Analyze(original string) *Normalized {
 	}
 	flushHomo := func() {
 		if homoRun != nil {
-			findings = append(findings, homoglyphFinding(homoRun.start, homoRun.end))
+			findings = append(findings, homoglyphFinding(homoRun.start, homoRun.end, original[homoRun.start:homoRun.end]))
 			homoRun = nil
 		}
 	}

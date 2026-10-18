@@ -207,7 +207,14 @@ func TestV462WAFMatchRegression(t *testing.T) {
 		{"正常内容，无命中", false, ""},
 	}
 	for _, c := range cases {
-		if got := wafMatch(c.in, c.strict); got != c.want {
+		got := wafMatch(c.in, c.strict)
+		if c.want == "SQL 注入" {
+			if !strings.Contains(got, "SQL 注入") {
+				t.Errorf("wafMatch(%q, strict=%v) = %q, want contain SQL 注入", c.in, c.strict, got)
+			}
+			continue
+		}
+		if got != c.want {
 			t.Errorf("wafMatch(%q, strict=%v) = %q, want %q", c.in, c.strict, got, c.want)
 		}
 	}
@@ -242,7 +249,7 @@ func TestV462WAFScanBodyChatStrict(t *testing.T) {
 		t.Errorf("chat XSS scan: got %q, want XSS", got)
 	}
 	body2 := []byte(`{"messages":[{"role":"user","content":"DROP TABLE users"}]}`)
-	if got := wafScanBody(body2, false, true); got != "SQL 注入" {
-		t.Errorf("chat SQLi scan: got %q, want SQL 注入", got)
+	if got := wafScanBody(body2, false, true); !strings.Contains(got, "SQL 注入") {
+		t.Errorf("chat SQLi scan: got %q, want contain SQL 注入", got)
 	}
 }

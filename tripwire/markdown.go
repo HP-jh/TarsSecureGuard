@@ -25,7 +25,7 @@ var markdownLinkRe = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 var suspiciousSchemeRe = regexp.MustCompile(`(?i)^(javascript|data|vbscript|file):`)
 
 // queryPayloadRe looks for long or suspicious query parameters.
-var queryPayloadRe = regexp.MustCompile(`[?&][a-z0-9_]{1,3}=([A-Za-z0-9+/=]{40,}|[A-Fa-f0-9]{32,})`)
+var queryPayloadRe = regexp.MustCompile(`[?&][a-z0-9_]{1,3}=([A-Za-z0-9+/=]{40,}|[A-Fa-f0-9]{32,}|AKIA[0-9A-Z]{16})`)
 
 // ScanMarkdown receives outbound text (e.g. model reply) and reports any
 // URLs that may be leaking secrets or encoded payloads.

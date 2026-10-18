@@ -62,6 +62,11 @@ var phrases = []phrase{
 	{"read ~/.ssh/id_rsa", "exfil_instruction", 0.85},
 	{"include its full contents in your reply", "exfil_instruction", 0.70},
 	{"exfiltrate", "exfil_instruction", 0.68},
+	// v4.36.0 补齐：eval 测试遗漏的注入短语
+	{"simulation mode", "role_impersonation", 0.70},
+	{"enter simulation mode", "role_impersonation", 0.72},
+	{"what is your system prompt", "prompt_extraction", 0.85},
+	{"ignore previous", "instruction_override", 0.65},
 }
 
 // 结构性攻击正则（编译一次）
@@ -87,6 +92,8 @@ var structuralPatterns = func() []struct {
 		{`(?i)(from (now|here) on|you are (now|no longer)\b|new (persona|identity|directive)\b|stay in character|do anything now|developer mode)`, "role_impersonation", 0.70},
 		{`(?i)(no (content[ -]?polic|restriction|ethical limit|guideline|filter)|without (refus|restriction)|unfiltered|broken free|safety (guidelines? )?(do not|does not|don'?t) apply|ignore the guardrails|no longer (chatgpt|claude|bound by))`, "jailbreak_marker", 0.72},
 		{`(?i)\b(reveal|repeat|print|output|show|disclose|leak|expose|give me|tell me)\b[^.\n]{0,40}\b((hidden|secret|initial|developer|system)[ -]?(prompt|instruction|config|message)|system\s+prompt|your\s+(initial\s+)?instructions|everything above)`, "prompt_extraction", 0.85},
+		{`(?i)\bsystem\s+prompt\b`, "prompt_extraction", 0.80},
+		{`(?im)^---\s*$[\s\S]{0,80}?\bignore\b`, "yaml_frontmatter_injection", 0.75},
 		{`(?i)\b(forward|send|email|post|copy|upload|exfiltrate|leak|paste|append|disclose|list|reveal|output|expose)\b[^.\n]{0,45}\b(all (data|emails?|conversation|secret|note)|every (secret|note)|conversation history|the (customer )?database|api[ -]?key|credential|password|secret|\.env\b|/etc/passwd|id_rsa|environment variable|stored secret|audit log)`, "exfil_instruction", 0.82},
 		{`(?i)\b(read|cat|fetch|access|open|print)\b[^.\n]{0,15}(\.env\b|/etc/passwd|/etc/shadow|id_rsa|\.ssh/)`, "sensitive_file_read", 0.82},
 		{`(?i)\b(send|forward|post|copy|upload|email|exfiltrate)\b[^.\n]{0,45}\b(to|at)\b[^.\n]{0,25}https?://`, "exfil_to_url", 0.78},
@@ -180,6 +187,7 @@ func emitFinding(label string, base float64, spanStart, spanEnd int, text string
 		Start:    spanStart,
 		End:      spanEnd,
 		Source:   src,
+		Detail:   text[spanStart:spanEnd],
 	}
 }
 

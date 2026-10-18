@@ -1,3 +1,49 @@
+# TarsSecureGuard v4.33.0 · SQL 注入语义分析层检测增强
+
+> 对应项：SQL 注入检测增强（语义分析层），关键词+语法结构联合判断，显著降低误报。
+
+## 一、SQL 注入语义分析层（sqli_semantic.go）
+
+- **轻量级 SQL tokenizer（sqliLex）**：专为注入检测设计，支持单引号/双引号字符串、注释（--、/**/）、数字、运算符、括号、十六进制字面量
+- **未闭合引号处理**：SQLi 常见边界 breaker 不会吞掉后续关键字，继续正常 lex
+- **15 项检测模式**：
+  - UNION SELECT / INSERT INTO / UPDATE SET / DELETE FROM / DROP TABLE
+  - 布尔恒真式（'1'='1'、1=1 等）
+  - 时间盲注（SLEEP / BENCHMARK）
+  - 堆叠查询（; 后接关键字）
+  - 注释截断（--、#、/**/）
+  - information_schema 探测
+  - LOAD_FILE / INTO OUTFILE 文件操作注入
+  - 关键字密度加分（≥4 种 +15 分）
+  - 拼接函数（concat/char/ascii）与类型转换（cast/convert）绕过检测
+  - MSSQL 高危存储过程（xp_cmdshell / sp_oamethod）
+- **3 层误报白名单**：
+  - 文档/教学类说明文本（"For example, SELECT..."）
+  - 简单 key=value 或纯数字比较（不含引号/注释/分号等注入特征）
+  - union 作为普通英文单词（European Union / credit union 等）
+- **得分阈值**：≥40 确认注入，20-39 可疑，<20 大概率误报
+- **原始字符串兜底检测**：应对引号配对吞关键字、JSON 封装等边界情况
+
+## 二、WAF 集成（waf.go）
+
+- **三层集成点**：
+  1. 正则未命中 + strict 模式 → 语义层二次检测（捕获变形/编码注入）
+  2. 正则命中 "SQL 注入" → 语义层确认/降级（确认则返回详细理由，误报则跳过继续后续规则）
+  3. 全规则未命中 + strict 模式 → 语义层兜底扫描
+- **零性能回归**：仅在 strict 模式且已有触发字节时激活，非 strict 请求零开销
+
+## 三、测试
+
+- `v433_test.go`：28 个测试用例
+  - 8 个语义单元测试（lexer、union-select、insert-into、update-set、delete-from、boolean-tautology、sleep-benchmark、drop-table、stacked-query、information-schema、load-file、into-outfile、comment-truncation）
+  - 6 个误报白名单测试（数字比较、文档示例、union 普通词、简单参数、正常句子、中文内容）
+  - 4 个 WAF 集成测试（语义确认、语义降级、regex 遗漏语义命中、non-strict 不激活）
+  - 1 个 Body 扫描集成测试（JSON 中的 SQLi）
+  - 3 个基准测试（lex、semantic-check、WAF-match）
+- 零外部依赖，纯标准库
+
+---
+
 # TarsSecureGuard v4.35.0 · 异常行为检测 —— 基于统计的异常流量告警
 
 > 对应项：滑动窗口流量统计、3σ 异常检测、实时告警推送（SSE）、检测面板 API。

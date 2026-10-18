@@ -34,7 +34,9 @@ func Scan(text string, cfg ScanConfig) ScanResult {
 	var findings []Finding
 
 	// --- Phase 1: normalisation ---
-	normalized := Normalize(text)
+	n := Analyze(text)
+	findings = append(findings, n.Findings...)
+	normalized := n.Text
 
 	// --- Phase 2: injection detection (inbound only) ---
 	if cfg.Direction == DirectionInbound {
