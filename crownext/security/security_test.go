@@ -65,8 +65,9 @@ func TestEvaluate_Single(t *testing.T) {
 	if report.Grade != "B" {
 		t.Errorf("expected grade B (score 80), got %s", report.Grade)
 	}
-	if report.Version != "4.19.0" {
-		t.Errorf("expected version 4.16.0, got %s", report.Version)
+	// v4.19.2: 改为检查 EngineVersion 而非硬编码
+	if report.Version != EngineVersion {
+		t.Errorf("expected version %s, got %s", EngineVersion, report.Version)
 	}
 }
 

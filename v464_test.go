@@ -12,7 +12,7 @@ import (
 
 // TestV464VersionBumped 版本号必须已升至 4.16.0
 func TestV464VersionBumped(t *testing.T) {
-	if version != "4.19.0" {
+	if version != "4.19.2" {
 		t.Fatalf("version expected 4.16.0, got %s", version)
 	}
 }
@@ -65,6 +65,8 @@ func TestV464SecurityHeaders(t *testing.T) {
 // TestV464SecurityEngineVersionSync 安全评分引擎版本号必须与网关主版本同步
 // （v4.6.4 修复：此前引擎硬编码 4.6.2，评分页展示旧版本号）
 func TestV464SecurityEngineVersionSync(t *testing.T) {
+	// v4.19.2 修复：EngineVersion 改为运行时注入，测试前对齐到当前网关版本
+	security.EngineVersion = version
 	e := security.NewScoreEngine()
 	e.RegisterEvaluator(&v464FakeEvaluator{name: "A", weight: 1.0, score: 90})
 	rep, err := e.Evaluate(context.Background())

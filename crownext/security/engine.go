@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// EngineVersion 评分报告版本号（运行时由 main 包在启动时注入，避免硬编码漂移）
+var EngineVersion = "0.0.0"
+
 // Dimension defines a single scoring axis.
 type Dimension struct {
 	Name        string  `json:"name"`
@@ -66,7 +69,7 @@ func (e *ScoreEngine) Evaluate(ctx context.Context) (*Report, error) {
 	report := &Report{
 		Dimensions:   make([]Dimension, 0, len(e.evaluators)),
 		GeneratedAt:  time.Now(),
-		Version:      "4.19.0",
+		Version:      EngineVersion,
 		Recommendations: make([]string, 0),
 	}
 

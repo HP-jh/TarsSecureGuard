@@ -25,6 +25,24 @@ func handleFrontend(w http.ResponseWriter, r *http.Request) {
 		w.Write(data)
 		return
 	}
+	// v4.19.2 优化：通用静态资源路由（/static/<filename>），支持未来新增 .css/.png/.svg
+	if strings.HasPrefix(r.URL.Path, "/static/") {
+		name := strings.TrimPrefix(r.URL.Path, "/static/")
+		// 安全：拒绝 ../ 与绝对路径
+		if name == "" || strings.Contains(name, "..") || strings.ContainsAny(name, "/\\") || strings.HasPrefix(name, ".") {
+			http.NotFound(w, r)
+			return
+		}
+		data, err := fs.ReadFile(frontendFS, "frontend/"+name)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", mimeTypeByExt(name))
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		w.Write(data)
+		return
+	}
 	if r.URL.Path != "/" && r.URL.Path != "/index.html" && r.URL.Path != "/admin" {
 		http.NotFound(w, r)
 		return
@@ -37,6 +55,28 @@ func handleFrontend(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Write(data)
+}
+
+// v4.19.2 辅助：按文件后缀返回 Content-Type
+func mimeTypeByExt(name string) string {
+	switch {
+	case strings.HasSuffix(name, ".js"):
+		return "application/javascript; charset=utf-8"
+	case strings.HasSuffix(name, ".css"):
+		return "text/css; charset=utf-8"
+	case strings.HasSuffix(name, ".json"):
+		return "application/json; charset=utf-8"
+	case strings.HasSuffix(name, ".svg"):
+		return "image/svg+xml"
+	case strings.HasSuffix(name, ".png"):
+		return "image/png"
+	case strings.HasSuffix(name, ".jpg"), strings.HasSuffix(name, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(name, ".ico"):
+		return "image/x-icon"
+	default:
+		return "application/octet-stream"
+	}
 }
 // ===================== 状态 =====================
 func statusPayload() map[string]interface{} {
