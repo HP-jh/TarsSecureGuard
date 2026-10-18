@@ -1,3 +1,39 @@
+# TarsSecureGuard v4.25.0 · 连接池自适应扩缩容 —— 性能 · QPS 驱动 · 5~200 区间
+
+> 对应项：连接池从固定连接数升级为基于 QPS 的自适应扩缩容。
+
+## 一、自适应连接池（pool.go）
+
+- **QPS 实时监控**：每 5 秒评估一次请求吞吐量（atomic 计数器 + 滑动时间窗口）
+- **动态扩缩容**：`MaxIdleConnsPerHost` 在 5~200 区间自动调整
+  - 扩容阈值：目标 >= 当前 × 1.2（激进，QPS 上升迅速扩容）
+  - 缩容阈值：目标 <= 当前 × 0.5（保守，避免频繁抖动）
+- **经验公式**：目标连接数 = QPS / 3（每个连接约服务 3 QPS）
+- **审计日志**：每次扩缩容记录 `POOL_ADAPTIVE` 审计事件（含 QPS / 旧值 / 新值）
+
+## 二、Admin 端点增强
+
+- `GET /api/admin/v32/pool` 新增字段：
+  - `adaptiveEnabled`：自适应开关状态（默认 true）
+  - `adaptiveRange`：固定值 `"5~200"`
+  - `maxIdlePerHost`：实时显示当前生效值（而非静态 32）
+
+## 三、测试覆盖（v325_test.go）
+
+- `TestV325PoolTargetConns`：QPS→连接数映射边界验证（0/5/15/30/100/300/600/1000）
+- `TestV325PoolAdaptiveScaleUp`：高 QPS（300）触发扩容（5 → 100）
+- `TestV325PoolAdaptiveScaleDown`：低 QPS（10）触发缩容（100 → 5）
+- `TestV325PoolAdaptiveToggle`：启停开关有效性
+- `TestV325PoolStatsFields`：stats 字段完整性
+- `TestV325VersionBumped`：版本号锁定 4.25.0
+
+## 四、版本与配套
+
+- 版本号 4.20.0 → 4.25.0
+- Release 资产：linux-amd64 + SHA256SUMS.txt
+
+---
+
 # TarsSecureGuard v4.7.0 · 官方三站 + 多语言文档 + 安装器加固 —— GitHub Pages / i18n / SHA256
 
 > 对应项：GitHub Pages 介绍站与实时性能监控站、下载页、6 语言 README、红蓝对抗报告、安装器防篡改与桌面快捷方式。
