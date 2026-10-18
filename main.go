@@ -26,7 +26,7 @@ import (
 	"github.com/HP-jh/TarsSecureGuard/pkg/obsidian"
 	"github.com/HP-jh/TarsSecureGuard/pkg/voicecorrection"
 )
-//go:embed frontend/index.html
+//go:embed frontend
 var frontendFS embed.FS
 // ===================== 常量 =====================
 const (

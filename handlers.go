@@ -13,6 +13,18 @@ import (
 )
 // ===================== 前端 =====================
 func handleFrontend(w http.ResponseWriter, r *http.Request) {
+	// v4.19.1 修复：i18n.js 等前端静态资源也走 go:embed 嵌入
+	if r.URL.Path == "/i18n.js" {
+		data, err := fs.ReadFile(frontendFS, "frontend/i18n.js")
+		if err != nil {
+			http.Error(w, "i18n not found", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(data)
+		return
+	}
 	if r.URL.Path != "/" && r.URL.Path != "/index.html" && r.URL.Path != "/admin" {
 		http.NotFound(w, r)
 		return
