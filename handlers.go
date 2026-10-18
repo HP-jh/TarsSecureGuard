@@ -99,6 +99,11 @@ func statusPayload() map[string]interface{} {
 			"wafBlockCount":  blocks,
 			"uptime":         uptime,
 		},
+		"build": map[string]interface{}{
+			"commit": buildCommit,
+			"time":   buildTime,
+			"by":     buildBy,
+		},
 		"device": getDeviceInfo(),
 		"models": ms,
 	}
