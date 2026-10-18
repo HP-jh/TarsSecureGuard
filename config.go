@@ -43,6 +43,7 @@ type Config struct {
 		DefaultKeyAllowed *bool       `json:"defaultKeyAllowed"` // v3.0.4 零信任：默认密钥通道显式 enable（nil=false，见 whitelist.go [ZT_DEFAULT_DENY]）
 		PIIMaskEnabled    bool        `json:"piimaskEnabled"`    // v4.31.0：响应流出 PII 自动脱敏开关
 		PIIMaskLevel      string      `json:"piimaskLevel"`      // v4.31.0：脱敏强度 full | partial | hash（默认 full）
+		CSP               CSPConfig   `json:"csp"`               // v4.34.0：CSP 策略自动生成与 report-only 模式
 	} `json:"security"`
 	Users   []User     `json:"users"`   // 多用户 RBAC（空则回退单管理员模式）
 	Tenants TenantsCfg `json:"tenants"` // v3.0.4 多租户配置（user/group/role 三层，见 tenant.go）
@@ -81,8 +82,6 @@ type Config struct {
 	// v3.8.0 职业系统扩展段（顶层键：persona）
 	V38Config
 	V4101Config
-	// v4.35.0 异常行为检测配置（顶层键：anomalyDetection）
-	AnomalyDetection AnomalyConfig `json:"anomalyDetection"`
 	// v4.15.1 unified install path + persistent data
 	InstallRoot string `json:"installRoot"` // empty = platform default
 	DataRoot    string `json:"dataRoot"`    // empty = platform default
@@ -228,6 +227,10 @@ func loadConfig() {
 			if !bytes.Contains(data, []byte(`"auditLogEnabled"`)) {
 				cfg.Security.AuditLogEnabled = true
 			}
+			// v4.34.0 CSP 默认启用（未显式声明时保持开启）
+			if !bytes.Contains(data, []byte(`"cspEnabled"`)) {
+				cfg.Security.CSP.Enabled = true
+			}
 		}
 	}
 	// 默认值兜底
@@ -242,6 +245,10 @@ func loadConfig() {
 	}
 	if cfg.MCP.ExternalServers == nil {
 		cfg.MCP.ExternalServers = []ExtServer{}
+	}
+	// v4.34.0 CSP 默认值兜底
+	if !cfg.Security.CSP.Enabled && cfg.Security.CSP.CustomPolicy == "" && cfg.Security.CSP.ReportURI == "" {
+		cfg.Security.CSP.Enabled = true
 	}
 	// v3.2.0：providers 段默认空 map（避免落盘 null）；响应缓存开关 nil → true
 	if cfg.V32Config.Providers == nil {

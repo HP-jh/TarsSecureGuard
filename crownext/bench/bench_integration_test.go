@@ -54,7 +54,7 @@ func TestBaselineSaveLoad(t *testing.T) {
 		}
 	})
 
-	bl := NewBaseline("v4.4.0", h.Results())
+	bl := NewBaseline("v4.34.0", h.Results())
 	path := "/tmp/tsg-bench-test-baseline.json"
 	defer os.Remove(path)
 
@@ -66,8 +66,8 @@ func TestBaselineSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Version != "v4.4.0" {
-		t.Fatalf("expected version v4.4.0, got %s", loaded.Version)
+	if loaded.Version != "v4.34.0" {
+		t.Fatalf("expected version v4.34.0, got %s", loaded.Version)
 	}
 	if len(loaded.Results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(loaded.Results))
@@ -76,7 +76,7 @@ func TestBaselineSaveLoad(t *testing.T) {
 
 func TestCompareRegression(t *testing.T) {
 	base := &Baseline{
-		Version:   "v4.4.0",
+		Version:   "v4.34.0",
 		Timestamp: time.Now(),
 		Results: map[string]Result{
 			"A": {Name: "A", PerOp: 100},
@@ -114,7 +114,7 @@ func TestCompareNoRegression(t *testing.T) {
 
 func TestTrendReport(t *testing.T) {
 	bl1 := &Baseline{
-		Version:   "v4.4.0",
+		Version:   "v4.34.0",
 		Timestamp: time.Now().Add(-24 * time.Hour),
 		Results: map[string]Result{
 			"A": {Name: "A", PerOp: 100},
@@ -158,7 +158,7 @@ func TestWriteReport(t *testing.T) {
 	dir := "/tmp/tsg-bench-test-report"
 	defer os.RemoveAll(dir)
 
-	if err := WriteReport(dir, h, "v4.4.0"); err != nil {
+	if err := WriteReport(dir, h, "v4.34.0"); err != nil {
 		t.Fatal(err)
 	}
 

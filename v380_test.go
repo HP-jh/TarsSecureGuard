@@ -11,8 +11,8 @@ import (
 )
 
 func TestV380VersionBumped(t *testing.T) {
-	if version != "4.35.0" {
-		t.Fatalf("version = %q, want 4.35.0", version)
+	if version != "4.34.0" {
+		t.Fatalf("version = %q, want 4.16.0", version)
 	}
 }
 
