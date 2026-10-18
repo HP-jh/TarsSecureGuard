@@ -353,6 +353,7 @@ func TestAnomalyDetectorLatencyUpOnly(t *testing.T) {
 func TestAnomalyDetectorBucketRotation(t *testing.T) {
 	ad := &AnomalyDetector{
 		buckets:    make([]TrafficBucket, 3),
+		head:       2,
 		lastAlerts: make(map[string]time.Time),
 		config: AnomalyConfig{
 			Enabled:       true,

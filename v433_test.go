@@ -8,7 +8,7 @@ import (
 // ========== 版本号检查 ==========
 
 func TestV433VersionBumped(t *testing.T) {
-	if version != "4.36.0" {
+	if version != "4.37.0" {
 		t.Fatalf("期望版本 4.33.0，实际 %s", version)
 	}
 }
