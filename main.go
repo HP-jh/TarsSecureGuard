@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.19.3"
+var version = "4.20.0"
 // v4.19.3: 构建元信息（运行时由 ldflags 注入，源码内为 unknown）
 var (
 	buildCommit = "unknown"
