@@ -1301,7 +1301,19 @@ api(url).then(function(d){
 function communityRefreshAll(){btnLoad('refresh-all',true);api('/api/v1/mcp/community/refresh-all',{method:'POST'}).then(function(d){toast('刷新完成：'+(d.packages||0)+' 个包','ok');loadCommunityPackages();btnLoad('refresh-all',false);}).catch(function(e){toast('刷新失败：'+esc(e&&e.message||e),'err');btnLoad('refresh-all',false);});}
 function removeSource(id,btn){if(!confirm('确定删除来源 '+id+'？'))return;btnLoad(btn,true);api('/api/v1/mcp/community/sources/delete/'+esc(id),{method:'DELETE'}).then(function(){toast('来源已删除','ok');loadCommunitySources();btnLoad(btn,false);}).catch(function(e){toast('删除失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
 function downloadCommunityPkg(name,btn){btnLoad(btn,true);api('/api/v1/mcp/community/packages/download/'+esc(name),{method:'POST'}).then(function(d){toast('下载成功：'+esc(name),'ok');btnLoad(btn,false);}).catch(function(e){toast('下载失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
-function showAddSourceDlg(){var name=prompt('来源显示名：');if(!name)return;var url=prompt('来源地址（GitHub: owner/repo，HTTP: URL，Local: 文件路径）：');if(!url)return;var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';var id='src-'+Date.now();api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});}
+function showAddSourceDlg(){
+  var dlg=document.getElementById('src-dlg');
+  if(!dlg){dlg=document.createElement('div');dlg.id='src-dlg';dlg.className='overlay';dlg.innerHTML='<div class="dialog" style="width:min(400px,92vw)"><h3>添加社区来源</h3><label>显示名</label><input id="src-name" class="input" placeholder="例如：LobeHub"><label>地址</label><input id="src-url" class="input" placeholder="GitHub: owner/repo 或 HTTP URL 或本地路径"><div style="margin-top:12px;text-align:right"><button class="btn btn-s" onclick="document.getElementById('src-dlg').style.display='none'">取消</button><button class="btn btn-p" onclick="srcDlgSubmit()">确定</button></div></div>';document.body.appendChild(dlg);}
+  dlg.style.display='flex';document.getElementById('src-name').value='';document.getElementById('src-url').value='';document.getElementById('src-name').focus();
+}
+function srcDlgSubmit(){
+  var name=document.getElementById('src-name').value.trim();
+  var url=document.getElementById('src-url').value.trim();
+  if(!name||!url){toast('请填写完整信息','err');return;}
+  var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';
+  var id='src-'+Date.now();document.getElementById('src-dlg').style.display='none';
+  api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});
+}
 function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('请输入搜索关键词','err');return;}
   $('se-result').textContent='[i] 正在搜索：'+q+'…';btnLoad(btn,true);
   api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){
