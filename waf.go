@@ -2,12 +2,16 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -16,13 +20,15 @@ import (
 
 // ===================== WAF 安全模块 =====================
 
-// WAF 规则：normal 模式仅检测路径穿越/命令注入等确定性模式；
-// strict 模式额外检测 SQLi / XSS / Prompt Injection / PII 等文本模式（对聊天内容可能误报，需按需开启）。
-var wafRules = []struct {
+// wafRuleItem 单条 WAF 规则（支持热重载）
+type wafRuleItem struct {
 	name   string
 	re     *regexp.Regexp
 	strict bool
-}{
+}
+
+// 内置默认 WAF 规则（热重载失败时的回滚基线）
+var wafBuiltinRules = []wafRuleItem{
 	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%c0%af|%c1%9c)`), false},
 	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|&&\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|;\\s*\\x60[a-z]+\\x60)"), false},
 	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
@@ -31,17 +37,24 @@ var wafRules = []struct {
 	{"PII泄漏", regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b|\b\d{3}-\d{2}-\d{4}\b|\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b|\b1[3-9]\d{9}\b`), true},
 }
 
-// v3.2.3 性能升级 v2：合并正则——normal 与 strict 各预编译为一条 alternation，
-// 请求路径单遍扫描替代逐规则多次全串扫描；命中后按原顺序回查个别规则取回命中名，
-// 返回值与逐条实现完全一致（首个命中规则名）。规则集静态（包级 var），编译一次。
+// 当前生效的 WAF 规则集（可被热重载替换）
 var (
-	wafNormalMerged = wafMergeRules(false)
-	wafStrictMerged = wafMergeRules(true)
+	wafRules        = wafBuiltinRules
+	wafRulesMu      sync.RWMutex
+	wafNormalMerged *regexp.Regexp
+	wafStrictMerged *regexp.Regexp
+	wafRulesFile    string
+	lastWAFHash     string
 )
 
-// wafMergeRules 把（按 strict 过滤后的）规则模式串逐条以 (?:...) 包裹后 alternation 合并。
-// 独立预编译，不改动 wafRules 原始定义（个别回查仍用原规则对象）。
-func wafMergeRules(strict bool) *regexp.Regexp {
+func init() {
+	wafNormalMerged = wafMergeRulesLocked(false)
+	wafStrictMerged = wafMergeRulesLocked(true)
+}
+
+// wafMergeRulesLocked 把（按 strict 过滤后的）规则模式串逐条以 (?:...) 包裹后 alternation 合并。
+// 调用方必须持有 wafRulesMu 读锁（或写锁）。
+func wafMergeRulesLocked(strict bool) *regexp.Regexp {
 	var parts []string
 	for _, r := range wafRules {
 		if r.strict && !strict {
@@ -53,6 +66,120 @@ func wafMergeRules(strict bool) *regexp.Regexp {
 		return nil
 	}
 	return regexp.MustCompile(strings.Join(parts, "|"))
+}
+
+// ===================== WAF 规则热重载（v4.27.0）=====================
+
+// wafRuleJSON 外部规则文件中的单条规则定义
+type wafRuleJSON struct {
+	Name    string `json:"name"`
+	Pattern string `json:"pattern"`
+	Strict  bool   `json:"strict"`
+}
+
+// wafRulesJSON 外部规则文件根结构
+type wafRulesJSON struct {
+	Rules []wafRuleJSON `json:"rules"`
+}
+
+// resolveWAFRulesPath 确定 waf-rules.json 路径（与 config.json 同目录）
+func resolveWAFRulesPath() string {
+	if configPath != "" {
+		return filepath.Join(filepath.Dir(configPath), "waf-rules.json")
+	}
+	return filepath.Join(appDir(), "waf-rules.json")
+}
+
+// wafRulesHash 计算规则文件 SHA256（空文件或不存在返回空串）
+func wafRulesHash(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
+}
+
+// loadWAFRules 从外部 JSON 文件加载 WAF 规则；失败时保留旧规则并记录审计。
+// 线程安全：内部加写锁。
+func loadWAFRules() error {
+	if wafRulesFile == "" {
+		wafRulesFile = resolveWAFRulesPath()
+	}
+	data, err := os.ReadFile(wafRulesFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// 文件不存在：回退到内置规则（静默，不记错误）
+			wafRulesMu.Lock()
+			wafRules = wafBuiltinRules
+			wafNormalMerged = wafMergeRulesLocked(false)
+			wafStrictMerged = wafMergeRulesLocked(true)
+			wafRulesMu.Unlock()
+			return nil
+		}
+		return fmt.Errorf("读取 WAF 规则文件失败: %w", err)
+	}
+	// 剥离 UTF-8 BOM
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+	var payload wafRulesJSON
+	if err := json.Unmarshal(data, &payload); err != nil {
+		auditLog("WAF_RULES_LOAD_FAILED", "system", fmt.Sprintf("JSON 解析失败: %v", err))
+		return fmt.Errorf("WAF 规则 JSON 解析失败: %w", err)
+	}
+	if len(payload.Rules) == 0 {
+		auditLog("WAF_RULES_LOAD_FAILED", "system", "规则文件为空数组")
+		return errors.New("WAF 规则文件为空")
+	}
+	// 编译每条规则正则
+	compiled := make([]wafRuleItem, 0, len(payload.Rules))
+	for i, r := range payload.Rules {
+		if r.Name == "" || r.Pattern == "" {
+			auditLog("WAF_RULES_LOAD_FAILED", "system", fmt.Sprintf("规则 #%d name/pattern 为空", i))
+			return fmt.Errorf("规则 #%d name/pattern 为空", i)
+		}
+		re, err := regexp.Compile(r.Pattern)
+		if err != nil {
+			auditLog("WAF_RULES_LOAD_FAILED", "system", fmt.Sprintf("规则 #%d (%s) 正则编译失败: %v", i, r.Name, err))
+			return fmt.Errorf("规则 #%d (%s) 正则编译失败: %w", i, r.Name, err)
+		}
+		compiled = append(compiled, wafRuleItem{name: r.Name, re: re, strict: r.Strict})
+	}
+	// 原子替换生效
+	wafRulesMu.Lock()
+	oldCount := len(wafRules)
+	wafRules = compiled
+	wafNormalMerged = wafMergeRulesLocked(false)
+	wafStrictMerged = wafMergeRulesLocked(true)
+	wafRulesMu.Unlock()
+	auditLog("WAF_RULES_LOADED", "system", fmt.Sprintf("热重载成功: %d -> %d 条规则", oldCount, len(compiled)))
+	logMsg(fmt.Sprintf("[WAF] 规则热重载完成: %d 条规则生效", len(compiled)))
+	return nil
+}
+
+// watchWAFRules 轮询监听 waf-rules.json 变化，变化时自动重载（无需重启服务）。
+// 加载失败时保留旧规则，不中断服务。
+func watchWAFRules() {
+	wafRulesFile = resolveWAFRulesPath()
+	// 启动时先尝试加载一次（若文件存在则覆盖内置规则）
+	_ = loadWAFRules()
+	lastWAFHash = wafRulesHash(wafRulesFile)
+
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		h := wafRulesHash(wafRulesFile)
+		if h == "" || h == lastWAFHash {
+			continue
+		}
+		logMsg("[WAF] 检测到规则文件变化，自动重载...")
+		if err := loadWAFRules(); err != nil {
+			logMsg("[WAF] 规则热重载失败，保留旧规则: " + err.Error())
+			auditLog("WAF_RULES_RELOAD_FAILED", "system", err.Error())
+			continue
+		}
+		lastWAFHash = h
+		logMsg("[WAF] 规则热重载完成")
+	}
 }
 
 // wafTriggerBytes 所有 WAF 规则的命中前提：至少含一个 ASCII 触发字节
@@ -82,12 +209,14 @@ func wafMatch(s string, strict bool) string {
 	if !wafNeedsScan(s) {
 		return ""
 	}
+	wafRulesMu.RLock()
 	// 单遍快筛：一条合并正则扫完（替代逐规则多次全串扫描）
 	merged := wafNormalMerged
 	if strict {
 		merged = wafStrictMerged
 	}
 	if merged != nil && !merged.MatchString(s) {
+		wafRulesMu.RUnlock()
 		return ""
 	}
 	// 命中：按原顺序回查个别规则，返回首个命中名（与逐条扫描语义一致）
@@ -96,9 +225,11 @@ func wafMatch(s string, strict bool) string {
 			continue
 		}
 		if rule.re.MatchString(s) {
+			wafRulesMu.RUnlock()
 			return rule.name
 		}
 	}
+	wafRulesMu.RUnlock()
 	return ""
 }
 

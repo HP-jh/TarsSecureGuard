@@ -1,101 +1,71 @@
-# TarsSecureGuard v4.28.0 · 请求指纹识别 —— 安全 · 设备/浏览器指纹防伪造
+# TarsSecureGuard v4.27.0 · WAF 规则热重载（无需重启更新规则）
 
-> 对应项：请求指纹识别系统，检测令牌被盗用后在不同设备上的异常使用，触发阶梯式验证。
+> 对应项：WAF 规则从外部 JSON 文件动态加载，文件变更时自动热重载，加载失败自动回滚旧规则。
 
-## 一、请求指纹识别核心（fingerprint.go）
+## 一、WAF 规则外部化（waf-rules.json）
 
-- **多维指纹采集**：
-  - 服务端维度：User-Agent / Accept-Language / Accept-Encoding / Accept
-  - 前端维度：屏幕分辨率+色深（X-Fingerprint-Screen）/ 时区（X-Fingerprint-Timezone）/ 平台（X-Fingerprint-Platform）
-- **指纹评分体系**（满分 100）：
-  - UA 核心段匹配 30 | Accept-Lang 15 | Accept-Encoding 10 | Accept 10
-  - ScreenInfo 20 | Timezone 10 | Platform 5
-  - 同操作系统不同浏览器得 85 分（UA 部分匹配）
-- **Hash 快速路径**：服务端维度哈希完全一致时直接放行，不受前端维度变化影响
-- **阶梯式处置**：
-  - ≥50（默认）：正常通过
-  - 30-49：中等异常 → 返回 403 + `FINGERPRINT_CHALLENGE`（需用户确认新设备）
-  - <30：严重异常 → 拒绝 + `FINGERPRINT_REJECT`（疑似令牌盗用）
-- **渐进式更新**：用户通过 `/api/fingerprint/challenge` 确认后更新绑定指纹
-- **严格模式**：阈值整体收紧 10 分（配置 `security.fingerprint.strict`）
+- 规则文件 `waf-rules.json` 与 `config.json` 同目录，支持独立编辑
+- JSON 格式：`{"rules": [{"name": "...", "pattern": "...", "strict": true/false}]}`
+- 启动时自动检测并加载；文件不存在时回退内置默认规则
 
-## 二、API 端点
+## 二、规则热重载（watchWAFRules）
 
-- `POST /api/fingerprint/report` — 前端提交设备指纹
-- `GET /api/fingerprint/status` — 查询当前令牌指纹绑定状态
-- `POST /api/fingerprint/challenge` — 阶梯式验证响应（confirm / reject）
+- 轮询间隔 3 秒，SHA256 指纹比对检测变化
+- 检测到变化自动调用 `loadWAFRules()` 重新编译正则
+- 加载失败时保留旧规则，不中断服务，记录审计日志
 
-## 三、配置扩展（config.go）
+## 三、安全与回滚
 
-- `security.fingerprint.enabled` — 开关（默认 true）
-- `security.fingerprint.strict` — 严格模式（默认 false）
-- `security.fingerprint.challengeThreshold` — 挑战阈值 0-100（默认 50）
-- `security.fingerprint.rejectThreshold` — 拒绝阈值 0-100（默认 30）
+- 正则编译失败：整条规则集拒绝加载，保留旧规则
+- JSON 解析失败 / 空规则数组：同上，保留旧规则
+- 审计事件：`WAF_RULES_LOADED` / `WAF_RULES_LOAD_FAILED` / `WAF_RULES_RELOAD_FAILED`
 
-## 四、集成点
+## 四、性能兼容
 
-- **gatewayMiddleware**：`fingerprintMiddleware` 插在 `gatewayMiddleware` 外层，公共路由免检测，鉴权后检测
-- **OAuth 会话**：注销时同步清除指纹绑定（`fpRevokeBinding`）
-- **审计日志**：`FINGERPRINT_BIND` / `FINGERPRINT_CHALLENGE` / `FINGERPRINT_REJECT`
-
-## 五、测试覆盖（fingerprint_test.go）
-
-- `TestUaSignature` / `TestUaPartialMatch` — UA 解析与部分匹配
-- `TestFpScore` — 指纹相似度评分（完全匹配/变版本/换时区/完全不同/同 OS 不同浏览器）
-- `TestTokenHash` — 令牌哈希一致性
-- `TestExtractFingerprint` — HTTP 头提取
-- `TestFpCheckFirstBind` — 首次绑定放行 + 相同指纹放行
-- `TestFpCheckAnomaly` — 换设备触发 reject
-- `TestFpCheckChallenge` — 同 OS 不同浏览器正常通过
-- `TestFpRevokeBinding` — 注销清除绑定
-- `TestFingerprintMiddlewarePublicRoute` — 公共路由免检测
-- `TestFingerprintMiddlewareNoToken` — 无令牌免检测
-- `TestFingerprintMiddlewareReject` — 严重异常 403
-- `TestClientFPFromRequest` — 前端指纹头读取
-- `TestFpCleanupExpired` — 30 天过期清理
-- `TestFingerprintEnabledDefault` — 默认开启
-- `TestV428FingerprintVersion` — 版本号锁定 4.28.0
-
-## 六、版本与配套
-
-- 版本号 4.25.0 → 4.28.0
-- Release 资产：linux-amd64 + SHA256SUMS.txt
+- 合并正则预编译保持不变（v3.2.3 性能优化）
+- `wafRulesMu` 读写锁保护规则访问，读操作无阻塞
 
 ---
 
-# TarsSecureGuard v4.25.0 · 连接池自适应扩缩容 —— 性能 · QPS 驱动 · 5~200 区间
+# TarsSecureGuard v4.29.0 · 速率限制用户分级 —— personal / lite / pro / enterprise
 
-> 对应项：连接池从固定连接数升级为基于 QPS 的自适应扩缩容。
+> 对应项：按用户角色分 4 档速率限制，每档独立 QPS / 日限额 / 并发数，超限返回 429 + 升级提示（小白化）。
 
-## 一、自适应连接池（pool.go）
+## 一、速率限制按用户分级（ratelimit.go）
 
-- **QPS 实时监控**：每 5 秒评估一次请求吞吐量（atomic 计数器 + 滑动时间窗口）
-- **动态扩缩容**：`MaxIdleConnsPerHost` 在 5~200 区间自动调整
-  - 扩容阈值：目标 >= 当前 × 1.2（激进，QPS 上升迅速扩容）
-  - 缩容阈值：目标 <= 当前 × 0.5（保守，避免频繁抖动）
-- **经验公式**：目标连接数 = QPS / 3（每个连接约服务 3 QPS）
-- **审计日志**：每次扩缩容记录 `POOL_ADAPTIVE` 审计事件（含 QPS / 旧值 / 新值）
+- **4 档 tier**：`personal`（最严）→ `lite` → `pro` → `enterprise`（最宽）
+- **角色默认映射**：user/readonly → personal；team_lead/auditor → lite；admin/global_auditor → pro；global_admin → enterprise
+- **用户可显式覆盖**：`User.Tier` 字段为空时按 role 映射，非空时优先使用显式值
+- **每档独立配置**：`config.rateLimit.tiers.<tier>` 含 `chatPerMin` / `adminPerMin` / `modelPerMin` / `dailyQuota` / `concurrency`
+- **字段为 0 时继承全局**：未配置项自动回退 `classQuota` 全局默认值
 
-## 二、Admin 端点增强
+## 二、新增限流维度
 
-- `GET /api/admin/v32/pool` 新增字段：
-  - `adaptiveEnabled`：自适应开关状态（默认 true）
-  - `adaptiveRange`：固定值 `"5~200"`
-  - `maxIdlePerHost`：实时显示当前生效值（而非静态 32）
+- **日限额**：跨端点类合计，按自然日重置（独立令牌桶 `dim=daily`）
+- **并发数**：按用户原子计数器，请求结束自动释放（`defer rateLimitConcurLeave`）
+- **六维判定**：IP×端点类 / Key×端点类 / IP总量 / tier×端点类 / 日限额 / 并发数
 
-## 三、测试覆盖（v325_test.go）
+## 三、小白化超限提示
 
-- `TestV325PoolTargetConns`：QPS→连接数映射边界验证（0/5/15/30/100/300/600/1000）
-- `TestV325PoolAdaptiveScaleUp`：高 QPS（300）触发扩容（5 → 100）
-- `TestV325PoolAdaptiveScaleDown`：低 QPS（10）触发缩容（100 → 5）
-- `TestV325PoolAdaptiveToggle`：启停开关有效性
-- `TestV325PoolStatsFields`：stats 字段完整性
-- `TestV325VersionBumped`：版本号锁定 4.25.0
+- 429 响应体增加 `hint` 字段，按当前 tier 给出个性化升级引导
+- personal → "如需更高额度，请联系管理员升级至 lite / pro / enterprise"
+- enterprise → "已启用最高限额"
 
-## 四、版本与配套
+## 四、配置与兼容
 
-- 版本号 4.20.0 → 4.25.0
-- Release 资产：linux-amd64 + SHA256SUMS.txt
+- `User` 结构体新增 `Tier string` 字段（JSON: `tier`），向后兼容（空 = 自动映射）
+- `Identity` 结构体同步新增 `Tier`，鉴权链路自动透传
+- `V3Config.RateLimit` 新增 `Tiers map[string]RateLimitTier`
+
+## 五、测试覆盖
+
+- `TestRoleToTier`：7 种 role 映射验证
+- `TestTierClassQuota`：4 档 × 3 端点类覆盖/继承验证
+- `TestTierDailyQuota` / `TestTierConcurrency`：日限额与并发数读取
+- `TestConcurEnterLeave`：并发控制边界（max=2）
+- `TestAllowRateLimitedTier`：端到端拦截验证
+- `TestRateLimitUpgradeHint`：升级提示文案
+- `TestResolveTier`：显式 tier > role 映射优先级
 
 ---
 
