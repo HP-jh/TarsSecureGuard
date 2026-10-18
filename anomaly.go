@@ -71,6 +71,7 @@ var anomalyDetector *AnomalyDetector
 func initAnomalyDetector() {
 	anomalyDetector = &AnomalyDetector{
 		buckets:    make([]TrafficBucket, 60),
+		head:       59,
 		lastAlerts: make(map[string]time.Time),
 		config: AnomalyConfig{
 			Enabled:          true,
@@ -99,14 +100,16 @@ func (ad *AnomalyDetector) RecordRequest(latencyMs int64, statusCode int) {
 	currentBucket := (now / bucketSec) * bucketSec
 
 	idx := ad.head
-	if ad.buckets[idx].Timestamp != currentBucket {
-		// 推进到新 bucket
+	if ad.buckets[idx].Timestamp != 0 && ad.buckets[idx].Timestamp != currentBucket {
+		// 推进到新 bucket（跳过从未使用过的空 bucket）
 		ad.head = (ad.head + 1) % len(ad.buckets)
 		idx = ad.head
 		if idx == 0 {
 			ad.filled = true
 		}
 		ad.buckets[idx] = TrafficBucket{Timestamp: currentBucket}
+	} else if ad.buckets[idx].Timestamp == 0 {
+		ad.buckets[idx].Timestamp = currentBucket
 	}
 
 	ad.buckets[idx].RequestCount++
@@ -158,16 +161,16 @@ func (ad *AnomalyDetector) detectAnomalies() {
 		curLatency = float64(current.TotalLatencyMs) / float64(current.RequestCount)
 	}
 
-	// QPS 异常
-	if qpsStd > 0 && math.Abs(curQPS-qpsMean) > threshold*qpsStd {
+	// QPS 异常（std=0 时任何偏离均视为异常）
+	if (qpsStd > 0 && math.Abs(curQPS-qpsMean) > threshold*qpsStd) || (qpsStd == 0 && curQPS != qpsMean) {
 		ad.emitAlert("qps", curQPS, qpsMean, qpsStd)
 	}
 	// 错误率异常
-	if errStd > 0 && curErrRate > 0 && math.Abs(curErrRate-errMean) > threshold*errStd {
+	if (errStd > 0 && curErrRate > 0 && math.Abs(curErrRate-errMean) > threshold*errStd) || (errStd == 0 && curErrRate != errMean && curErrRate > 0) {
 		ad.emitAlert("errorRate", curErrRate, errMean, errStd)
 	}
-	// 延迟异常（只检测上浮）
-	if latStd > 0 && curLatency > latMean+threshold*latStd {
+	// 延迟异常（只检测上浮；std=0 时任何上浮均视为异常）
+	if (latStd > 0 && curLatency > latMean+threshold*latStd) || (latStd == 0 && curLatency > latMean) {
 		ad.emitAlert("latency", curLatency, latMean, latStd)
 	}
 }
@@ -225,6 +228,8 @@ func (ad *AnomalyDetector) emitAlert(metric string, value, mean, stddev float64)
 	sigma := 0.0
 	if stddev > 0 {
 		sigma = math.Abs(value-mean) / stddev
+	} else if value != mean {
+		sigma = ad.config.SigmaThreshold * 10
 	}
 
 	severity := "warn"
