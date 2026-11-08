@@ -16,6 +16,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # release 事件默认 checkout 的是 tag（detached HEAD），提交后无分支可推，必须显式指定 main
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Append release to CHANGELOG.md
@@ -69,5 +71,5 @@ jobs:
           git add CHANGELOG.md
           git diff --cached --quiet || {
             git commit -m "docs: auto-update CHANGELOG.md for $TAG"
-            git push
+            git push origin HEAD:main
           }
