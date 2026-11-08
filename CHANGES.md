@@ -1,4 +1,22 @@
+## v4.36.1 (2026-11-08)
+
+### Bug 修复批次（go test 实证 + 前端 P0/P1）
+- **P0**：前端 `keyDlgSubmit` 中文提示字符串跨行断裂（v4.16.0 引入），导致主 script 块
+  整体 SyntaxError、全站 JS 函数不可用——与 v4.36.0 QA 报告的 P0 同源，本次回灌仓库修复
+- **P1**：补齐缺失的 `fetchJSON` 取数助手（委托已鉴权 `api()`，401 自动走 key-dlg）；
+  `showAddSourceDlg` 原生 `prompt()` 改为应用内输入弹窗（in-dlg）
+- **P1**：`sendChat` 读取 `$('c-agent').checked` 的 id/属性双误用改为
+  `$('c-agent-sel').value`（此前点发送即抛异常，聊天功能不可用）
+- **编译级**：`cmd/tsg-assistant-server` 修复 `assistant.Guard`→`*AssistantGuard`、
+  未使用变量，包恢复可 build 可 vet
+- **tripwire**：补 2 个注入短语 + yaml frontmatter 结构模式；JWT 正则接受
+  两段 header.payload 形态；hex 重扫阈值 32→24；URL 内嵌已知密钥形态检测
+- **CSP**：handler 层纵深防御，零值/未配置时默认启用；`applyCSPHeaders`
+  保持字面 Enabled 语义（显式禁用仍被尊重）
+- **版本治理**：main.go / engine.go / 12 个 pin 测试 / 注释标签统一到 4.36.1
+
 ## v4.36.0 (2026-10-18)
+
 
 ### HTTP 安全响应头自动加固
 - 新增 `secheaders.go` 安全响应头中间件
