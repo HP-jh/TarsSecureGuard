@@ -21,7 +21,7 @@
   "security": {
     "wafEnabled": true,
     "mode": "normal",
-    "apiKey": "tars-gateway-key",
+    "apiKey": "CHANGE-ME-GENERATE-UUID",
     "firewallLock": null,
     "auditLogEnabled": true,
     "piimaskEnabled": true,
@@ -58,11 +58,10 @@
     ]
   },
   "paths": {
-    "modelDir": "./local-workdir/workdir/task_7690562725516168128/dev/smoke/Models",
-    "llamaDir": "./local-workdir/workdir/task_7690562725516168128/dev/smoke/llama",
+    "modelDir": "./Models",
+    "llamaDir": "./llama",
     "allowedRoots": [
-      "./local-workdir/workdir/task_7690562725516168128/dev/smoke",
-      "./local-workdir/workdir/task_7690562725516168128/dev"
+      "./tsg"
     ]
   },
   "modules": {

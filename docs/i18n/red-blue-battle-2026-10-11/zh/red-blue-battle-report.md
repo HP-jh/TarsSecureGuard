@@ -2,7 +2,7 @@
 
 > 工部尚书（红 / 端口 8002）vs 刑部尚书（蓝 / 端口 8001）
 > L2 方案：沙箱真实 HTTP 服务 + 真实攻击流量
-> 凭证文件：Agnes AI API (REDACTED-RVOKED-KEY-2026-11-08)
+> 凭证文件：Agnes AI API ([REDACTED-RVOKED-KEY-2026-11-08])
 
 ---
 

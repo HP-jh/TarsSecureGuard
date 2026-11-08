@@ -2,7 +2,7 @@
 
 > Ministre des Travaux publics (Rouge / Port 8002) vs Ministre de la Justice (Bleu / Port 8001)
 > Schéma L2 : service HTTP réel en bac à sable + trafic d'attaque réel
-> Fichier d'identification : Agnes AI API (REDACTED-RVOKED-KEY-2026-11-08)
+> Fichier d'identification : Agnes AI API ([REDACTED-RVOKED-KEY-2026-11-08])
 
 ---
 

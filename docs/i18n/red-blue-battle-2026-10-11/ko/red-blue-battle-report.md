@@ -2,7 +2,7 @@
 
 > 공부상서(레드 / 포트 8002) vs 형부상서(블루 / 포트 8001)
 > L2 방안: 샌드박스 실제 HTTP 서비스 + 실제 공격 트래픽
-> 인증 파일: Agnes AI API (REDACTED-RVOKED-KEY-2026-11-08)
+> 인증 파일: Agnes AI API ([REDACTED-RVOKED-KEY-2026-11-08])
 
 ---
 

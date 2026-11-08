@@ -2,7 +2,7 @@
 
 > Minister of Works (Red / Port 8002) vs Minister of Justice (Blue / Port 8001)
 > L2 Scheme: Sandboxed real HTTP service + real attack traffic
-> Credential file: Agnes AI API (REDACTED-RVOKED-KEY-2026-11-08)
+> Credential file: Agnes AI API ([REDACTED-RVOKED-KEY-2026-11-08])
 
 ---
 

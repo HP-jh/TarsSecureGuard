@@ -24,3 +24,6 @@ Thumbs.db
 .idea/
 .vscode/
 .preview/
+/TarsSecureGuard
+whitelist-integrity.json
+config.json

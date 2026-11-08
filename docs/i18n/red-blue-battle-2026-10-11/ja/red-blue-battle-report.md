@@ -2,7 +2,7 @@
 
 > 工部尚書（赤 / ポート 8002）vs 刑部尚書（青 / ポート 8001）
 > L2 構成：サンドボックス実 HTTP サービス + 実攻撃トラフィック
-> 認証ファイル：Agnes AI API (REDACTED-RVOKED-KEY-2026-11-08)
+> 認証ファイル：Agnes AI API ([REDACTED-RVOKED-KEY-2026-11-08])
 
 ---
 
