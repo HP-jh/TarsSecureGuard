@@ -902,6 +902,14 @@ center"><button class="btn btn-d" onclick="shutdownGateway(this)">关闭网关</
 <div class="fg"><input class="input" id="key-input" type="password" placeholder="粘贴 gateway-key.txt 里的密钥" autocomplete="off" onkeydown="if(event.key==='Enter')keyDlgSubmit()"><div id="key-err" style="color:var(--red);font-size:11px;margin-top:6px;min-height:14px"></div></div>
 <div class="acts"><button class="btn btn-g" onclick="keyDlgCancel()">以后再说</button><button class="btn btn-p" onclick="keyDlgSubmit()">连接网关</button></div>
 </div></div>
+<!-- ===== 应用内输入弹窗（替代原生 prompt，v4.36.1）===== -->
+<div class="overlay" id="in-dlg" onclick="if(event.target===this)inDlgCancel()">
+<div class="dialog">
+<h3 id="in-dlg-title">输入</h3>
+<p id="in-dlg-hint" style="font-size:12px;color:var(--mut);margin-top:4px"></p>
+<div class="fg"><input class="input" id="in-dlg-input" type="text" onkeydown="if(event.key==='Enter')inDlgOk()"></div>
+<div class="acts"><button class="btn btn-g" onclick="inDlgCancel()">取消</button><button class="btn btn-p" onclick="inDlgOk()">确定</button></div>
+</div></div>
 <!-- ===== Command palette (Ctrl+K) ===== -->
 <div class="overlay" id="palette" onclick="if(event.target===this)closePalette()">
 <div class="palette">
@@ -1113,6 +1121,10 @@ function keyDlgSubmit(){var k=$('key-input').value.trim();if(!k){$('key-err').te
 把内容复制过来';return;}localStorage.setItem('tsg_api_key',k);keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){api(w.u,w.o).then(w.res).catch(function(e){w.rej(e);toast('密钥可能不对：'+(e&&e.message||e),'err');});});}
 function keyDlgClose(){$('key-dlg').classList.remove('show');keyDlgOpen=false;$('key-err').textContent='';}
 function keyDlgCancel(){keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){w.rej(new Error('需要网关密钥才能继续'))});}
+var inDlgCb=null;
+function inDlg(title,cb){inDlgCb=cb;$('in-dlg-title').textContent=title;$('in-dlg-hint').textContent='';$('in-dlg-input').value='';$('in-dlg').classList.add('show');setTimeout(function(){$('in-dlg-input').focus();},60);}
+function inDlgOk(){var v=$('in-dlg-input').value;$('in-dlg').classList.remove('show');var cb=inDlgCb;inDlgCb=null;if(cb)cb(v);}
+function inDlgCancel(){$('in-dlg').classList.remove('show');inDlgCb=null;}
 /* v4.15.0 增强 Toast：三色 + 分级消失时间 + 手动关闭 + 堆叠 */
 var TOAST_CFG={ok:{delay:4000},warn:{delay:6000},err:{delay:0},'':{delay:4000}};
 function toast(msg,type){var w=$('toast-wrap');var t=document.createElement('div');t.className='toast '+(type||'');var cfg=TOAST_CFG[type||'']||TOAST_CFG[''];
@@ -1456,7 +1468,7 @@ api(url).then(function(d){
 function communityRefreshAll(){btnLoad('refresh-all',true);api('/api/v1/mcp/community/refresh-all',{method:'POST'}).then(function(d){toast('刷新完成：'+(d.packages||0)+' 个包','ok');loadCommunityPackages();btnLoad('refresh-all',false);}).catch(function(e){toast('刷新失败：'+esc(e&&e.message||e),'err');btnLoad('refresh-all',false);});}
 function removeSource(id,btn){if(!confirm('确定删除来源 '+id+'？'))return;btnLoad(btn,true);api('/api/v1/mcp/community/sources/delete/'+esc(id),{method:'DELETE'}).then(function(){toast('来源已删除','ok');loadCommunitySources();btnLoad(btn,false);}).catch(function(e){toast('删除失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
 function downloadCommunityPkg(name,btn){btnLoad(btn,true);api('/api/v1/mcp/community/packages/download/'+esc(name),{method:'POST'}).then(function(d){toast('下载成功：'+esc(name),'ok');btnLoad(btn,false);}).catch(function(e){toast('下载失败：'+esc(e&&e.message||e),'err');btnLoad(btn,false);});}
-function showAddSourceDlg(){var name=prompt('来源显示名：');if(!name)return;var url=prompt('来源地址（GitHub: owner/repo，HTTP: URL，Local: 文件路径）：');if(!url)return;var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';var id='src-'+Date.now();api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});}
+function showAddSourceDlg(){inDlg('来源显示名：',function(name){if(!name)return;inDlg('来源地址（GitHub: owner/repo，HTTP: URL，Local: 文件路径）：',function(url){if(!url)return;var type='http';if(url.indexOf('/')>-1&&!url.startsWith('http')&&!url.startsWith('/'))type='github';else if(url.startsWith('/'))type='local';var id='src-'+Date.now();api('/api/v1/mcp/community/sources',{method:'POST',body:JSON.stringify({id:id,name:name,type:type,url:url,trustLevel:'community',enabled:true})}).then(function(){toast('来源已添加','ok');loadCommunitySources();}).catch(function(e){toast('添加失败：'+esc(e&&e.message||e),'err');});});});}
 function testSearch(btn){var q=$('se-in').value.trim();if(!q){toast('请输入搜索关键词','err');return;}
   $('se-result').textContent='[i] 正在搜索：'+q+'…';btnLoad(btn,true);
   api('/api/search',{method:'POST',body:JSON.stringify({query:q})}).then(function(d){

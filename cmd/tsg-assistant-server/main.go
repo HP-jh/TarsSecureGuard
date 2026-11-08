@@ -86,8 +86,7 @@ func buildDemoTools() *assistant.ToolRegistry {
 	return registry
 }
 
-func buildGuard() assistant.Guard {
-	sessions := assistant.NewSessionManager(20, "/tmp/tsg-assistant")
+func buildGuard() *assistant.AssistantGuard {
 	pathChecker := func(path string) bool {
 		return len(path) > 0 && (path == "/tmp/tsg-safe" || len(path) > len("/tmp/tsg-safe/") && path[:len("/tmp/tsg-safe/")] == "/tmp/tsg-safe/")
 	}
