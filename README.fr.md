@@ -24,7 +24,7 @@ génère en un clic le fragment de configuration d'accès qui pointe l'outil ver
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-3.7.0-success">
+<img alt="Version" src="https://img.shields.io/badge/version-4.3.0-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
@@ -191,7 +191,7 @@ Téléchargez le paquet d'installation depuis la page [Release](../../releases) 
 ### Construction depuis le code source (six plateformes)
 ```sh
 GOOS=linux  GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
-  -ldflags "-s -w -X main.version=3.0.0" -o tarssecureguard .
+  -ldflags "-s -w -X main.version=4.3.0" -o tarssecureguard .
 go test -race ./...      # Tests unitaires + tests d'intégration
 ./soak.sh                # Test de charge de stabilité de 8 heures (optionnel)
 ```

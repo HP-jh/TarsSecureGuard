@@ -24,7 +24,7 @@
 </p>
 
 <p>
-<img alt="الإصدار" src="https://img.shields.io/badge/version-3.7.0-success">
+<img alt="الإصدار" src="https://img.shields.io/badge/version-4.3.0-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.22.8-00ADD8?logo=go&logoColor=white">
 <img alt="التبعيات" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="المزودون" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
@@ -191,7 +191,7 @@ go run .          # أو ./start.sh (على ويندوز انقر نقرًا م�
 ### البناء من الكود المصدري (ست منصات)
 ```sh
 GOOS=linux  GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
-  -ldflags "-s -w -X main.version=3.0.0" -o tarssecureguard .
+  -ldflags "-s -w -X main.version=4.3.0" -o tarssecureguard .
 go test -race ./...      # اختبارات الوحدة + التكامل
 ./soak.sh                # اختبار ضغط استمرار لمدة 8 ساعات (اختياري)
 ```

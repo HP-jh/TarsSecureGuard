@@ -23,12 +23,12 @@
 </p>
 
 <p>
-<b>不只是网关，还是配置器（v4.7.7 Extender）</b>：别的 AI 工具环境配置繁琐？TSG 反过来替你配好它们——内置探测器扫出本机已装的 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>，
+<b>不只是网关，还是配置器（v4.3.0 Extender）</b>：别的 AI 工具环境配置繁琐？TSG 反过来替你配好它们——内置探测器扫出本机已装的 <b>OpenClaw / Continue / Aider / Cline / ZooCode / Codex CLI</b>，
 一键生成把该工具指向 TSG 端点的接入配置片段（密钥可选内嵌并全程审计），复制粘贴即完成。所有目标均为 MIT / Apache 生态，<b>零 GPL 污染、零外部依赖</b>。
 </p>
 
 <p>
-<img alt="Version" src="https://img.shields.io/badge/version-4.7.7-success">
+<img alt="Version" src="https://img.shields.io/badge/version-4.3.0-success">
 <img alt="Go" src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white">
 <img alt="Deps" src="https://img.shields.io/badge/dependencies-0-brightgreen">
 <img alt="Providers" src="https://img.shields.io/badge/providers-24%20cloud%20%2B%208%20local-blue">
@@ -195,7 +195,7 @@ go run .          # 或 ./start.sh（Windows 双击 start.bat）
 ### 从源码构建（六平台）
 ```sh
 GOOS=linux  GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
-  -ldflags "-s -w -X main.version=3.0.0" -o tarssecureguard .
+  -ldflags "-s -w -X main.version=4.3.0" -o tarssecureguard .
 go test -race ./...      # 单元 + 集成测试
 ./soak.sh                # 8 小时稳定性压测（可选）
 ```

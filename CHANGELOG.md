@@ -13,6 +13,25 @@
 - 顶层 `.go` 文件归位分析（`internal/<domain>/` 模式评估）
 
 ---
+## [4.3.0] "Latest Stable" - 2026-11-08
+
+> **版本号重置**：自本版起对外版本统一收敛为 `4.3.0`，并以「最新稳定版」名义发布。
+> 历史 4.x 号段（曾经到 v4.46.0）不再对外沿用，避免同一仓库出现多套并行版本号。
+
+### Changed
+- 版本号统一：`main.go` 默认版本、`crownext/security` 评分引擎报告版本、14 个版本锁定测试全部收敛到 `4.3.0`
+- 7 种语言 README 版本徽章统一为 `4.3.0`（此前主 README 为 4.7.7，其余 6 种语言停留在 3.7.0）
+- README 构建示例中的 `-X main.version=3.0.0` 更正为 `4.3.0`
+- `VERSIONING.md` 增补「版本号重置」章节，说明新号段规则
+
+### Fixed
+- 代码 / 文档 / Release 三处版本长期不一致（徽章 4.7.7、代码 4.36.1、Release 4.46.0）
+- `.github/ISSUE_TEMPLATE/bug_report.md` 中过期的版本填写示例
+
+### Build
+- 7 平台交叉编译产物：linux / darwin / windows × amd64 / arm64，外加 android-arm64，附 `SHA256SUMS.txt`
+
+---
 ## [4.31.0] "PII Shield" - 2026-10-18
 
 ### Added

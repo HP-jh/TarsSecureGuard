@@ -46,7 +46,7 @@ const (
 	memoryLimit           = 1024
 )
 // 版本号（v2.1.0 起为 var：构建时经 -ldflags "-X main.version=..." 注入，源码内为默认值）
-var version = "4.36.1"
+var version = "4.3.0"
 // 运行时解析的应用路径（默认以 exe 所在目录为基准，见 resolvePaths）
 var (
 	modelDir   string
@@ -609,7 +609,7 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	// v4.36.1 纵深防御默认：零值/未显式配置时启用 CSP（admin 若显式禁用，
+	// v4.3.0 纵深防御默认：零值/未显式配置时启用 CSP（admin 若显式禁用，
 	// 会因 CustomPolicy/ReportURI 非空而保持关闭；applyCSPHeaders 层仍字面尊重 Enabled）
 	cfgMu.Lock()
 	if !cfg.Security.CSP.Enabled && cfg.Security.CSP.CustomPolicy == "" && cfg.Security.CSP.ReportURI == "" {

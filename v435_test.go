@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// TestV435VersionLocked 验证版本号已正确升级到 4.36.1
+// TestV435VersionLocked 验证版本号已正确升级到 4.3.0
 func TestV435VersionLocked(t *testing.T) {
-	if version != "4.36.1" {
-		t.Fatalf("expected version 4.36.1, got %s", version)
+	if version != "4.3.0" {
+		t.Fatalf("expected version 4.3.0, got %s", version)
 	}
 }
 
@@ -40,8 +40,8 @@ func TestV435HealthRuntimeMetrics(t *testing.T) {
 	if body["status"] != "ok" {
 		t.Errorf("expected status ok, got %v", body["status"])
 	}
-	if body["version"] != "4.36.1" {
-		t.Errorf("expected version 4.36.1, got %v", body["version"])
+	if body["version"] != "4.3.0" {
+		t.Errorf("expected version 4.3.0, got %v", body["version"])
 	}
 
 	// 验证数值字段类型合理

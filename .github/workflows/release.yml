@@ -176,15 +176,22 @@ jobs:
       - name: Organize release assets
         run: |
           mkdir -p release-assets
+          # 版本号归一：tag 本身可能已带 v 前缀，避免拼出 tsg-vv4.3.0-* 这种双重 v
+          RAW_TAG="${{ github.ref_name || inputs.tag }}"
+          case "$RAW_TAG" in
+            v*) TAG="$RAW_TAG" ;;
+            *)  TAG="v$RAW_TAG" ;;
+          esac
+          echo "normalized tag: $TAG"
           # Go 纯二进制
           for f in artifacts/go-binary-*/tsg-*; do
             [ -f "$f" ] || continue
             target=$(basename "$f" | sed 's/tsg-//')
-            cp "$f" "release-assets/tsg-v${{ github.ref_name || inputs.tag }}-${target}"
+            cp "$f" "release-assets/tsg-${TAG}-${target}"
           done
           # Android
           if [ -f artifacts/go-binary-android-arm64/tsg-android-arm64 ]; then
-            cp artifacts/go-binary-android-arm64/tsg-android-arm64 "release-assets/tsg-v${{ github.ref_name || inputs.tag }}-android-arm64"
+            cp artifacts/go-binary-android-arm64/tsg-android-arm64 "release-assets/tsg-${TAG}-android-arm64"
           fi
           # Tauri 安装器
           for d in artifacts/tauri-*; do
