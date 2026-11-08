@@ -27,6 +27,10 @@ var suspiciousSchemeRe = regexp.MustCompile(`(?i)^(javascript|data|vbscript|file
 // queryPayloadRe looks for long or suspicious query parameters.
 var queryPayloadRe = regexp.MustCompile(`[?&][a-z0-9_]{1,3}=([A-Za-z0-9+/=]{40,}|[A-Fa-f0-9]{32,})`)
 
+// urlSecretRe detects known secret shapes (AWS access keys, JWT, LLM API keys)
+// smuggled into a URL query/host, independent of payload length.
+var urlSecretRe = regexp.MustCompile(`(AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{4,}|sk-[A-Za-z0-9]{20,})`)
+
 // ScanMarkdown receives outbound text (e.g. model reply) and reports any
 // URLs that may be leaking secrets or encoded payloads.
 func ScanMarkdown(text string, src Source) []Finding {
@@ -61,6 +65,18 @@ func ScanMarkdown(text string, src Source) []Finding {
 					Detail:   "link text claims domain but points elsewhere: " + truncate(l.Href, 80),
 				})
 			}
+		}
+
+		// Known-secret-in-URL detection (AWS key / JWT / LLM API key smuggled in URL)
+		if urlSecretRe.MatchString(l.Href) {
+			findings = append(findings, Finding{
+				Kind:     KindExfiltration,
+				Label:    "query_exfiltration_payload",
+				Severity: SeverityMedium,
+				Score:    0.80,
+				Source:   src,
+				Detail:   "secret pattern embedded in URL: " + truncate(l.Href, 80),
+			})
 		}
 
 		// Query-string payload detection

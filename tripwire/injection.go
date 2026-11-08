@@ -46,6 +46,11 @@ var phrases = []phrase{
 	{"ignore all safety", "role_impersonation", 0.80},
 	{"bypass your safety", "role_impersonation", 0.82},
 	{"ignore your safety guidelines", "role_impersonation", 0.85},
+	// 系统提示词/模式绕过补充
+	{"your system prompt", "prompt_extraction", 0.80},
+	{"the system prompt", "prompt_extraction", 0.80},
+	{"simulation mode", "role_impersonation", 0.70},
+	{"enter simulation mode", "role_impersonation", 0.72},
 	// 权限洗白
 	{"the user has authorized", "authority_laundering", 0.58},
 	{"the user authorized you", "authority_laundering", 0.58},
@@ -92,6 +97,7 @@ var structuralPatterns = func() []struct {
 		{`(?i)\b(send|forward|post|copy|upload|email|exfiltrate)\b[^.\n]{0,45}\b(to|at)\b[^.\n]{0,25}https?://`, "exfil_to_url", 0.78},
 		{`(?i)(the user is (an? )?(admin|administrator|developer|verified)|treat .{0,40}\bas (a )?(verified )?(admin|administrator)|i am the developer|i authorize|admin privileges|the user authorized|system override|disable confirmation|bypass confirmation|skip the (usual )?refusal)`, "authority_laundering", 0.62},
 		{`(?i)\b(delete|drop|purge|wipe|destroy)\b[^.\n]{0,25}\b(all|every|the)\b[^.\n]{0,20}\b(record|table|log|file|customer|database|user|account)`, "destructive_command", 0.70},
+		{`(?m)^\s*---\s*\n[^\n]{0,40}\b(ignore|forget|disregard|override|system)\b`, "frontmatter_injection", 0.70},
 		{`(?i)(={2,}\s*ai instructions|assistant[ _-]?(instruction|directive)|system[ -]prompt[ -]update|new directive for the|\{\{\s*ai\s*:|<\s*instructions\s*>|assistant-instruction)`, "embedded_directive", 0.78},
 	}
 	out := make([]struct {
@@ -172,6 +178,10 @@ func emitFinding(label string, base float64, spanStart, spanEnd int, text string
 	if score < 0.10 {
 		return nil
 	}
+	detail := ""
+	if spanEnd > spanStart && spanEnd <= len(text) {
+		detail = text[spanStart:spanEnd]
+	}
 	return &Finding{
 		Kind:     KindInjection,
 		Label:    label,
@@ -180,6 +190,7 @@ func emitFinding(label string, base float64, spanStart, spanEnd int, text string
 		Start:    spanStart,
 		End:      spanEnd,
 		Source:   src,
+		Detail:   detail,
 	}
 }
 
