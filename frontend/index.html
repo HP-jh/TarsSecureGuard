@@ -1116,9 +1116,7 @@ var I18N_MSGS={zh:{403:'没有权限做这个操作（当前密钥的角色不�
 /* v4.6.6 密钥引导弹窗：挂起当前请求，密钥确认后自动重试 */
 var keyWaiters=[],keyDlgOpen=false;
 function askGatewayKey(u,o){return new Promise(function(resolve,reject){keyWaiters.push({u:u,o:o,res:resolve,rej:reject});if(!keyDlgOpen){keyDlgOpen=true;$('key-dlg').classList.add('show');setTimeout(function(){var i=$('key-input');i.value='';i.focus();},60);}});}
-function keyDlgSubmit(){var k=$('key-input').value.trim();if(!k){$('key-err').textContent='密钥不能为空：打开安装文件夹里的 gateway-key.txt，
-
-把内容复制过来';return;}localStorage.setItem('tsg_api_key',k);keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){api(w.u,w.o).then(w.res).catch(function(e){w.rej(e);toast('密钥可能不对：'+(e&&e.message||e),'err');});});}
+function keyDlgSubmit(){var k=$('key-input').value.trim();if(!k){$('key-err').textContent='密钥不能为空：打开安装文件夹里的 gateway-key.txt，把内容复制过来';return;}localStorage.setItem('tsg_api_key',k);keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){api(w.u,w.o).then(w.res).catch(function(e){w.rej(e);toast('密钥可能不对：'+(e&&e.message||e),'err');});});}
 function keyDlgClose(){$('key-dlg').classList.remove('show');keyDlgOpen=false;$('key-err').textContent='';}
 function keyDlgCancel(){keyDlgClose();var ws=keyWaiters;keyWaiters=[];ws.forEach(function(w){w.rej(new Error('需要网关密钥才能继续'))});}
 var inDlgCb=null;
@@ -1288,7 +1286,7 @@ function sendChat(){var inp=$('c-in');var t=inp.value.trim();if(!t)return;inp.va
   m.innerHTML+='<div class="msg u"><div class="msg-av">U</div><div><div class="msg-b">'+esc(t)+'</div></div></div>';
   var id='ty'+Date.now();m.innerHTML+='<div class="msg a" id="'+id+'"><div class="msg-av">AI</div><div class="msg-b"><div class="typing"><span></span><span></span><span></span></div></div></div>';
   m.scrollTop=m.scrollHeight;btnLoad('c-send',true);
-  var md=$('c-model').value,se=$('c-search').checked,ag=$('c-agent').checked;
+  var md=$('c-model').value,se=$('c-search').checked,ag=$('c-agent-sel').value;
   api('/api/chat/completions',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:t}],model:md,search:se,agent:ag})}).then(function(d){
     var r=d.choices?d.choices[0].message.content:JSON.stringify(d);
     $(id).innerHTML='<div class="msg-av">AI</div><div><div class="msg-b">'+esc(r)+'</div><div class="msg-t">'+new Date().toLocaleTimeString()+'</div></div>';
@@ -1297,9 +1295,7 @@ function sendChat(){var inp=$('c-in');var t=inp.value.trim();if(!t)return;inp.va
 /* ============ 模型：列表 + 监控 + 启停 + 下载 ============ */
 function loadModels(manual){api('/api/admin/models').then(function(d){
   var ms=d.models||[];
-  if(!ms.length){$('model-list').innerHTML='<div class="empty"><div class="ic">O</div>未找到模型。可点击“扫描硬件”下载推荐模型，
-
-或将 GGUF 文件放入应用旁的 Models 目录。</div>';return;}
+  if(!ms.length){$('model-list').innerHTML='<div class="empty"><div class="ic">O</div>未找到模型。可点击“扫描硬件”下载推荐模型，或将 GGUF 文件放入应用旁的 Models 目录。</div>';return;}
   var h='<div class="grid-2">';
   ms.forEach(function(m){
     var on=(m.status==='online');
@@ -2006,9 +2002,7 @@ function loadSInfo(){
     it.forEach(function(x){
       h+='<div style="border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px">'+
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="tag" style="background:rgba(88,166,255,.15);color:var(--blue)">'+esc(x.type||'-')+'</span>'+
-      '<b style="font-size:
-
-13px">'+esc(x.title)+'</b>'+
+      '<b style="font-size:13px">'+esc(x.title)+'</b>'+
       (x.scope?'<span class="tag">'+esc(x.scope)+'</span>':'')+
       '<span style="color:var(--muted);font-size:10px;flex:1">置信度 '+(x.confidence!==undefined?x.confidence:'—')+' · r'+(x.revision||0)+' · '+govDate(x.updatedAt)+'</span>'+
       '<button class="btn btn-sm" style="color:var(--red)" onclick="siDel(\''+esc(String(x.id)).replace(/'/g,"\\'")+'\')">删除</button></div>'+
@@ -2150,6 +2144,9 @@ function updateFloatWidget(){
 }
 function hideFloatWidget(){$('float-widget').style.display='none';}
 setTimeout(function(){updateFloatWidget();},1000);
+/* v4.36.1 补齐 fetchJSON：知识库/动态防护段落沿用的取数助手此前从未定义（P1 修复），
+委托已鉴权 api()——自动携带 X-API-Key，401 时走 key-dlg 引导弹窗后自动重试 */
+function fetchJSON(u,onOk,onErr,body){var o={method:body!==undefined?'POST':'GET'};if(body!==undefined)o.body=body;api(u,o).then(function(d){if(onOk)onOk(d);}).catch(function(e){if(onErr)onErr((e&&e.message)||String(e));});}
 /* ============ v3.9.0 知识库 ============ */
 function loadKB(){
 fetchJSON('/api/kb/list?min_level=0',function(d){
@@ -2386,13 +2383,13 @@ function renderSec360(d){
     d.categories.forEach(c=>{
       const cls=c.status==='safe'?'sec360-cat-s':c.status==='warning'?'sec360-cat-w':'sec360-cat-d';
       const barColor=c.status==='safe'?'#3fb950':c.status==='warning'?'#d29922':'#f85149';
-      cats+=\`<div class="sec360-cat \${cls}"><div class="sec360-cat-h"><span class="sec360-cat-n">\${c.name}</span><span class="sec360-cat-v" style="color:\${barColor}">\${c.score}</span></div><div class="sec360-cat-bar"><div style="width:\${c.score}%;background:\${barColor}"></div></div></div>\`;
+      cats+=`<div class="sec360-cat ${cls}"><div class="sec360-cat-h"><span class="sec360-cat-n">${c.name}</span><span class="sec360-cat-v" style="color:${barColor}">${c.score}</span></div><div class="sec360-cat-bar"><div style="width:${c.score}%;background:${barColor}"></div></div></div>`;
     });
   }
-  let html=\`<div class="sec360-score"><div class="sec360-ring"><svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="60" class="sec360-ring-bg"/><circle cx="70" cy="70" r="60" class="sec360-ring-fill" stroke="\${color}" stroke-dasharray="\${circ}" stroke-dashoffset="\${off}"/></svg><div class="sec360-ring-text"><div class="sec360-ring-num" style="color:\${color}">\${score}</div><div class="sec360-ring-label">安全评分</div></div></div><div class="sec360-cats">\${cats}</div></div>\`;
+  let html=`<div class="sec360-score"><div class="sec360-ring"><svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="60" class="sec360-ring-bg"/><circle cx="70" cy="70" r="60" class="sec360-ring-fill" stroke="${color}" stroke-dasharray="${circ}" stroke-dashoffset="${off}"/></svg><div class="sec360-ring-text"><div class="sec360-ring-num" style="color:${color}">${score}</div><div class="sec360-ring-label">安全评分</div></div></div><div class="sec360-cats">${cats}</div></div>`;
   if(d.recommendations&&d.recommendations.length){
     html+='<div style="padding:0 24px 16px"><div style="font-size:12px;font-weight:600;margin-bottom:8px">修复建议</div>';
-    d.recommendations.forEach(r=>{html+=\`<div class="sec360-rec">\${r}</div>\`;});html+='</div>';
+    d.recommendations.forEach(r=>{html+=`<div class="sec360-rec">${r}</div>`;});html+='</div>';
   }
   el.innerHTML=html;
 }
