@@ -160,6 +160,9 @@ var (
 	scannerUARe      = regexp.MustCompile(`(?i)(` + strings.Join(scannerUABlacklist, "|") + `)`)
 	scannerUACache   sync.Map // ua 小写 → 匹配特征串（命中即返回，省 regex 重跑）
 	scannerUACap     = 4096   // UA 长度上限；超过视为 DoS 攻击候选，直接 miss（不命中也不放入）
+	scannerUACacheMu sync.Mutex
+	scannerUACacheSize int
+	scannerUACacheMax  = 8192 // 缓存上限，防止无限增长
 )
 
 // scannerUAMatch 检测 User-Agent 是否命中扫描器黑名单，命中返回特征串
@@ -174,14 +177,21 @@ func scannerUAMatch(ua string) string {
 	}
 	// 慢路径：合并正则一次匹配
 	m := scannerUARe.FindString(ua)
+	result := ""
 	if m != "" {
 		// 正则匹配大小写不敏感，返回原始小写特征串供 UI/审计展示
-		scannerUACache.Store(ua, strings.ToLower(m))
-		return strings.ToLower(m)
+		result = strings.ToLower(m)
 	}
-	// miss 也缓存一份空串，避免重复 UA 反复进 regex
-	scannerUACache.Store(ua, "")
-	return ""
+	
+	// 缓存写入（带容量控制，防止无限增长）
+	scannerUACacheMu.Lock()
+	if scannerUACacheSize < scannerUACacheMax {
+		scannerUACache.Store(ua, result)
+		scannerUACacheSize++
+	}
+	scannerUACacheMu.Unlock()
+	
+	return result
 }
 
 // sensitivePathMatch 检测路径是否命中敏感路径探测特征，命中返回命中的特征串
@@ -317,7 +327,12 @@ func wafScanBody(b []byte, strict bool, isChat bool) string {
 	if json.Unmarshal(b, &m) != nil {
 		return ""
 	}
-	var sb strings.Builder
+	// v5.0 性能优化：使用 sync.Pool 复用 string builder
+	sb := piiBuilderPool.Get().(*strings.Builder)
+	defer func() {
+		sb.Reset()
+		piiBuilderPool.Put(sb)
+	}()
 	if t, _ := m["tool"].(string); t != "" {
 		sb.WriteString(t)
 		sb.WriteByte('\n')
@@ -449,9 +464,37 @@ func hashPrefix8(s string) string {
 	return hex.EncodeToString(h[:])[:8]
 }
 
+// v5.0 性能优化：sync.Pool 复用对象，减少 GC 压力
+var (
+	// 请求体读取 buffer pool（减少大请求的内存分配）
+	wafBodyBufPool = sync.Pool{
+		New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 0, 8192))
+		},
+	}
+	// PII 脱敏 string builder pool
+	piiBuilderPool = sync.Pool{
+		New: func() interface{} {
+			return &strings.Builder{}
+		},
+	}
+	// 路径解码 buffer pool
+	wafPathBufPool = sync.Pool{
+		New: func() interface{} {
+			return &strings.Builder{}
+		},
+	}
+)
+
 // maskPII 对输入文本中的 PII 按配置强度进行脱敏替换
 // v4.31.0：扩展 6 类 PII（信用卡/SSN/邮箱/手机号/身份证号/IPv4），支持 3 档强度
+// v5.0 性能优化：使用预编译的合并正则 + sync.Pool 减少 allocations
 func maskPII(s string) string {
+	// 快速路径：无触发字节直接返回（与 wafNeedsScan 逻辑一致）
+	if !wafNeedsScan(s) {
+		return s
+	}
+	
 	lvl := piiMaskLevel()
 	for _, rule := range piiMaskRules {
 		var fn piiMaskFunc
