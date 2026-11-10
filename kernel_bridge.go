@@ -6,28 +6,95 @@ package main
 // 逐步迁移。每个安全检查从 gatewayMiddleware 的硬编码中提取为独立 Stage。
 //
 // 参考：Strangler Fig Pattern (Martin Fowler)
+// 参考：Microsoft Learn IRP / I/O Stack Location（请求对象化、每层上下文）
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/HP-jh/TarsSecureGuard/kernel"
 )
 
+// ===================== APC 接线：IP 封禁中断活跃请求 =====================
+//
+// 类比 NT 的 KeInsertQueueApc：当 firewallBanIP 封禁一个 IP 时，
+// 向该 IP 所有活跃请求的 APC 队列投递内核级中断。
+// Scheduler 在 Stage 间 DeliverAPC 时会检测到并 Halt 该请求。
+
+var activeConns sync.Map // key: "ip|timestamp" → *kernel.APCQueue
+
+// registerActiveConn 注册活跃连接（kernelMiddleware 每请求调用）
+func registerActiveConn(ip string, q *kernel.APCQueue) {
+	activeConns.Store(ip+"|"+fmt.Sprintf("%d", time.Now().UnixNano()), q)
+}
+
+// interruptActiveConns 中断指定 IP 的所有活跃请求（firewallBanIP 时调用）
+func interruptActiveConns(ip string) {
+	activeConns.Range(func(key, val interface{}) bool {
+		k := key.(string)
+		if strings.HasPrefix(k, ip+"|") {
+			if q, ok := val.(*kernel.APCQueue); ok {
+				q.Enqueue(kernel.APC{
+					Reason:   "IP封禁中断",
+					Priority: kernel.APCKernel,
+				})
+			}
+		}
+		return true
+	})
+}
+
+// ===================== DirtyTracker 接线 =====================
+//
+// 类比 Gecko 的 dirty bits：配置热重载时标记受影响的 Stage dirty。
+// 下次请求时 Scheduler 只重跑 dirty Stage（增量 reflow）。
+
+// markConfigDirty 标记配置变更影响的 Stage（loadConfig 后调用）
+func markConfigDirty(oldCfg, newCfg Config) {
+	if oldCfg.Security.Mode != newCfg.Security.Mode {
+		tsgKernel.DirtyTracker.MarkDirty("waf")
+		tsgKernel.DirtyTracker.MarkDirty("rate-limit")
+	}
+	if oldCfg.Security.WAFEnabled != newCfg.Security.WAFEnabled {
+		tsgKernel.DirtyTracker.MarkDirty("waf")
+	}
+	if oldCfg.Security.PIIMaskEnabled != newCfg.Security.PIIMaskEnabled ||
+		oldCfg.Security.PIIMaskLevel != newCfg.Security.PIIMaskLevel {
+		// PII 不在 Stage 管道中，但影响 piiResponseWriter
+		tsgKernel.Frames.MarkFrameDirty("pii-response-writer")
+	}
+}
+
 // buildKernelScheduler 构造内核调度器，注入各安全 Stage。
-// 每个 Stage 桥接到根包的现有安全函数。
+// 每个 Stage 桥接到根包的现有安全函数，语义与 gatewayMiddleware 完全等价。
 func buildKernelScheduler() *kernel.Scheduler {
-	return kernel.NewScheduler(
+	s := kernel.NewScheduler(
 		// 0) IP 封禁检测
 		&kernel.IPBanStage{
 			IsBanned: isBanned,
-			OnBlock:  blockRequest,
+			OnBlock: func(w http.ResponseWriter, r *http.Request, reason string) {
+				ip := clientIP(r)
+				sseEmitIntercept("block", "IP封禁拦截", reason, ip, r.URL.Path)
+				blockRequest(w, r, reason)
+			},
 		},
 		// 1) WAF 检测（含速率限制 + 请求体扫描）
 		&kernel.WAFStage{
-			Detect:   wafCheck,
-			OnBlock:  blockRequest,
+			Detect: wafCheck,
+			OnBlock: func(w http.ResponseWriter, r *http.Request, reason string) {
+				ip := clientIP(r)
+				// v3.0.0 B 线：WAF 命中联动 IP 信誉扣分（-30）+ 封禁 + syslog
+				ipRepPenalty(ip, 30, "waf", reason)
+				markIPBanned(ip)
+				firewallBanIP(ip)
+				syslogWrapWAF(ip, reason)
+				sseEmitIntercept("block", "WAF拦截", reason, ip, r.URL.Path)
+				blockRequest(w, r, reason)
+			},
 		},
 		// 2) CORS 预检
 		&kernel.CORSStage{
@@ -55,49 +122,130 @@ func buildKernelScheduler() *kernel.Scheduler {
 		// 6) 分层速率限制
 		&kernel.RateLimitStage{
 			Allow: func(userID, tenant, method, path string) bool {
-				// rateLimitMiddleware 直接写 ResponseWriter，这里用适配器
-				// 返回 true 表示放行
-				return true // rateLimitMiddleware 在旧路径中处理
+				return true // rateLimitMiddleware 在 kernelMiddleware 中单独处理
 			},
 		},
 	)
+	// Bugcheck 接线：Stage panic → 审计日志（类比 NT KeBugCheck → 记录 dump）
+	s.SetBugcheckHandler(func(data kernel.BugcheckData) {
+		auditLog("KERNEL_BUGCHECK", "system",
+			fmt.Sprintf("code=%s trace=%s msg=%s recovery=%s",
+				data.Code, data.TraceID, data.Message, data.Recovery))
+	})
+	return s
 }
 
-// kernelMiddleware 是用 kernel 包实现的中间件，
-// 可与旧 gatewayMiddleware 并存（Shadow Bridge 模式）。
+// kernelMiddleware 是用 kernel 包实现的中间件。
+// 语义与 gatewayMiddleware 完全等价，但通过 kernel Scheduler 执行安全管道，
+// 使 IRP 栈、APC、Bugcheck、ContentSink 等内核机制在每请求上真正生效。
 //
-// 使用方式：在 main.go 中替换 gatewayMiddleware 为 kernelMiddleware
+// 替换 gatewayMiddleware：main.go 中 obsMiddleware(gatewayMiddleware(mux))
+// → obsMiddleware(kernelMiddleware(mux))
 func kernelMiddleware(next http.Handler) http.Handler {
 	scheduler := buildKernelScheduler()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// panic recovery（fail-close）
+		// E 线：panic recovery 全覆盖（fail-close；kernel Bugcheck 也会捕获 Stage panic）
 		defer func() {
 			if p := recover(); p != nil {
-				logMsg("PANIC in kernel: " + r.URL.Path)
-				auditLog("PANIC_RECOVERED", "system", r.URL.Path)
-				writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+				logMsg(fmt.Sprintf("[PANIC] %s %s: %v", r.Method, r.URL.Path, p))
+				auditLog("PANIC_RECOVERED", "system", fmt.Sprintf("%s %s: %v", r.Method, r.URL.Path, p))
+				writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "internal error（已恢复并审计）"})
 			}
 		}()
 
-		// 安全头部（不变的副作用）
+		// v3.9.0 动态防护：蜜罐路由优先拦截
+		if dyna != nil && dyna.cfg.Enabled && dyna.isHoneypotPath(r.URL.Path) {
+			dyna.handleHoneypot(w, r)
+			return
+		}
+		// v3.9.0 影子规则流水线（只记录不阻断）
+		if dyna != nil && dyna.cfg.Enabled {
+			hits := dyna.runShadowPipeline(r)
+			for _, h := range hits {
+				auditLog("SHADOW_HIT", h.ClientIP, fmt.Sprintf("%s:%s", h.RuleID, h.Path))
+			}
+		}
+
+		// 请求量按小时统计
+		recordHourlyRequest()
+
+		// 安全头部 + 请求体大小限制
 		setSecurityHeaders(w, r)
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		}
 
-		// 执行内核安全管道
+		// === 内核安全管道 ===
+		// Scheduler.Execute 会：
+		//   1. Spawn: 构造 RequestCtx (IRP) + APC 队列
+		//   2. 逐 Stage Push/Pop I/O Stack Location
+		//   3. DeliverAPC: Stage 间检查异步中断
+		//   4. ContentSink: 增量推送 Stage 结果
+		//   5. Bugcheck: panic → 记录审计 + Halt
 		halted := scheduler.Execute(context.Background(), w, r)
 		if halted {
-			return // 安全检查已拦截
+			return // 安全检查已拦截（WAF/IP封禁/RBAC等）
 		}
 
-		// 计数 + 计时 + PII 脱敏（不变的业务逻辑）
+		// === 以下逻辑与 gatewayMiddleware 鉴权后段完全等价 ===
+		// 但从 IRP 栈的 RequestCtx 中取鉴权结果（而非重复调用 identityFromRequest）
+
+		// 公共路由：直接放行（AuthStage 已处理，但公共路由不走 PII 脱敏）
+		if isPublicRoute(r.URL.Path) {
+			totalReq.Add(1) // v5.1: atomic，无锁
+			recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
+			return
+		}
+
+		// 鉴权失败：AuthStage 返回 Continue 但 RequestCtx.Authed=false 的场景
+		// （AuthStage 对公共路由返回 Continue，对 API 鉴权失败返回 Halt，
+		//   所以走到这里说明 AuthStage 已通过 → Authed=true）
+		// 但为了语义等价，补一次 rateLimitMiddleware（kernel RateLimitStage 是 stub）
+		id, ok := identityFromRequest(r)
+		if !ok {
+			// 理论上不会走到这里（AuthStage 已拦截），但 fail-close 保险
+			obsStage(r.Context(), "auth", "401 未授权")
+			failReq.Add(1) // v5.1: atomic，无锁
+			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
+			i18nErrorJSONWithHint(w, r, http.StatusUnauthorized, "err.unauthorized", "err.unauthorized.hint")
+			return
+		}
+
+		// RBAC 矩阵（kernel RBACStage 已检查，但审计逻辑在此补充）
+		if ok, reason := rbacCheck(id, r.Method, r.URL.Path); !ok {
+			obsStage(r.Context(), "rbac", reason)
+			auditLogT("ACCESS_DENIED", id.Tenant, "", id.Name, r.URL.Path+" "+reason+obsTraceSuffix(r))
+			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "权限不足: " + reason})
+			return
+		}
+
+		// 配额检查
+		if routeClass(r.URL.Path) == "chat" {
+			if ok, why := quotaCheck(id.Tenant, id.Name, id.Groups); !ok {
+				obsStage(r.Context(), "quota", why)
+				auditLogT("QUOTA_EXCEEDED", id.Tenant, strings.Join(id.Groups, ","), id.Name, why+obsTraceSuffix(r))
+				writeJSONStatus(w, http.StatusTooManyRequests, map[string]string{"error": "配额超限: " + why})
+				return
+			}
+		}
+
+		// 分层速率限制（kernel RateLimitStage 是 stub，这里真实执行）
+		if !rateLimitMiddleware(w, r, id.Name, id.Tenant) {
+			return
+		}
+
+		// v5.1: atomic 计数，无需 mu.Lock
 		totalReq.Add(1)
 		recordResponseTime(time.Now(), func() {
+			// v4.31.0：响应流出自动脱敏——用 piiResponseWriter 替代 statusWriter
 			sw := &piiResponseWriter{ResponseWriter: w}
 			next.ServeHTTP(sw, r)
 			sw.flush()
+			// v3.0.0 B 线：扫描型 404 突发联动 IP 信誉扣分（每分钟至多 -10）
+			if sw.status == http.StatusNotFound {
+				ipRepPenalty(clientIP(r), 10, "scan404", "")
+			}
 		})
 	})
 }

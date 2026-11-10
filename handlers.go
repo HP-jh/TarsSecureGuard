@@ -47,9 +47,8 @@ func handleFrontend(w http.ResponseWriter, r *http.Request) {
 func statusPayload() map[string]interface{} {
 	uptime := time.Since(startTime).Milliseconds()
 	ms := getModels()
-	mu.Lock()
+	// v5.1: atomic 读，无锁
 	total, succ, fail, blocks := totalReq.Load(), successReq.Load(), failReq.Load(), wafBlocks.Load()
-	mu.Unlock()
 	snap := configSnapshot()
 	mode := snap.Security.Mode
 	return map[string]interface{}{
@@ -150,9 +149,8 @@ func handleFallback(w http.ResponseWriter, r *http.Request) {
 	})
 }
 func handleSecurity(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
+	// v5.1: atomic 读，无锁
 	blocks := wafBlocks.Load()
-	mu.Unlock()
 	snap := configSnapshot()
 	mode := snap.Security.Mode
 	wafOn := snap.Security.WAFEnabled
@@ -464,10 +462,9 @@ func recordHourlyRequest() {
 // handleStats GET /api/stats —— 统计面板数据：
 // 总请求数 / 成功率 / WAF 拦截数 / 平均响应时间 / 运行时长 / 当前模型 / 内存占用
 func handleStats(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
+	// v5.1: atomic 读，无锁
 	total, succ, blocks := totalReq.Load(), successReq.Load(), wafBlocks.Load()
 	totalMs, samples := respTotalMs.Load(), respSamples.Load()
-	mu.Unlock()
 	// 成功率：成功请求 / 总请求（百分比，保留两位小数；无请求时为 0）
 	successRate := 0.0
 	if total > 0 {

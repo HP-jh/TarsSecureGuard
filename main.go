@@ -395,11 +395,15 @@ func main() {
 	// v4.9.0 kingdom：
 
 	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
+	// v5.1 内核诊断端点（类比 NT 的 !irp / !object / !syscall 内核调试命令）
+	tsgKernel = buildTSGKernel()
+	registerKernelRoutes(mux)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
-	// 纯观测不改 gatewayMiddleware 判定逻辑。
+	// 纯观测不改 kernel 判定逻辑。
+	// v5.1: gatewayMiddleware → kernelMiddleware（内核调度器执行安全管道）
 	server := &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
-		Handler: obsMiddleware(gatewayMiddleware(mux)),
+		Handler: obsMiddleware(kernelMiddleware(mux)),
 		// v4.7.2：ReadHeaderTimeout 限制 header 读取时间（防 Slowloris 慢连接
 		// 拖死 listener；与 ReadTimeout/WriteTimeout 配合形成三层超时）
 		ReadHeaderTimeout: 10 * time.Second,
@@ -586,13 +590,11 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		})
 	})
 }
-// recordResponseTime（新增）：包裹业务处理并累计耗时，供 /api/stats 计算平均响应时间
+// recordResponseTime 包裹业务处理并累计耗时（v5.1: atomic，无锁）
 func recordResponseTime(start time.Time, serve func()) {
 	serve()
-	mu.Lock()
 	respTotalMs.Add(time.Since(start).Milliseconds())
 	respSamples.Add(1)
-	mu.Unlock()
 }
 func isPublicRoute(p string) bool {
 	// /health 为健康检查端点（新增），与前端页面一样免鉴权

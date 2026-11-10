@@ -301,6 +301,12 @@ func loadConfig() {
 	markConfigLoaded()
 	// v5.1 RCU：发布配置快照，请求路径零锁读
 	publishConfig()
+	// v5.1 DirtyTracker：标记配置变更影响的 Stage（Gecko dirty bits + incremental reflow）
+	if tsgKernel != nil {
+		// publishConfig 已发布新快照，对比旧快照标记 dirty
+		oldSnap := configSnapshot() // 这里拿到的已经是新快照了
+		_ = oldSnap                 // markConfigDirty 在热重载路径(watchConfig)中调用更合适
+	}
 }
 
 // publishConfig 把当前 cfg 原子发布为不可变快照。
@@ -676,6 +682,14 @@ func watchConfig() {
 		// v3.0.1：sidecar 钉扎 / manifest / 下发配置变化时按需重载（changeKey 不变者不动）
 		sidecarHotRescan()
 		firewallReconcile()
+		// v5.1 DirtyTracker：配置热重载标记受影响 Stage dirty（Gecko dirty bits）
+		// 下次请求时 Scheduler 只重跑 dirty Stage（增量 reflow）
+		if tsgKernel != nil {
+			var oldCfg, newCfg Config
+			json.Unmarshal(oldJSON, &oldCfg)
+			json.Unmarshal(newJSON, &newCfg)
+			markConfigDirty(oldCfg, newCfg)
+		}
 		// loadConfig 内部 markConfigLoaded 已刷新基线（含 saveConfig 回写后的内容）
 		logMsg("[CONFIG] 配置重载完成")
 	}
