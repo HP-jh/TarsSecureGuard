@@ -192,6 +192,16 @@ func buildKernelScheduler() *kernel.Scheduler {
 	)
 	// Bugcheck 接线：Stage panic → 审计日志（类比 NT KeBugCheck → 记录 dump）
 	s.SetBugcheckHandler(func(data kernel.BugcheckData) {
+		if svc != nil && svc.Audit != nil {
+			logger := svc.Audit.Logger()
+			if logger != nil {
+				logger.Log("KERNEL_BUGCHECK", "system",
+					fmt.Sprintf("code=%s trace=%s msg=%s recovery=%s",
+						data.Code, data.TraceID, data.Message, data.Recovery))
+				return
+			}
+		}
+		// fallback: bare function
 		auditLog("KERNEL_BUGCHECK", "system",
 			fmt.Sprintf("code=%s trace=%s msg=%s recovery=%s",
 				data.Code, data.TraceID, data.Message, data.Recovery))
