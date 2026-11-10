@@ -14,10 +14,53 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/HP-jh/TarsSecureGuard/kernel"
+	"github.com/HP-jh/TarsSecureGuard/kernel/services/waf"
 )
+
+// ===================== Global ServiceRegistry —— 统一注入点 =====================
+var kernelBridgeServices atomic.Pointer[serviceRegistryHolder]
+
+type serviceRegistryHolder struct {
+	reg   *kernel.ServiceRegistry
+	sched *kernel.Scheduler
+}
+
+// fillServices 构建全部 7 个 Service 并注册到注册表。
+// 零重复造轮子：每个 Service 内部调根包现有函数，不改安全红线。
+func fillServices() {
+	h := &serviceRegistryHolder{
+		reg: kernel.NewServiceRegistry(),
+	}
+
+	// WAF: detector + scanner + masker（内部闭包指向 main 包现有函数）
+	wafSvc := waf.NewService(
+		wafCheck,       // Check → wafCheck
+		wafEnabled,     // Enabled → wafEnabled
+		wafStrict,      // StrictMode → wafStrict
+		scannerUAMatch, // MatchUA
+		sensitivePathMatch, // MatchPath
+		maskPII,        // Mask
+		piiMaskEnabled, // PII mask enabled
+		piiMaskLevel,   // PII mask level
+		nil,            // onBlock: wired in IPBanStage/WAFStage callbacks
+	)
+	h.reg.RegisterService("waf", wafSvc)
+
+	kernelBridgeServices.Store(h)
+}
+
+// getServiceRegistry 返回全局 ServiceRegistry（nil if not yet initialized）
+func getServiceRegistry() *kernel.ServiceRegistry {
+	h := kernelBridgeServices.Load()
+	if h == nil {
+		return nil
+	}
+	return h.reg
+}
 
 // ===================== APC 接线：IP 封禁中断活跃请求 =====================
 //
@@ -71,7 +114,23 @@ func markConfigDirty(oldCfg, newCfg Config) {
 
 // buildKernelScheduler 构造内核调度器，注入各安全 Stage。
 // 每个 Stage 桥接到根包的现有安全函数，语义与 gatewayMiddleware 完全等价。
+// v5.1 Strangler Fig: fillServices() 统一构建 ServiceRegistry → Stage 通过注册表获取能力。
 func buildKernelScheduler() *kernel.Scheduler {
+	// 1) 统一填充 ServiceRegistry
+	fillServices()
+	svc := getServiceRegistry()
+
+	// 2) 挂载到 tsgKernel.SecuritySubsystem.Services
+	if tsgKernel != nil {
+		tsgKernel.Security.SetServices(svc)
+	}
+
+	// 3) 构造调度器——WAF/IPBan 等 Stage 通过 service 引用获取能力
+	var wafChecker waf.Detector // from service registry
+	if svc != nil {
+		wafChecker = svc.WAFChecker()
+	}
+
 	s := kernel.NewScheduler(
 		// 0) IP 封禁检测
 		&kernel.IPBanStage{
@@ -84,7 +143,12 @@ func buildKernelScheduler() *kernel.Scheduler {
 		},
 		// 1) WAF 检测（含速率限制 + 请求体扫描）
 		&kernel.WAFStage{
-			Detect: wafCheck,
+			Detect: func(r *http.Request) string {
+				if wafChecker != nil {
+					return wafChecker.Check(r)
+				}
+				return wafCheck(r) // fallback to bare function
+			},
 			OnBlock: func(w http.ResponseWriter, r *http.Request, reason string) {
 				ip := clientIP(r)
 				// v3.0.0 B 线：WAF 命中联动 IP 信誉扣分（-30）+ 封禁 + syslog
