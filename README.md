@@ -170,6 +170,18 @@ git clone https://github.com/HP-jh/TarsSecureGuard && cd TarsSecureGuard
 go run .          # 或 ./start.sh（Windows 双击 start.bat）
 ```
 
+### 本地启动三步命令（v5.1）
+```sh
+# 1. 构建（单二进制，零外部依赖）
+go build -o tsg .
+
+# 2. 运行（网关 + UI 面板自动启动）
+./tsg
+
+# 3. 打开面板（浏览器自动打开，或手动访问）
+# http://127.0.0.1:18889
+```
+
 ### 官方引流站
 轻量官网（特性总览 / 一键安装 / 版本里程碑 / FAQ）：`site/index.html`，GitHub Pages 开启即用（Settings → Pages → main / `site` 目录）。
 
