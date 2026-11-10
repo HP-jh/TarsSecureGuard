@@ -1,0 +1,17 @@
+{
+  "id": "kb_ba2f84bce66d5471_1794319172",
+  "category": "pii",
+  "name": "邮箱地址检测",
+  "level": 1,
+  "cipher_text": "fttdEGh2D3mrOWrj0LHcgYgwYlZeYFuUOv3lefbTOVcTrrE2MK360/4MwEgLiLQSSnOs+F0n1idW9wwznxGuov3Hl+qgCwOVLm1LuzqHRmY0b3XNVBwGiMBFBE2QT8vTGC8f3yMyjsnQUxGOBxzJO7eMjrGI09uSbdNlw41ZWQ==",
+  "tags": [
+    "pii",
+    "email"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T13:59:32.246045005Z",
+  "updated_at": "2026-11-10T13:59:32.2460478Z",
+  "version": 2,
+  "checksum": "496e97f1673439009451e92f9092eaec5fea76ea0bd8614bd4f7c3d01fc70dd3",
+  "encrypted_by": "system"
+}

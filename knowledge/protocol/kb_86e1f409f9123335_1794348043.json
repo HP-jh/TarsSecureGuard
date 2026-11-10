@@ -1,0 +1,17 @@
+{
+  "id": "kb_86e1f409f9123335_1794348043",
+  "category": "protocol",
+  "name": "HTTP/1.1 规范摘要",
+  "level": 0,
+  "cipher_text": "HTTP/1.1 RFC 7230-7235 核心语义：请求行、头部、正文、状态码、持久连接、分块传输。",
+  "tags": [
+    "http",
+    "rfc"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:00:43.893826918Z",
+  "updated_at": "2026-11-10T22:00:43.893829897Z",
+  "version": 2,
+  "checksum": "f49d3b138feb0c1cd1b97542e803c82c105d9dacb8330f1e3573025ca37efd16",
+  "encrypted_by": ""
+}

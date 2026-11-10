@@ -1,0 +1,18 @@
+{
+  "id": "kb_b2375dd360eb2bae_1794348043",
+  "category": "pii",
+  "name": "银行卡号检测（Luhn）",
+  "level": 1,
+  "cipher_text": "3rFn9pvRJs1FSy9KD52K4cKS5f//YLGM/TZPwPthuNrqwYfkSR/tV7Skk5bXtG76lW/agJ4nzuSIsW6jcZiqRTUTsTePCLfWg2vXRX+09XKV/LB1XK2JkRAN0+RqEVjwCg==",
+  "tags": [
+    "pii",
+    "bank",
+    "luhn"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:00:43.894379517Z",
+  "updated_at": "2026-11-10T22:00:43.894381327Z",
+  "version": 2,
+  "checksum": "619c46a1fdd89b62d31267afc6e1d455a7b643d1477be6f7c3c2513e17e38309",
+  "encrypted_by": "system"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "kb_195a16d77b09ae20_1794348346",
+  "category": "extender",
+  "name": "LMStudio 兼容接入片段",
+  "level": 1,
+  "cipher_text": "3GlMjlNkR3bzQ+pwSs2utDMpxIHSmqIzjd0kHnBCCcYYqLZKFmARuZcesHSndmmrt552RxLdoGPs43fUNdHWvxcIEn9swjRAFFnoA5zJHXC5ymKsdx3ccRy49eWM0k0M0qpc/EF6J6M2e4X+RisrUG4TpRhottEUerWIx+2B9PtwoA==",
+  "tags": [
+    "extender",
+    "lmstudio",
+    "snippet"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:05:46.149538039Z",
+  "updated_at": "2026-11-10T22:05:46.149539735Z",
+  "version": 2,
+  "checksum": "0ffbfc808e7ed3e89d85a71a9e6bb61c7927641c097bcb6a74b5ccd15371570d",
+  "encrypted_by": "system"
+}

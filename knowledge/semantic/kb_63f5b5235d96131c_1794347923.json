@@ -1,0 +1,18 @@
+{
+  "id": "kb_63f5b5235d96131c_1794347923",
+  "category": "semantic",
+  "name": "越狱攻击模式库",
+  "level": 1,
+  "cipher_text": "vciycxReuxnb+sCqRodyy6uI4VcS0RDdCFMhcsIoi2sEqSI4N6t4H3e/Fcqc2igBx4VA53IqwTaohlo+3Gk86xeSyLHLCF6/BMuB9gQFajvbO13MTmPHe0UdLZlGifkYmXbI8tB7DoRrnfKDSMHTofh3TbTLvCdVN9gmGAZ0A+43i4Tad72fDE9RK+5040OzmyQu3XpF72pSaRyLjZo4weIfRr+viDSzYjuD6K88+axn8kRPGoEQP4aapA==",
+  "tags": [
+    "semantic",
+    "jailbreak",
+    "pattern"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T21:58:43.714841033Z",
+  "updated_at": "2026-11-10T21:58:43.714842349Z",
+  "version": 2,
+  "checksum": "dd20204f915d71233afa9be05b8780711924ce5340309e9cb3c138362a5255e4",
+  "encrypted_by": "system"
+}

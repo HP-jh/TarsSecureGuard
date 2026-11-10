@@ -1,0 +1,17 @@
+{
+  "id": "kb_bbb15bd721ac7c38_1794319172",
+  "category": "policy",
+  "name": "默认审计保留策略",
+  "level": 1,
+  "cipher_text": "+qp5ZBTj0uoAVCgqlZUM6jsQDS2aNegYFFUQOv0wXO1BhF6YUA4me3QM+8xRcnKKIwFZZU+2dxcPH8K1l/GKN7Qn9wlknhXlRea+ZGqYI0/ZqrD/hfPAxdAog35JGV0dQCoWQtKhWxZvEXbBfdOjLItdU/FuXaZ5v+jYa0rvc109K0YqrFuq6CI=",
+  "tags": [
+    "policy",
+    "audit"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T13:59:32.246437149Z",
+  "updated_at": "2026-11-10T13:59:32.246438925Z",
+  "version": 2,
+  "checksum": "db36625ef600f64153d865c17912705f09f0617f2aa26794c1301bed26375fc0",
+  "encrypted_by": "system"
+}

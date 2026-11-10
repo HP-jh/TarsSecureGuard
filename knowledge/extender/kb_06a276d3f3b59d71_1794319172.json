@@ -1,0 +1,18 @@
+{
+  "id": "kb_06a276d3f3b59d71_1794319172",
+  "category": "extender",
+  "name": "OpenAI 兼容接入片段",
+  "level": 1,
+  "cipher_text": "MziH3jp4vBGxT0+BOnlkS5iHDPgCsIPzAQjfCWt67/oLL+lPwCYN0ZKpK+ygRVdAjtNCquCXlIxKFTZYEBLsb9GEexoiyPdsj+gDRtVe5XTO+Y2OUN7thak14tlfE+ef3jvcMRD+7FhjnWvGqkWUMn/Dom3ZbuOE1Mm1PGw+h8dQ+r/ZOfMVF7PdGmCAvSr8iY7wBuFDaWLgB8yTIeL/jR0ToWOCufX/T5E=",
+  "tags": [
+    "extender",
+    "openai",
+    "snippet"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T13:59:32.246683968Z",
+  "updated_at": "2026-11-10T13:59:32.246686047Z",
+  "version": 2,
+  "checksum": "38747ce5602c5756cc92d9a3bfed603d7d2abfeae146d72a29484137aaaf8b85",
+  "encrypted_by": "system"
+}

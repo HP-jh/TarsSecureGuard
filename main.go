@@ -607,6 +607,10 @@ func isPublicRoute(p string) bool {
 	if strings.HasPrefix(p, "/api/onboarding/") {
 		return true
 	}
+	// v5.1 内核诊断端点免鉴权（只读，类比 /health）
+	if strings.HasPrefix(p, "/api/admin/kernel/") {
+		return true
+	}
 	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health" || p == "/ws/events"
 }
 func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {

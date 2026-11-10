@@ -1,0 +1,17 @@
+{
+  "id": "kb_0d852cefbc62a2d2_1794348346",
+  "category": "persona",
+  "name": "学生职业上下文",
+  "level": 1,
+  "cipher_text": "Y5DDgztO1uzmBcFYH8M0j+DB5Wa9ZZAYio+XWKutTvPrPvcW0MIAamDTVNB5JI4/HaP6YH8jxJ/tIN4qYcfcdQ8Dii0XpPKbt+dHzseevJ+i0uFFkIrP5ef80tuyp7q1KoiE4hCts8l9J0T9vs/8zYbClw95t6UpK1ZZB6owypwnaLfEnUQ+redzMAGunei91s4KckIWmiqosvPxiu+5OyU+yXtOmrjJW9qWgKanapTWpTlzJ4Rdf9WGy9OAufWOgw==",
+  "tags": [
+    "persona",
+    "student"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:05:46.149209993Z",
+  "updated_at": "2026-11-10T22:05:46.149213028Z",
+  "version": 2,
+  "checksum": "5af8bafa434265de0e31601adba647835793b3df94dcc31432b7f6b77edc6f64",
+  "encrypted_by": "system"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "kb_3384b0cb568ac0ac_1794319172",
+  "category": "persona",
+  "name": "文字创作者职业上下文",
+  "level": 1,
+  "cipher_text": "SkWPZu8EjTgjCPiUTnFktgQpCJdLogw6HNNskevRe0Qm0CxdB6u37DEZhUzMYWBKZTcxhc1FNt/M4doI2hAKKDjCefaDyO4TxsnK06CE+FA1inhEB1LkHe6G8Lyv3N/0IV78BgZObQjAHgKuQ4wSi+9wtwQc276dDWURau0LRVGR1YOi8mZ3nnHp7es7SatErFojRYBFnqQbXZ1uDiOro/kb+7Uqzw0WY0TkTg==",
+  "tags": [
+    "persona",
+    "writer"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T13:59:32.246588997Z",
+  "updated_at": "2026-11-10T13:59:32.24659113Z",
+  "version": 2,
+  "checksum": "1344ab069e9fc406393a5f83105416f12126440d0a9e89a433f25a731155c5b9",
+  "encrypted_by": "system"
+}

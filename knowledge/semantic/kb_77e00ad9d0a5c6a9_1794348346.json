@@ -1,0 +1,18 @@
+{
+  "id": "kb_77e00ad9d0a5c6a9_1794348346",
+  "category": "semantic",
+  "name": "语义护栏分类 v1",
+  "level": 1,
+  "cipher_text": "LayBaETaLVZEmKErcnW1Vq/5waL8RNNijMr4SJKqVgaAOhjw5/TgmnX8BlK+kBqfEwRm3sldgEkb+Koe3JQ70OuqfjFOQsEUyTOL3jyt1ZPVY+D0nD782q557dtQ98SeJHXQUrfqKRo8f838HO7VA5ub5/aE1BU272KsGFHBWbsPiopoNBn8ZYuh2raX5o1jUP8NY7GGtG+7IiUnBoNa/g4+HpPFq34nAoFIKD9+RpXSEjHT0XobkS3qgbnU4FAg8/sBizlZh9PC210GQcFRW86Jr2nH5bh/XBRsaQIcn5zrT5Di4K8lAFpck2LTkMyrqqIC3jPUAhx6ReT4LfjOSnG3K6GXMX0=",
+  "tags": [
+    "semantic",
+    "guard",
+    "classification"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:05:46.148859145Z",
+  "updated_at": "2026-11-10T22:05:46.148861663Z",
+  "version": 2,
+  "checksum": "df86f0be9fe6d1f8336ba535c7effb41e21b31c6dc7d117c77d9b2cc6e769c85",
+  "encrypted_by": "system"
+}

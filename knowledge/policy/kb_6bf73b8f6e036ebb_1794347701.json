@@ -1,0 +1,17 @@
+{
+  "id": "kb_6bf73b8f6e036ebb_1794347701",
+  "category": "policy",
+  "name": "默认 WAF 响应策略",
+  "level": 1,
+  "cipher_text": "RWQAR1+DYkpEH4WgAGlO3W94jd6btsMsLasEW6y5fNstrlRNqwe3FV+wMXj5dLDJNEtCOKzbGeacq8VDpL1hGEktYu4Y1lCVR2lz2nt9xfWzjRo80AmvFGUKYMeUfIjeFp3kP932y2Y1jyDxYizp1FrSqZKY/4igUTkx6ctAf9fzjmLhnok9u+6ZCtetrFvd6XgsSg==",
+  "tags": [
+    "policy",
+    "waf"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T21:55:01.504879023Z",
+  "updated_at": "2026-11-10T21:55:01.504881057Z",
+  "version": 2,
+  "checksum": "9e7a8f39c98ec5610fbfc4926d561a0a8fcc17bae078562c5c7c32196bb359ad",
+  "encrypted_by": "system"
+}

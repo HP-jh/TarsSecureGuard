@@ -1,0 +1,17 @@
+{
+  "id": "kb_84a448a687b2a212_1794348043",
+  "category": "persona",
+  "name": "研究者职业上下文",
+  "level": 1,
+  "cipher_text": "XLCDfJNM4glR2+yMVQcc4+uXFG7R4MykryYl2aUMuIYLewcU0x7W+yc492yqax9kAYwZOtv9ns0UD3HWkP2wQD9/ROtvlazhSBbZP+V+fbeQ3u3I7fTL+SJqpN4Z5Awhmhq6u/J+XxLIibeeSOrrAAsLwKC+HWlW360eOeeLf5BRchdPU7wXxtJ35eDeQE4fqTxvrz9XTvHbeRh4Z+YSFei4BCxRSpQZNwFTvehHQOegCb7Bt0Gp5V6iozRWQsnHkHxc23hLOmso1VEE",
+  "tags": [
+    "persona",
+    "researcher"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:00:43.894892933Z",
+  "updated_at": "2026-11-10T22:00:43.894895053Z",
+  "version": 2,
+  "checksum": "474739ffa2cc137a2f5c97df0e6bf6cf636765936fcff9a608602336a61cb118",
+  "encrypted_by": "system"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "kb_321a5ef729c609b9_1794347923",
+  "category": "protocol",
+  "name": "正则表达式安全指南",
+  "level": 0,
+  "cipher_text": "避免 ReDoS：禁用回溯量词（.{0,1000} 替代 .*）；预编译常用正则；使用 timeout 限制匹配时间。",
+  "tags": [
+    "regex",
+    "redos"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T21:58:43.714457002Z",
+  "updated_at": "2026-11-10T21:58:43.71445838Z",
+  "version": 2,
+  "checksum": "b29f6e550659cd9e06b2d7e8f36386b676015205e5e1b4f08ac0642fbfa6b2e0",
+  "encrypted_by": ""
+}

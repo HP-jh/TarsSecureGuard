@@ -1,0 +1,18 @@
+{
+  "id": "kb_86221ec56df29ce2_1794319172",
+  "category": "pii",
+  "name": "中国大陆身份证检测",
+  "level": 1,
+  "cipher_text": "O50BgIIIM8898akm4y+GUqDiJYcrOtvay850fNxZHnpejAOnI9ykH4wbPyBxxZndjb2UD6Vjm9gi0r8Ghxlr7SeC58QHNXFlSo1TBc85l9SjiOdNY9DoJhbYyBlJBRh7f7c0nUZwzjUPsHr+lOg9ZT/mtam/gDj5m/XJL9Rc9PlUd181AHXvpNZJoRxWefyh7ZhH99N/70WYMQ7VT+fzJKwVwOVXjb461ML8yc8=",
+  "tags": [
+    "pii",
+    "idcard",
+    "cn"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T13:59:32.245928152Z",
+  "updated_at": "2026-11-10T13:59:32.245930758Z",
+  "version": 2,
+  "checksum": "843e11086a981b047fcd185828a052c443c45aa9a33658c2a6e9ca3af5c3ba02",
+  "encrypted_by": "system"
+}

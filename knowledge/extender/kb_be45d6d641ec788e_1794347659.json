@@ -1,0 +1,18 @@
+{
+  "id": "kb_be45d6d641ec788e_1794347659",
+  "category": "extender",
+  "name": "Ollama 兼容接入片段",
+  "level": 1,
+  "cipher_text": "6nQt702Fe8RAOU2jGcXp3Oj8/q/Z10HtwNMmRcfsZITvSrYCAKfwABPG1u/rcAuPgJ7DC+xclLGBSUaWtUd6Ofxxr+FwHoUyG9rJJbMutlrkcLkOlD5hLHihNWTjT0lPYScMAY9LgR6hV3o5jWP+9idf9Bw1Iz9FCemtT/NJqVvFzo9VJpHGhvs66e5ESguOizJTZZLWA4Q=",
+  "tags": [
+    "extender",
+    "ollama",
+    "snippet"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T21:54:19.707633362Z",
+  "updated_at": "2026-11-10T21:54:19.707634775Z",
+  "version": 2,
+  "checksum": "359eb2caa66fef6a6971a1cbb63a4c476e5d30a950ec58af719d92f40e865171",
+  "encrypted_by": "system"
+}

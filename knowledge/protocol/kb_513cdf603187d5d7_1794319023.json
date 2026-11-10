@@ -1,0 +1,17 @@
+{
+  "id": "kb_513cdf603187d5d7_1794319023",
+  "category": "protocol",
+  "name": "URL 编码与解码规范",
+  "level": 0,
+  "cipher_text": "RFC 3986 百分号编码；解码前须校验 charset；拒绝 %00 空字节；规范化路径（移除 ../）。",
+  "tags": [
+    "url",
+    "encoding"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T13:57:03.537407739Z",
+  "updated_at": "2026-11-10T13:57:03.537409718Z",
+  "version": 2,
+  "checksum": "5ce98860b75e0569dbe53da1432cd1d62091e28d6e8ba90edb4f6ff9bfb231c2",
+  "encrypted_by": ""
+}

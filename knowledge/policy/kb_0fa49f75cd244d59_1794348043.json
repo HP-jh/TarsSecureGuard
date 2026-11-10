@@ -1,0 +1,17 @@
+{
+  "id": "kb_0fa49f75cd244d59_1794348043",
+  "category": "policy",
+  "name": "默认速率限制策略",
+  "level": 1,
+  "cipher_text": "b59SlsO0ACWQ1exhd/+BjQYml9WkHnoPKbneYZOm/u90IvYFTFbm8swqYIdvtrUGzT2hgOME5n+NTMWxBvEGz9smt9frftYnWDZsotGejVX7Ea17joZsl25DEw61PhdMeHM4dPogFVzQbfcMhsIMhQ4yp6BsXOrTyTZE0253lGV4",
+  "tags": [
+    "policy",
+    "ratelimit"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:00:43.894531619Z",
+  "updated_at": "2026-11-10T22:00:43.894533758Z",
+  "version": 2,
+  "checksum": "f903ff005244214227ca35909bbaed2a304f3b91a5509cabafe569126aaef07a",
+  "encrypted_by": "system"
+}

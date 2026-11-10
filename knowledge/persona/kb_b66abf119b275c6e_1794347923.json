@@ -1,0 +1,17 @@
+{
+  "id": "kb_b66abf119b275c6e_1794347923",
+  "category": "persona",
+  "name": "开发者职业上下文",
+  "level": 1,
+  "cipher_text": "vWgq066QugODgeiPSBnPqg46fk8i1VHOKnTFAPrUV+TY5sdhx8fDQLnwmAfGQOKFuc6bC/jbJtJhgkm1B8evan1InsIK2x2Nu8nqGPJ10qr/TnImXgrHDqwSMJ4LHW8V9DjPe3tyktOzc+z5FGTTlvA+4wUBPJaBy1uPpUhMkcdyfNH80TEh3Hm6tWADUpj5ssB2wn5AtXB6QCndlcw7wnX4Q/ftyXpbiT+k+5zHQBjLFF8k4BD+OYGKtwBC00+r4AoJ6IvxeH9bLS/539/3VrgOXA==",
+  "tags": [
+    "persona",
+    "developer"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T21:58:43.715029512Z",
+  "updated_at": "2026-11-10T21:58:43.715030797Z",
+  "version": 2,
+  "checksum": "928a72285239fd22c6010df5c062ab5d0f18111a64825f7f60d5ced246d5ada6",
+  "encrypted_by": "system"
+}

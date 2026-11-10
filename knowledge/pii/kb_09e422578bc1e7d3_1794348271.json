@@ -1,0 +1,17 @@
+{
+  "id": "kb_09e422578bc1e7d3_1794348271",
+  "category": "pii",
+  "name": "手机号检测（中/美/欧）",
+  "level": 1,
+  "cipher_text": "1LMce26+/UCgRt47Tw7u1harH/WspR5AiIC3WxZumE22mGCIbDyo41aQF97rPazUXNB3Y1O7XqqyvqcqTT8mL/t2+mjcubJkVlqnhc/ixvoWRtUKvVfz/eesA66Sw0IzmOKAyzMp8RXt50KIG4XSstc=",
+  "tags": [
+    "pii",
+    "phone"
+  ],
+  "meta": null,
+  "created_at": "2026-11-10T22:04:31.168263063Z",
+  "updated_at": "2026-11-10T22:04:31.168264962Z",
+  "version": 2,
+  "checksum": "e9f5952554c001e0e81288ce23cb8833e64b0295876599a4e36105c251fa78d1",
+  "encrypted_by": "system"
+}

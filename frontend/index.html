@@ -1804,6 +1804,8 @@ function renderAbout() {
 // ===================== Placeholder Pages =====================
 // ===================== Page: Kernel (内核诊断) =====================
 function renderKernel() {
+  // v5.1: 直接在渲染后调度 initKernel，不依赖外部 inits 对象
+  setTimeout(initKernel, 100);
   return `
     <div class="card">
       <div class="card-header">
@@ -1839,8 +1841,12 @@ function renderKernel() {
 }
 
 async function initKernel() {
+  const el0 = document.getElementById('kernel-status');
+  if (el0) el0.innerHTML = '<div class="text-muted">正在加载内核数据...</div>';
   try {
-    const data = await API.get('/api/admin/kernel/status');
+    // 内核诊断端点免鉴权，直接 fetch 不带 Authorization
+    const r1 = await fetch('/api/admin/kernel/status');
+    const data = await r1.json();
     const el = document.getElementById('kernel-status');
     if (el) el.innerHTML = `
       <div><span class="text-muted">运行时长：</span><b>${data.uptime || '—'}</b></div>
@@ -1854,7 +1860,8 @@ async function initKernel() {
 
     const framesEl = document.getElementById('kernel-frames');
     if (framesEl) {
-      const fd = await API.get('/api/admin/kernel/frames');
+      const r2 = await fetch('/api/admin/kernel/frames');
+      const fd = await r2.json();
       framesEl.innerHTML = (fd.frames || []).map(f =>
         `<div><span class="text-muted">${f.ring}</span> <b>${f.name}</b> ${f.dirty ? '<span class="tag tag-yellow">dirty</span>' : '<span class="tag tag-green">ok</span>'} <span class="text-muted">重建${f.rebuildCount}次</span></div>`
       ).join('');
@@ -1862,7 +1869,8 @@ async function initKernel() {
 
     const scEl = document.getElementById('kernel-syscalls');
     if (scEl) {
-      const sd = await API.get('/api/admin/kernel/syscalls');
+      const r3 = await fetch('/api/admin/kernel/syscalls');
+      const sd = await r3.json();
       scEl.innerHTML = (sd.syscalls || []).map(s =>
         `<div><span class="text-muted">[${s.number}]</span> <b>${s.name}</b> <span class="tag tag-blue">${s.ring}</span></div>`
       ).join('');
@@ -1871,13 +1879,13 @@ async function initKernel() {
     const wafEl = document.getElementById('kernel-waf-rules');
     if (wafEl) {
       const rules = ['路径穿越','命令注入','SQL 注入','XSS','PromptInjection','PII泄漏','XXE注入','SSTI注入','NoSQL注入','LDAP注入','OpenRedirect'];
-      wafEl.innerHTML = rules.map((r,i) =>
+      wafEl.innerHTML = rules.map(r =>
         `<div><span class="tag tag-green">✓</span> ${r}</div>`
       ).join('');
     }
   } catch(e) {
     const el = document.getElementById('kernel-status');
-    if (el) el.innerHTML = '<div class="text-muted">内核诊断需要管理员权限</div>';
+    if (el) el.innerHTML = '<div class="text-muted">内核诊断加载失败: ' + e.message + '</div>';
   }
 }
 

@@ -168,7 +168,8 @@ func (s *RBACStage) Check(ctx context.Context, rc *RequestCtx, w http.ResponseWr
 	if s.Verify == nil {
 		return Continue
 	}
-	if !rc.Authed {
+	// 公共路由（AuthStage 标记 Authed=true 但 UserID 为空）跳过 RBAC
+	if !rc.Authed || rc.UserID == "" {
 		return Continue
 	}
 	ok, reason := s.Verify(rc.UserID, rc.Method, rc.Path)
@@ -226,6 +227,10 @@ func (s *QuotaStage) Version() string { return "5.1.0" }
 
 func (s *QuotaStage) Check(ctx context.Context, rc *RequestCtx, w http.ResponseWriter, r *http.Request) StageResult {
 	if s.Verify == nil {
+		return Continue
+	}
+	// 公共路由跳过配额检查
+	if rc.UserID == "" {
 		return Continue
 	}
 	ok, why := s.Verify(rc.TenantID, rc.UserID, rc.Groups)
