@@ -1176,6 +1176,7 @@ const NAV_SECTIONS = [
     { id: 'logs', icon: '📝', label: '日志' },
     { id: 'settings', icon: '⚙️', label: '设置' },
     { id: 'about', icon: 'ℹ️', label: '关于' },
+    { id: 'kernel', icon: '🧬', label: '内核' },
   ]},
 ];
 
@@ -1232,6 +1233,7 @@ function renderPage() {
     logs: ['系统日志', '系统 / 运行日志'],
     settings: ['设置', '系统 / 配置'],
     about: ['关于', '系统 / 信息'],
+    kernel: ['内核', '系统 / 内核诊断'],
     persona: ['职业系统', '对话 / 职业配置'],
     meter: ['Token 计量', '模型 / 成本监控'],
     fallback: ['回退策略', '模型 / 容灾配置'],
@@ -1258,6 +1260,7 @@ function renderPage() {
     logs: renderLogs,
     settings: renderSettings,
     about: renderAbout,
+    kernel: renderKernel,
     persona: renderPersona,
     meter: renderMeter,
     fallback: renderFallback,
@@ -1282,6 +1285,7 @@ function renderPage() {
     waf: initWAF,
     meter: initMeter,
     modules: initModules,
+    kernel: initKernel,
   };
   if (inits[page]) setTimeout(inits[page], 50);
 }
@@ -1798,6 +1802,85 @@ function renderAbout() {
 }
 
 // ===================== Placeholder Pages =====================
+// ===================== Page: Kernel (内核诊断) =====================
+function renderKernel() {
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="dot"></span>内核状态</div>
+        <div class="card-actions"><span class="tag tag-cyan">类比 NT 内核诊断</span></div>
+      </div>
+      <div id="kernel-status" class="text-sm" style="line-height:2.2">
+        <div class="skeleton" style="width:70%;height:14px;margin:8px 0"></div>
+        <div class="skeleton" style="width:55%;height:14px;margin:8px 0"></div>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="dot"></span>安全模块 (Frames)</div></div>
+        <div id="kernel-frames" class="text-sm" style="line-height:2">
+          <div class="skeleton" style="width:80%;height:14px;margin:8px 0"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="dot"></span>系统调用表 (Syscalls)</div></div>
+        <div id="kernel-syscalls" class="text-sm" style="line-height:2">
+          <div class="skeleton" style="width:80%;height:14px;margin:8px 0"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="dot"></span>WAF 规则覆盖</div></div>
+      <div id="kernel-waf-rules" class="text-sm" style="line-height:2">
+        <div class="skeleton" style="width:80%;height:14px;margin:8px 0"></div>
+      </div>
+    </div>
+  `;
+}
+
+async function initKernel() {
+  try {
+    const data = await API.get('/api/admin/kernel/status');
+    const el = document.getElementById('kernel-status');
+    if (el) el.innerHTML = `
+      <div><span class="text-muted">运行时长：</span><b>${data.uptime || '—'}</b></div>
+      <div><span class="text-muted">内核对象：</span><b>${data.objects || 0}</b></div>
+      <div><span class="text-muted">Bugcheck 次数：</span><b>${data.bugchecks || 0}</b></div>
+      <div><span class="text-muted">Dirty Reflow 次数：</span><b>${data.dirtyReflows || 0}</b></div>
+      <div><span class="text-muted">Frame 数：</span><b>${data.frames || 0}</b></div>
+      <div><span class="text-muted">Syscall 数：</span><b>${data.syscalls || 0}</b></div>
+      <div><span class="text-muted">管道阶段：</span><b>${(data.stages || []).join(' → ')}</b></div>
+    `;
+
+    const framesEl = document.getElementById('kernel-frames');
+    if (framesEl) {
+      const fd = await API.get('/api/admin/kernel/frames');
+      framesEl.innerHTML = (fd.frames || []).map(f =>
+        `<div><span class="text-muted">${f.ring}</span> <b>${f.name}</b> ${f.dirty ? '<span class="tag tag-yellow">dirty</span>' : '<span class="tag tag-green">ok</span>'} <span class="text-muted">重建${f.rebuildCount}次</span></div>`
+      ).join('');
+    }
+
+    const scEl = document.getElementById('kernel-syscalls');
+    if (scEl) {
+      const sd = await API.get('/api/admin/kernel/syscalls');
+      scEl.innerHTML = (sd.syscalls || []).map(s =>
+        `<div><span class="text-muted">[${s.number}]</span> <b>${s.name}</b> <span class="tag tag-blue">${s.ring}</span></div>`
+      ).join('');
+    }
+
+    const wafEl = document.getElementById('kernel-waf-rules');
+    if (wafEl) {
+      const rules = ['路径穿越','命令注入','SQL 注入','XSS','PromptInjection','PII泄漏','XXE注入','SSTI注入','NoSQL注入','LDAP注入','OpenRedirect'];
+      wafEl.innerHTML = rules.map((r,i) =>
+        `<div><span class="tag tag-green">✓</span> ${r}</div>`
+      ).join('');
+    }
+  } catch(e) {
+    const el = document.getElementById('kernel-status');
+    if (el) el.innerHTML = '<div class="text-muted">内核诊断需要管理员权限</div>';
+  }
+}
+
 function renderPlaceholder() {
   const page = State.get('currentPage');
   return `<div class="card"><div class="empty-state"><div class="empty-icon">🚧</div><p><b>${page}</b> 页面正在建设中</p></div></div>`;

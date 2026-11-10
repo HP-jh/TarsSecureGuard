@@ -137,6 +137,41 @@ func initKernelSyscalls(k *kernel.Kernel) {
 		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
 			return kernel.Continue, nil
 		})
+
+	// v5.1 新增 syscall
+	k.Syscalls.Register(kernel.SysPIIMask, "pii_mask", kernel.Ring1,
+		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
+			return kernel.Continue, nil
+		})
+	k.Syscalls.Register(kernel.SysIPReputation, "ip_reputation", kernel.Ring1,
+		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
+			return kernel.Continue, nil
+		})
+	k.Syscalls.Register(kernel.SysCSPGenerate, "csp_generate", kernel.Ring1,
+		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
+			return kernel.Continue, nil
+		})
+	k.Syscalls.Register(kernel.SysRateLimit, "rate_limit", kernel.Ring2,
+		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
+			return kernel.Continue, nil
+		})
+	k.Syscalls.Register(kernel.SysRBACCheck, "rbac_check", kernel.Ring0,
+		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
+			return kernel.Continue, nil
+		})
+	k.Syscalls.Register(kernel.SysQuotaCheck, "quota_check", kernel.Ring2,
+		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
+			return kernel.Continue, nil
+		})
+	k.Syscalls.Register(kernel.SysSSRFCheck, "ssrf_check", kernel.Ring0,
+		func(rc *kernel.RequestCtx, args interface{}) (kernel.StageResult, error) {
+			if checkFn, ok := args.(func(string) bool); ok {
+				if checkFn(rc.RemoteIP) {
+					return kernel.Halt, nil
+				}
+			}
+			return kernel.Continue, nil
+		})
 }
 
 // buildTSGKernel 构造完整的 TSG 内核实例
@@ -166,6 +201,13 @@ func buildTSGKernel() *kernel.Kernel {
 	k.Frames.BuildFrame("quota", "5.1.0", kernel.Ring2)
 	k.Frames.BuildFrame("rate-limit", "5.1.0", kernel.Ring2)
 	k.Frames.BuildFrame("pii-response-writer", "5.1.0", kernel.Ring1)
+	// v5.1 安全规则补全模块
+	k.Frames.BuildFrame("ssrf", "5.1.0", kernel.Ring0)
+	k.Frames.BuildFrame("audit", "5.1.0", kernel.Ring1)
+	k.Frames.BuildFrame("pii-mask", "5.1.0", kernel.Ring1)
+	k.Frames.BuildFrame("body-size", "5.1.0", kernel.Ring2)
+	k.Frames.BuildFrame("unicode-norm", "5.1.0", kernel.Ring1)
+	k.Frames.BuildFrame("idempotency", "5.1.0", kernel.Ring2)
 
 	// v5.1 ObjectManager: 发布初始配置快照为内核对象（RCU 引用计数）
 	k.Objects.Create(kernel.ObjConfigSnapshot, "initial-config", nil)

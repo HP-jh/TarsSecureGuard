@@ -27,11 +27,17 @@ var wafRules = []struct {
 	strict bool
 }{
 	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%c0%af|%c1%9c)`), false},
-	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|&&\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|;\\s*\\x60[a-z]+\\x60)"), false},
-	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
-	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
-	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*)`), true},
+	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir|python|perl|ruby|node|nc|ncat|socat|chmod|chown|kill|find|cat|echo|whoami|id|uname|ifconfig|ipconfig|nslookup|dig)\\b|&&\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir|python|perl|ruby|node|nc|socat)\\b|\\|\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|rm|cat|python|perl|nc)\\b|;\\s*\\x60[a-z]+\\x60|\\$\\([^)]+\\)|\\$\\{[^}]+\\}|%0a|\\n\\s*(cmd|bash|sh)\\b)"), false},
+	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\(|\bor\s+1\s*=\s*1\b|'\s*or\s*'?\d|--|#.*$|\bxp_cmdshell\b|\bload_file\s*\(|\binto\s+outfile\b|\bwaitfor\s+delay\b|\bconvert\s*\(|\bcast\s*\(|\bexec\s+xp_|information_schema)`), true},
+	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|onmouseover\s*=|onfocus\s*=|onclick\s*=|onsubmit\s*=|<\s*iframe|<\s*svg|<\s*embed|<\s*object|document\.cookie|data\s*:|vbscript\s*:|expression\s*\(|<\s*img[^>]*\bonerror\s*=)`), true},
+	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*|\breveal\s+your\s+(system|hidden|secret)|\bact\s+as\s+(if|though).*(no|without)\s+(restrict|rule|limit)|<\|im_start\|>)`), true},
 	{"PII泄漏", regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b|\b\d{3}-\d{2}-\d{4}\b|\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b|\b1[3-9]\d{9}\b`), true},
+	// v5.1 安全规则补全
+	{"XXE注入", regexp.MustCompile(`(?i)(<!doctype.*entity|<!entity\s+\w+\s+system|<!ENTITY\s+\w+\s+SYSTEM|<!DOCTYPE\s+\w+\s*\[)`), true},
+	{"SSTI注入", regexp.MustCompile(`(?i)(\{\{.*\}\}|\{%.*%\})`), true},
+	{"NoSQL注入", regexp.MustCompile(`(?i)(\$where\s*\(|\$ne\s*\(|\$gt\s*\(|\$regex\s*\(|\$or\s*\(\[|this\.constructor)`), true},
+	{"LDAP注入", regexp.MustCompile(`(?i)(uid=\*|objectClass=\*|\(\|\(|\)\|\))`), true},
+	{"OpenRedirect", regexp.MustCompile(`(?i)(\?url=https?://[^/]|\?next=//[^/]|\?return=https?://[^/]|\?redirect_to=//[^/])`), false},
 }
 
 // v3.2.3 性能升级 v2：合并正则——normal 与 strict 各预编译为一条 alternation，
@@ -54,11 +60,16 @@ var wafLiterals = []struct {
 	lits    []string // 字面量子串（小写）
 }{
 	{0, []string{"../", "..\\", "%2e%2e", "%2e%2f", "%252e", "%c0%af", "%c1%9c"}}, // 路径穿越
-	{1, []string{";cmd", "; cmd", ";powershell", "; powershell", ";pwsh", ";bash", "; sh", ";wget", "; curl", ";net ", ";taskkill", "; ping", ";rm ", ";rmdir", "&&cmd", "&& cmd", "&&powershell", "&&bash", "&& sh", "&&rm ", "`", "mkdir"}}, // 命令注入
-	{2, []string{"union select", "insert into", "delete from", "drop table", "/*", "sleep(", "benchmark("}}, // SQL 注入
-	{3, []string{"<script", "javascript:", "onerror=", "onload=", "<iframe", "document.cookie", "<object"}}, // XSS
-	{4, []string{"ignore previous", "ignore above", "ignore prior", "disregard instructions", "disregard rules", "you are now", "dan mode", "jailbreak", "system: you are", "developer mode", "do anything now", "new instructions:"}}, // PromptInjection
+	{1, []string{";cmd", "; cmd", ";powershell", ";powershell", ";pwsh", ";bash", "; sh", ";wget", "; curl", ";net ", ";taskkill", "; ping", ";rm ", ";rmdir", ";python", ";perl", ";ruby", ";node", ";nc", ";socat", ";chmod", ";kill", ";cat ", ";echo ", ";whoami", ";uname", ";dig", "&&cmd", "&& cmd", "&&powershell", "&&bash", "&& sh", "&&rm ", "&&python", "`", "$(", "${", "%0a", "|cmd", "| bash", "|sh", "|python", "|nc", "mkdir"}}, // 命令注入
+	{2, []string{"union select", "insert into", "delete from", "drop table", "/*", "sleep(", "benchmark(", "or 1=1", "'or'", "--", "xp_cmdshell", "load_file", "into outfile", "waitfor delay", "convert(", "cast(", "exec xp_", "information_schema"}}, // SQL 注入
+	{3, []string{"<script", "javascript:", "onerror=", "onload=", "onmouseover=", "onfocus=", "onclick=", "onsubmit=", "<iframe", "<svg", "<embed", "<object", "document.cookie", "data:", "vbscript:", "expression("}}, // XSS
+	{4, []string{"ignore previous", "ignore above", "ignore prior", "disregard instructions", "disregard rules", "you are now", "dan mode", "jailbreak", "system: you are", "developer mode", "do anything now", "new instructions:", "reveal your system", "reveal your hidden", "reveal your secret", "act as if", "act as though", "<|im_start|>"}}, // PromptInjection
 	{5, []string{}}, // PII泄漏 — 无固定字面量（数字模式），不预筛，直接走正则
+	{6, []string{"<!doctype", "<!entity", "<!ENTITY", "<!DOCTYPE", "entity"}}, // XXE注入
+	{7, []string{"{{", "{%", "${", "#set", "#foreach", "#if"}}, // SSTI注入
+	{8, []string{"$where", "$ne", "$gt", "$lt", "$regex", "$in", "$nin", "$or", "this.constructor"}}, // NoSQL注入
+	{9, []string{"uid=*", "objectClass=*", "(|", ")(|"}}, // LDAP注入
+	{10, []string{"?url=http", "?url=https", "?next=//", "?return=http", "?return=https", "?redirect_to=//"}}, // OpenRedirect
 }
 
 // wafLiteralHit 检查输入是否命中任一字面量，返回命中的规则索引集合
