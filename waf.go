@@ -42,6 +42,50 @@ var (
 	wafStrictMerged = wafMergeRules(true)
 )
 
+// v5.1 §3.5 WAF 字面量预筛
+// 参考：Hyperscan (NSDI 2019) 的 literals 预筛——从规则抽取固定字面量，
+// 用 strings.Index 做 O(n) 预筛，命中候选再跑对应单条 RE2。
+// 纯字面量不命中 → 整串免正则，跳过昂贵的 alternation 匹配。
+// 目标：71µs → 10µs 量级，且不得放宽任何规则。
+
+// wafLiteral 每条规则的字面量子串（小写），任一命中即触发该规则的正则
+var wafLiterals = []struct {
+	ruleIdx int     // 对应 wafRules 的索引
+	lits    []string // 字面量子串（小写）
+}{
+	{0, []string{"../", "..\\", "%2e%2e", "%2e%2f", "%252e", "%c0%af", "%c1%9c"}}, // 路径穿越
+	{1, []string{";cmd", "; cmd", ";powershell", "; powershell", ";pwsh", ";bash", "; sh", ";wget", "; curl", ";net ", ";taskkill", "; ping", ";rm ", ";rmdir", "&&cmd", "&& cmd", "&&powershell", "&&bash", "&& sh", "&&rm ", "`", "mkdir"}}, // 命令注入
+	{2, []string{"union select", "insert into", "delete from", "drop table", "/*", "sleep(", "benchmark("}}, // SQL 注入
+	{3, []string{"<script", "javascript:", "onerror=", "onload=", "<iframe", "document.cookie", "<object"}}, // XSS
+	{4, []string{"ignore previous", "ignore above", "ignore prior", "disregard instructions", "disregard rules", "you are now", "dan mode", "jailbreak", "system: you are", "developer mode", "do anything now", "new instructions:"}}, // PromptInjection
+	{5, []string{}}, // PII泄漏 — 无固定字面量（数字模式），不预筛，直接走正则
+}
+
+// wafLiteralHit 检查输入是否命中任一字面量，返回命中的规则索引集合
+// strings.Index 是 O(n) 且无回溯，比 RE2 alternation 快一个量级
+func wafLiteralHit(s string, strict bool) map[int]bool {
+	hits := map[int]bool{}
+	ls := strings.ToLower(s)
+	for _, wl := range wafLiterals {
+		// strict 规则在 strict=false 时跳过
+		if wafRules[wl.ruleIdx].strict && !strict {
+			continue
+		}
+		// PII 规则无字面量，直接标记为候选（仍需正则确认）
+		if len(wl.lits) == 0 {
+			hits[wl.ruleIdx] = true
+			continue
+		}
+		for _, lit := range wl.lits {
+			if strings.Contains(ls, lit) {
+				hits[wl.ruleIdx] = true
+				break
+			}
+		}
+	}
+	return hits
+}
+
 // wafMergeRules 把（按 strict 过滤后的）规则模式串逐条以 (?:...) 包裹后 alternation 合并。
 // 独立预编译，不改动 wafRules 原始定义（个别回查仍用原规则对象）。
 func wafMergeRules(strict bool) *regexp.Regexp {
@@ -85,17 +129,19 @@ func wafMatch(s string, strict bool) string {
 	if !wafNeedsScan(s) {
 		return ""
 	}
-	// 单遍快筛：一条合并正则扫完（替代逐规则多次全串扫描）
-	merged := wafNormalMerged
-	if strict {
-		merged = wafStrictMerged
-	}
-	if merged != nil && !merged.MatchString(s) {
+	// v5.1 §3.5 字面量预筛：先用 strings.Index 做 O(n) 快筛
+	// 命中字面量的规则才跑正则，未命中任何字面量的规则直接跳过
+	// 参考：Hyperscan (NSDI 2019) literals 预筛 + 图分解
+	candidates := wafLiteralHit(s, strict)
+	if len(candidates) == 0 {
 		return ""
 	}
-	// 命中：按原顺序回查个别规则，返回首个命中名（与逐条扫描语义一致）
-	for _, rule := range wafRules {
+	// 对候选规则按原顺序跑正则，返回首个命中名（语义不变）
+	for i, rule := range wafRules {
 		if rule.strict && !strict {
+			continue
+		}
+		if !candidates[i] {
 			continue
 		}
 		if rule.re.MatchString(s) {
