@@ -522,14 +522,14 @@ func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {
 	obsRecordWAF(r, reason)
 	line := fmt.Sprintf("[%s] %s %s %s → BLOCKED (%s)%s", now, clientIP(r), r.Method, r.URL.Path, reason, obsTraceSuffix(r))
 	mu.Lock()
-	wafBlocks++
+	wafBlocks.Add(1)
 	if len(wafLogs) >= wafLogLimit {
 		wafLogs = wafLogs[len(wafLogs)-wafLogLimit+1:]
 	}
 	wafLogs = append(wafLogs, line)
 	mu.Unlock()
-	// WAF 日志同步落盘：logs/waf-YYYY-MM-DD.log（含时间、IP、原因、请求路径）
-	fileLog("waf", line)
+	// WAF 日志异步入队（v5.1 §3.4：不在请求路径上同步写盘）
+	asyncLog("waf", line)
 	logMsg(fmt.Sprintf("[WAF] BLOCK %s %s (%s)", r.Method, r.URL.Path, reason))
 	writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "blocked by WAF: " + reason})
 }

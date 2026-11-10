@@ -292,7 +292,7 @@ func initTools() {
 				wafOn := snap.Security.WAFEnabled
 				mode := snap.Security.Mode
 				mu.Lock()
-				blocks := wafBlocks
+				blocks := wafBlocks.Load()
 				mu.Unlock()
 				return map[string]interface{}{
 					"wafEnabled":            wafOn,

@@ -239,7 +239,7 @@ func runSecurityScan() *SecurityScanResult {
 		Score:  wafScore,
 		Status: statusFromScore(wafScore),
 		Icon:   "shield",
-		Details: fmt.Sprintf("拦截次数: %d", wafBlocks),
+		Details: fmt.Sprintf("拦截次数: %d", wafBlocks.Load()),
 	})
 	result.Threats = append(result.Threats, wafThreats...)
 
@@ -343,7 +343,7 @@ func runSecurityScan() *SecurityScanResult {
 
 func scanWAF() (int, []ThreatItem) {
 	mu.Lock()
-	blocks := wafBlocks
+	blocks := wafBlocks.Load()
 	mu.Unlock()
 
 	score := 100
@@ -763,7 +763,7 @@ func handleSecurity360Summary(w http.ResponseWriter, r *http.Request) {
 	sec360Mu.RUnlock()
 
 	mu.Lock()
-	blocks := wafBlocks
+	blocks := wafBlocks.Load()
 	mu.Unlock()
 
 	snap := configSnapshot()

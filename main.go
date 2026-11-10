@@ -58,16 +58,18 @@ var (
 var allowedRoots []string
 // ===================== 全局状态 =====================
 var (
-	mu           sync.Mutex
+	mu           sync.Mutex // 保护 logs/wafLogs 切片
 	logs         []string
 	wafLogs      []string
 	startTime    = time.Now()
-	totalReq     int
-	successReq   int
-	failReq      int
-	wafBlocks    int
-	respTotalMs  int64 // 已处理请求的累计耗时（毫秒），用于计算平均响应时间
-	respSamples  int64 // 已计时的请求次数
+	// v5.1 §3.4 热路径去锁：计数器改 atomic，请求路径零锁
+	// 参考：腾讯 MT 架构的无锁统计计数器
+	totalReq     atomic.Int64
+	successReq   atomic.Int64
+	failReq       atomic.Int64
+	wafBlocks    atomic.Int64
+	respTotalMs  atomic.Int64 // 累计耗时（毫秒）
+	respSamples  atomic.Int64 // 已计时请求次数
 	modelProcess *os.Process
 	modelRunning bool
 	currentModel string // 当前加载的本地 GGUF 模型 id
@@ -137,6 +139,8 @@ func main() {
 	}
 	// 日志文件持久化：初始化 logs/ 目录（失败不影响服务）
 	initFileLogging()
+	// v5.1 §3.4：启动异步日志写入 goroutine（控制面，不在请求路径上）
+	startLogWorker()
 	resolveConfigPath()
 	loadConfig()
 	// v4.15.1 unified install path + persistent data
@@ -528,7 +532,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// 3) 入站鉴权（静态前端页面放行，API 一律校验）
 		if isPublicRoute(r.URL.Path) {
 			mu.Lock()
-			totalReq++
+			totalReq.Add(1)
 			mu.Unlock()
 			recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
 			return
@@ -537,7 +541,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		if !ok {
 			obsStage(r.Context(), "auth", "401 未授权")
 			mu.Lock()
-			failReq++
+			failReq.Add(1)
 			mu.Unlock()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
 			// v4.7.4 小白化：401 走 i18n + hint 字段，告诉用户怎么填密钥
@@ -568,7 +572,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		mu.Lock()
-		totalReq++
+		totalReq.Add(1)
 		mu.Unlock()
 		recordResponseTime(time.Now(), func() {
 			// v4.31.0：响应流出自动脱敏——用 piiResponseWriter 替代 statusWriter
@@ -586,8 +590,8 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 func recordResponseTime(start time.Time, serve func()) {
 	serve()
 	mu.Lock()
-	respTotalMs += time.Since(start).Milliseconds()
-	respSamples++
+	respTotalMs.Add(time.Since(start).Milliseconds())
+	respSamples.Add(1)
 	mu.Unlock()
 }
 func isPublicRoute(p string) bool {

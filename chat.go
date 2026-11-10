@@ -236,7 +236,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		quotaRecord(id.Tenant, id.Name, id.Groups, inTok+estimateTokens(reply))
 	}
 	mu.Lock()
-	successReq++
+	successReq.Add(1)
 	mu.Unlock()
 	writeJSON(w, ChatResponse{
 		Choices: []Choice{{Message: Message{Role: "assistant", Content: reply}}},
@@ -683,7 +683,7 @@ func handleV1(w http.ResponseWriter, r *http.Request) {
 			quotaRecord(vid.Tenant, vid.Name, vid.Groups, usage.TotalTokens)
 		}
 		mu.Lock()
-		successReq++
+		successReq.Add(1)
 		mu.Unlock()
 		msgOut := map[string]interface{}{"role": "assistant", "content": res.Content}
 		if len(res.ToolCalls) > 0 {
