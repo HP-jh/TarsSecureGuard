@@ -50,9 +50,8 @@ func statusPayload() map[string]interface{} {
 	mu.Lock()
 	total, succ, fail, blocks := totalReq, successReq, failReq, wafBlocks
 	mu.Unlock()
-	cfgMu.RLock()
-	mode := cfg.Security.Mode
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	mode := snap.Security.Mode
 	return map[string]interface{}{
 		"version":     version,
 		"shield_mode": mode,
@@ -104,6 +103,8 @@ func handleOnboardingAPIKey(w http.ResponseWriter, r *http.Request) {
 	cfg.Cloud.OpenAI.APIKey = body.Key
 	cfg.Cloud.DeepSeek.APIKey = body.Key
 	cfgMu.Unlock()
+	publishConfig()
+	publishConfig()
 	saveConfig()
 	writeJSON(w, map[string]interface{}{"ok": true})
 }
@@ -123,6 +124,8 @@ func handleOnboardingDemo(w http.ResponseWriter, r *http.Request) {
 	cfg.Security.WAFEnabled = true
 	cfg.Security.Mode = "normal"
 	cfgMu.Unlock()
+	publishConfig()
+	publishConfig()
 	saveConfig()
 	// 异步触发模型发现（不阻塞响应）
 	go refreshDiscoveredModels()
@@ -150,10 +153,9 @@ func handleSecurity(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	blocks := wafBlocks
 	mu.Unlock()
-	cfgMu.RLock()
-	mode := cfg.Security.Mode
-	wafOn := cfg.Security.WAFEnabled
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	mode := snap.Security.Mode
+	wafOn := snap.Security.WAFEnabled
 	writeJSON(w, map[string]interface{}{
 		"wafBlockCount":         blocks,
 		"threatIntelBlockCount": 0,
@@ -277,6 +279,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.Marshal(root)
 		err := json.Unmarshal(data, &cfg)
 		cfgMu.Unlock()
+		publishConfig()
 		for _, rj := range rejected {
 			auditLog("CONFIG_REJECTED", "-", rj)
 		}
@@ -288,6 +291,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if applied > 0 {
 			// 档位类配置变更后立即对齐（不等热重载轮询）；
 			// 必须在 cfgMu.Unlock() 之后调用——reconcile 内部会再取读锁，持写锁时调用会自死锁
+			publishConfig()
 			saveConfig()
 			reconcileModuleWorkers()
 			firewallReconcile()
@@ -298,18 +302,17 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]interface{}{"success": true, "applied": applied})
 		return
 	}
-	cfgMu.RLock()
-	eng := cfg.Search.Engine
-	hasKey := cfg.Search.APIKey != ""
-	cloudOpen := cfg.Cloud.OpenAI.Name
-	cloudDeep := cfg.Cloud.DeepSeek.Name
-	extServers := cfg.MCP.ExternalServers
-	wafOn := cfg.Security.WAFEnabled
-	mode := cfg.Security.Mode
-	apiKeySet := cfg.Security.APIKey != ""
-	auditOn := cfg.Security.AuditLogEnabled
-	users := append([]User(nil), cfg.Users...)
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	eng := snap.Search.Engine
+	hasKey := snap.Search.APIKey != ""
+	cloudOpen := snap.Cloud.OpenAI.Name
+	cloudDeep := snap.Cloud.DeepSeek.Name
+	extServers := snap.MCP.ExternalServers
+	wafOn := snap.Security.WAFEnabled
+	mode := snap.Security.Mode
+	apiKeySet := snap.Security.APIKey != ""
+	auditOn := snap.Security.AuditLogEnabled
+	users := append([]User(nil), snap.Users...)
 	// 脱敏用户 Key
 	for i := range users {
 		users[i].APIKey = "***"

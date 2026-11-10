@@ -199,15 +199,13 @@ func sensitivePathMatch(p string) string {
 }
 
 func wafEnabled() bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return cfg.Security.WAFEnabled
+	snap := configSnapshot()
+	return snap.Security.WAFEnabled
 }
 
 func wafStrict() bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return cfg.Security.Mode == "strict"
+	snap := configSnapshot()
+	return snap.Security.Mode == "strict"
 }
 
 func wafCheck(r *http.Request) string {
@@ -347,9 +345,8 @@ func wafScanBody(b []byte, strict bool, isChat bool) string {
 
 // piiMaskLevel 读取配置中的脱敏强度（full | partial | hash）
 func piiMaskLevel() string {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	lvl := cfg.Security.PIIMaskLevel
+	snap := configSnapshot()
+	lvl := snap.Security.PIIMaskLevel
 	if lvl == "" {
 		return "full"
 	}
@@ -361,9 +358,8 @@ func piiMaskLevel() string {
 
 // piiMaskEnabled 读取配置中的响应脱敏开关
 func piiMaskEnabled() bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return cfg.Security.PIIMaskEnabled
+	snap := configSnapshot()
+	return snap.Security.PIIMaskEnabled
 }
 
 // piiMaskFunc 脱敏替换函数签名

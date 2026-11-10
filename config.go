@@ -299,6 +299,31 @@ func loadConfig() {
 	wlReconcile("load")
 	// 记录当前配置文件指纹，作为热重载的基线（含纠正后回写的内容，防止自触发）
 	markConfigLoaded()
+	// v5.1 RCU：发布配置快照，请求路径零锁读
+	publishConfig()
+}
+
+// publishConfig 把当前 cfg 原子发布为不可变快照。
+// 控制面（loadConfig / saveConfig / setModuleState 等）在写完 cfg 后调用。
+// 请求路径通过 configSnapshot() 读取，走 atomic.LoadPointer，无锁。
+func publishConfig() {
+	// 拷贝一份 cfg 的当前值作为快照（避免后续写操作影响已发布的快照）
+	snap := cfg
+	cfgPtr.Store(&snap)
+}
+
+// configSnapshot 返回当前配置的只读快照（零锁）。
+// 请求路径上所有 cfgMu.RLock → configSnapshot() 替换。
+// 快照是值拷贝，调用方修改不影响全局 cfg。
+func configSnapshot() Config {
+	if p := cfgPtr.Load(); p != nil {
+		return *p
+	}
+	// 首次 publishConfig 前的 fallback（init 阶段）
+	cfgMu.RLock()
+	snap := cfg
+	cfgMu.RUnlock()
+	return snap
 }
 
 // validateAndCorrectConfig 安全铁律校验：安全保护模块不可关闭。
@@ -340,11 +365,15 @@ func validateAndCorrectConfig() {
 }
 
 func saveConfig() {
+	cfgMu.Lock()
 	data, err := json.MarshalIndent(cfg, "", "  ")
+	cfgMu.Unlock()
 	if err != nil {
 		return
 	}
 	os.WriteFile(configPath, data, 0644)
+	// v5.1 RCU：发布快照
+	publishConfig()
 }
 
 // saveConfigChecked v3.3.0：带错误返回的保存（能力覆盖层写入用）
@@ -601,6 +630,8 @@ func revertConfig() error {
 	cfgMu.Lock()
 	cfg = c
 	cfgMu.Unlock()
+	// v5.1 RCU：发布回滚后的快照
+	publishConfig()
 	// 回滚后同步持久化并触发对齐
 	saveConfig()
 	loadConfig()

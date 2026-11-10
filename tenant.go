@@ -113,9 +113,8 @@ func identityFromRequest(r *http.Request) (Identity, bool) {
 		}
 		return Identity{}, false
 	}
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	for _, u := range cfg.Users {
+	snap := configSnapshot()
+	for _, u := range snap.Users {
 		if u.Enabled && constantTimeEq(key, u.APIKey) {
 			id := Identity{Name: u.Name, Role: u.Role, Groups: append([]string(nil), u.Groups...), IsUsers: true}
 			switch u.Role {
@@ -255,15 +254,14 @@ var tenantIDRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 // 全局已知后端候选（租户路由偏好必须落在全局候选集内，Rule C）
 func knownBackends() map[string]bool {
 	set := map[string]bool{"llama": true, "lmstudio": true, "ollama": true}
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
+	snap := configSnapshot()
 	if cfg.Cloud.OpenAI.APIKey != "" || len(cfg.Cloud.OpenAI.Models) > 0 {
 		set["openai"] = true
 	}
-	if cfg.Cloud.DeepSeek.APIKey != "" || len(cfg.Cloud.DeepSeek.Models) > 0 {
+	if snap.Cloud.DeepSeek.APIKey != "" || len(snap.Cloud.DeepSeek.Models) > 0 {
 		set["deepseek"] = true
 	}
-	for _, c := range cfg.Cloud.Custom {
+	for _, c := range snap.Cloud.Custom {
 		if c.Name != "" {
 			set[strings.ToLower(c.Name)] = true
 		}
@@ -752,9 +750,8 @@ func sha256Hex(b []byte) string {
 
 // auditLogT 租户感知审计（[MT_AUDIT_ISOLATION]：审计行携带 TENANT=/GROUP= 字段）
 func auditLogT(action, tenant, group, user, detail string) {
-	cfgMu.RLock()
-	enabled := cfg.Security.AuditLogEnabled
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	enabled := snap.Security.AuditLogEnabled
 	if !enabled {
 		return
 	}
@@ -858,10 +855,9 @@ func groupAuditSummary(tenant string, groups []string) map[string]int {
 //   - 用户表校验失败 → cfg.Users 回退到上一版本有效用户表（首启为空表，单管理员回退仍可用）
 //   - 租户配置校验失败 → tenantsRT 保持上一版本，cfg.Tenants 同步为生效版本（不落盘非法值）
 func applyTenantsFromLoad() {
-	cfgMu.RLock()
-	tc := cfg.Tenants
-	users := append([]User(nil), cfg.Users...)
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	tc := snap.Tenants
+	users := append([]User(nil), snap.Users...)
 	if errs := validateUsersTenancy(users, tc); len(errs) > 0 {
 		for _, e := range errs {
 			auditLog("RBAC_TENANT_MISMATCH", "system", e)
@@ -869,6 +865,7 @@ func applyTenantsFromLoad() {
 		cfgMu.Lock()
 		cfg.Users = append([]User(nil), lastValidUsers...)
 		cfgMu.Unlock()
+		publishConfig()
 		auditLog("RBAC_USERS_ROLLBACK", "system",
 			fmt.Sprintf("用户表校验失败（%d 处），已回退上一版本有效用户表（%d 用户）", len(errs), len(lastValidUsers)))
 	} else if len(users) > 0 {
@@ -881,6 +878,7 @@ func applyTenantsFromLoad() {
 	cfgMu.Lock()
 	cfg.Tenants = rt
 	cfgMu.Unlock()
+	publishConfig()
 }
 
 // lastValidUsers 上一版本通过校验的用户表（回退用）

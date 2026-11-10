@@ -18,10 +18,9 @@ import (
 
 // ===================== 搜索 =====================
 func webSearch(query string, count int) (map[string]interface{}, error) {
-	cfgMu.RLock()
-	eng := cfg.Search.Engine
-	key := cfg.Search.APIKey
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	eng := snap.Search.Engine
+	key := snap.Search.APIKey
 	if eng == "serper" && key != "" {
 		return serperSearch(query, count)
 	}

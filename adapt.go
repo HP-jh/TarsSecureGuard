@@ -349,9 +349,8 @@ func fmtDur(d time.Duration) string {
 
 // uiMode 当前 UI 模式（beginner | advanced，默认 advanced）
 func uiMode() string {
-	cfgMu.RLock()
-	m := cfg.V35Config.UI.Mode
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	m := snap.V35Config.UI.Mode
 	if m == "beginner" {
 		return "beginner"
 	}
@@ -473,6 +472,7 @@ func handleV35Profile(w http.ResponseWriter, r *http.Request) {
 			}
 			cfg.V35Config.ModuleProfiles[name] = snap
 			cfgMu.Unlock()
+			publishConfig()
 			saveConfig()
 			markConfigLoaded()
 			auditLog("MODULE_PROFILE_SAVE", "system", "已保存自定义裁剪档案: "+name)
@@ -486,11 +486,13 @@ func handleV35Profile(w http.ResponseWriter, r *http.Request) {
 			cfgMu.Lock()
 			if _, ok := cfg.V35Config.ModuleProfiles[req.Profile]; !ok {
 				cfgMu.Unlock()
+				publishConfig()
 				writeJSONStatus(w, http.StatusNotFound, map[string]string{"error": "自定义档案不存在: " + req.Profile})
 				return
 			}
 			delete(cfg.V35Config.ModuleProfiles, req.Profile)
 			cfgMu.Unlock()
+			publishConfig()
 			saveConfig()
 			markConfigLoaded()
 			auditLog("MODULE_PROFILE_DELETE", "system", "已删除自定义裁剪档案: "+req.Profile)
@@ -513,9 +515,8 @@ func profileTargetStates(name string) (map[string]bool, bool) {
 			return profileStates(i), true
 		}
 	}
-	cfgMu.RLock()
-	states, ok := cfg.V35Config.ModuleProfiles[name]
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	states, ok := snap.V35Config.ModuleProfiles[name]
 	if ok {
 		cp := map[string]bool{}
 		for _, m := range moduleRegistry {
@@ -602,6 +603,7 @@ func handleV35UIMode(w http.ResponseWriter, r *http.Request) {
 		cfgMu.Lock()
 		cfg.V35Config.UI.Mode = req.Mode
 		cfgMu.Unlock()
+		publishConfig()
 		saveConfig()
 		markConfigLoaded()
 		auditLog("UI_MODE_CHANGE", "system", "界面模式切换为 "+req.Mode)

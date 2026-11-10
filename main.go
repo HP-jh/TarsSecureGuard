@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"github.com/HP-jh/TarsSecureGuard/kingdom"
 	"github.com/HP-jh/TarsSecureGuard/pkg/data"
@@ -72,6 +73,10 @@ var (
 	currentModel string // 当前加载的本地 GGUF 模型 id
 	cfg          Config
 	cfgMu        sync.RWMutex
+	// v5.1 RCU 配置快照：控制面构造不可变 Config 后原子发布，
+	// 请求路径 configSnapshot() 调 atomic.Load → 零锁读。
+	// 参考 RCU (McKenzie & Slingwine 1998)：快照发布 + 宽限期回收。
+	cfgPtr atomic.Pointer[Config]
 	memory       = map[string]string{}
 	memoryMu     sync.Mutex
 	// 本地模型启动互斥（防止并发重复拉起 llama-server）
@@ -460,9 +465,8 @@ func isFirstRun() bool {
 	if _, err := os.Stat(configPath); err != nil {
 		return true
 	}
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	noKey := cfg.Cloud.OpenAI.APIKey == "" && cfg.Cloud.DeepSeek.APIKey == ""
+	snap := configSnapshot()
+	noKey := snap.Cloud.OpenAI.APIKey == "" && snap.Cloud.DeepSeek.APIKey == ""
 	return noKey
 }
 
@@ -616,6 +620,7 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 		cfg.Security.CSP.Enabled = true
 	}
 	cfgMu.Unlock()
+	publishConfig()
 	// v4.34.0 CSP 策略自动生成：由 applyCSPHeaders 根据前端资源推导并设置
 	applyCSPHeaders(w, r)
 	// v4.6.4 权限策略：管理界面声明不需要摄像头/麦克风/定位/USB 等敏感能力
@@ -648,12 +653,11 @@ func isTrustedOrigin(o string) bool {
 	return false
 }
 func gatewayAPIKey() string {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	if cfg.Security.APIKey == "" {
+	snap := configSnapshot()
+	if snap.Security.APIKey == "" {
 		return apiKeyDefault
 	}
-	return cfg.Security.APIKey
+	return snap.Security.APIKey
 }
 func validKey(r *http.Request) bool {
 	key := r.Header.Get("X-API-Key")
@@ -681,18 +685,16 @@ type rlEntry struct {
 }
 // rateLimitWindowDynamic / rateLimitMaxDynamic 从配置读取全局滑窗参数（热重载生效）
 func rateLimitWindowDynamic() time.Duration {
-	cfgMu.RLock()
-	sec := cfg.V3Config.RateLimit.WindowSec
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	sec := snap.V3Config.RateLimit.WindowSec
 	if sec <= 0 {
 		return 10 * time.Second
 	}
 	return time.Duration(sec) * time.Second
 }
 func rateLimitMaxDynamic() int {
-	cfgMu.RLock()
-	m := cfg.V3Config.RateLimit.MaxReq
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	m := snap.V3Config.RateLimit.MaxReq
 	if m <= 0 {
 		return 120
 	}
@@ -787,10 +789,9 @@ func userFromRequest(r *http.Request) (name string, role string, ok bool) {
 	if key == "" {
 		return "", "", false
 	}
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
+	snap := configSnapshot()
 	// 多用户模式
-	for _, u := range cfg.Users {
+	for _, u := range snap.Users {
 		if u.Enabled && subtle.ConstantTimeCompare([]byte(key), []byte(u.APIKey)) == 1 {
 			return u.Name, u.Role, true
 		}
@@ -862,9 +863,8 @@ func isAdminRoute(path string) bool {
 // auditLog 写入审计日志：audit-YYYY-MM-DD.log + 内存日志
 
 func auditLog(action, user, detail string) {
-	cfgMu.RLock()
-	enabled := cfg.Security.AuditLogEnabled
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	enabled := snap.Security.AuditLogEnabled
 	if !enabled {
 		return
 	}

@@ -371,9 +371,8 @@ func scanWAF() (int, []ThreatItem) {
 		})
 	}
 
-	cfgMu.RLock()
-	enabled := cfg.Security.WAFEnabled
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	enabled := snap.Security.WAFEnabled
 	if !enabled {
 		score = 20
 		threats = append(threats, ThreatItem{
@@ -418,11 +417,10 @@ func scanConfigSecurity() (int, []ThreatItem) {
 	score := 100
 	var threats []ThreatItem
 
-	cfgMu.RLock()
-	key := cfg.Security.APIKey
-	mode := cfg.Security.Mode
-	users := len(cfg.Users)
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	key := snap.Security.APIKey
+	mode := snap.Security.Mode
+	users := len(snap.Users)
 
 	if len(key) < 16 {
 		score -= 40
@@ -489,9 +487,8 @@ func scanACL() (int, []ThreatItem) {
 	score := 90
 	var threats []ThreatItem
 
-	cfgMu.RLock()
-	users := len(cfg.Users)
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	users := len(snap.Users)
 
 	if users <= 1 {
 		score -= 15
@@ -561,9 +558,8 @@ func scanMCPSecurity() (int, []ThreatItem) {
 	score := 100
 	var threats []ThreatItem
 
-	cfgMu.RLock()
-	servers := cfg.MCP.ExternalServers
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	servers := snap.MCP.ExternalServers
 
 	if len(servers) == 0 {
 		score = 85
@@ -656,9 +652,8 @@ type MCPServerSecurity struct {
 }
 
 func handleSecurity360MCPServers(w http.ResponseWriter, r *http.Request) {
-	cfgMu.RLock()
-	servers := cfg.MCP.ExternalServers
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	servers := snap.MCP.ExternalServers
 
 	var result []MCPServerSecurity
 	for _, s := range servers {
@@ -681,15 +676,14 @@ func handleSecurity360MCPValidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfgMu.RLock()
+	snap := configSnapshot()
 	var target *ExtServer
-	for i := range cfg.MCP.ExternalServers {
-		if cfg.MCP.ExternalServers[i].Name == req.Name {
-			target = &cfg.MCP.ExternalServers[i]
+	for i := range snap.MCP.ExternalServers {
+		if snap.MCP.ExternalServers[i].Name == req.Name {
+			target = &snap.MCP.ExternalServers[i]
 			break
 		}
 	}
-	cfgMu.RUnlock()
 
 	if target == nil {
 		writeJSONStatus(w, http.StatusNotFound, map[string]string{"error": "server not found"})
@@ -772,10 +766,9 @@ func handleSecurity360Summary(w http.ResponseWriter, r *http.Request) {
 	blocks := wafBlocks
 	mu.Unlock()
 
-	cfgMu.RLock()
-	mode := cfg.Security.Mode
-	wafOn := cfg.Security.WAFEnabled
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	mode := snap.Security.Mode
+	wafOn := snap.Security.WAFEnabled
 
 	score := 0
 	if result != nil {
