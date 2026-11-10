@@ -21,11 +21,18 @@ import (
 type SecuritySubsystem struct {
 	modules []SecurityModule
 	started bool
+	// Services 系统服务框架：各子系统的对外接口（鸿蒙微内核"系统服务"精神）
+	Services *ServiceRegistry
 }
 
 // NewSecuritySubsystem 创建安全子系统
 func NewSecuritySubsystem(modules ...SecurityModule) *SecuritySubsystem {
 	return &SecuritySubsystem{modules: modules}
+}
+
+// SetServices 注册系统服务注册表（kernel_bridge.go 在 buildKernelScheduler 中调用）
+func (s *SecuritySubsystem) SetServices(reg *ServiceRegistry) {
+	s.Services = reg
 }
 
 // RegisterModule 注册安全模块
