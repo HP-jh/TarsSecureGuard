@@ -1,16 +1,17 @@
-// Package pipeline 实现请求处理管道（参考阿里巴巴编译架构 + 腾讯 NT 管道模式）
+// Package pipeline 实现请求处理管道
 //
-// 核心思想：将 gatewayMiddleware 的线性硬编码拆分为可组合、可配置的处理管道。
-// 每个阶段（Stage）职责单一，通过 Pipeline 组合，支持：
-//   - 阶段跳过（按配置或运行时条件）
-//   - 阶段短路（任一阶段可终止管道）
-//   - 观测埋点（每个阶段自动记录耗时和结果）
-//   - 故障隔离（单阶段 panic 不影响其他阶段）
+// v5.1 重构：参考腾讯 MT 架构的管道设计（参考 CloudWeGo netpoll 主从 Reactor 模型），
+// 结合 Microsoft IRP / I/O Stack Location 的请求对象化思想：
+//   - 请求是自包含对象（RequestContext），每层拥有自己的上下文
+//   - 生命周期由调度器统一管理（超时/取消/buffer 回收）
+//   - Per-Connection Context：限流/TLS 状态/IP 信誉在同一条 keep-alive 连接上只算一次
+//   - ctx 取消传播：客户端断开 → 立刻回收 buffer、取消上游
 //
-// 设计参考：
-//   - 腾讯 NT 架构：消息管道的 stage 模式
-//   - 字节双线程模型：UI/Logic 分离的安全边界
-//   - 阿里巴巴编译器：IR Pass 管道（每 pass 独立、可组合、可观测）
+// 参考：
+//   - Microsoft Learn IRP / I/O Stack Location：请求对象化、每层上下文
+//   - SEDA (SOSP 2001)：Stage + 有界队列 + 自适应降载
+//   - LLVM PassManager (CGO 2004)：Stage 是纯变换、可独立开关与 profile
+//   - Envoy threading model：main thread 管配置/统计，worker 各自 event loop
 
 package pipeline
 
@@ -36,13 +37,30 @@ const (
 )
 
 // RequestContext 贯穿整个管道的请求上下文（避免 context.Value 滥用）
-// 参考：字节双线程模型的共享状态设计
+// v5.1 §3.1 参考 Microsoft IRP / I/O Stack Location：
+// 请求是自包含对象，每层拥有自己的上下文，生命周期由调度器统一管理。
+// 参考：腾讯 MT 架构的连接级上下文复用设计。
 type RequestContext struct {
-	// 请求元数据
+	// 请求元数据（IRP: I/O Stack Location 层级信息）
 	TraceID   string
 	ClientIP  string
 	UserAgent string
 	StartTime time.Time
+
+	// v5.1 §3.1 IRP 扩展：请求自包含对象
+	Method   string
+	Path     string
+	Header   http.Header // 请求头快照（只读）
+	Body     []byte      // 请求体快照（只读，已 pool 化）
+	Identity string      // 认证身份
+	Snapshot interface{} // 配置快照（RCU 模式的不可变快照）
+	Action   string      // 请求动作（如 "chat", "tool_call", "admin"）
+	Deadline time.Time   // 请求截止时间（超时/取消由调度器管理）
+
+	// Per-Connection Context（§3.1：限流/TLS 状态/IP 信誉在同一连接上只算一次）
+	ConnID       string // 连接唯一标识
+	TLSState     string // TLS 状态（"tls", "plain"）
+	IPReputation int    // IP 信誉分（0-100）
 
 	// 鉴权结果（由 AuthStage 填充）
 	Authed   bool
