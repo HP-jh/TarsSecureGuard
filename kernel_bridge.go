@@ -20,6 +20,8 @@ import (
 	"github.com/HP-jh/TarsSecureGuard/kernel"
 	"github.com/HP-jh/TarsSecureGuard/kernel/services/waf"
 	"github.com/HP-jh/TarsSecureGuard/kernel/services/ssrf"
+	"github.com/HP-jh/TarsSecureGuard/kernel/services/audit"
+	"github.com/HP-jh/TarsSecureGuard/kernel/services/iprep"
 )
 
 // ===================== Global ServiceRegistry —— 统一注入点 =====================
@@ -70,6 +72,27 @@ func fillServices() {
 		ssrfRedirectURL,
 	)
 	h.reg.RegisterService("ssrf", ssrfSvc)
+
+	// --- Audit: logger only (auditLog + auditLogT verified; verifier/exporter nil stubs) ---
+	auditSvc := audit.NewService(
+		auditLog,       // Log(action, target, detail) — wraps main.logAudit
+		nil,             // LogWithFields → not yet wired
+		nil,             // Flush → not needed in core path
+		nil,             // VerifyDate → not used in Stage
+		nil,             // EntryCount → not used in Stage
+		nil,             // ExportDate → not used in Stage
+	)
+	h.reg.RegisterService("audit", auditSvc)
+
+	// --- IPRep: scorer (ipRepScore, ipRepPenalty, isBanned, ipRepUnban, ipRepWhitelisted verified) ---
+	iprepSvc := iprep.NewService(
+		ipRepScore,        // Score(ip) → float64
+		ipRepPenalty,      // Penalty(ip, delta, source, detail)
+		isBanned,          // Banned(ip) → bool — also used by IPBanStage
+		func(ip string) { ipRepUnban("kernel", ip) },  // Unban — wraps 2-arg func; result ignored
+		ipRepWhitelisted,  // Whitelisted(ip) → bool
+	)
+	h.reg.RegisterService("iprep", iprepSvc)
 
 	// --- Remaining services: nil stubs (Step N will wire them) ---
 	// audit/csp/iprep/ratelimit/secheaders — each gets a real factory call
