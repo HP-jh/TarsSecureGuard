@@ -19,6 +19,7 @@ import (
 
 	"github.com/HP-jh/TarsSecureGuard/kernel"
 	"github.com/HP-jh/TarsSecureGuard/kernel/services/waf"
+	"github.com/HP-jh/TarsSecureGuard/kernel/services/ssrf"
 )
 
 // ===================== Global ServiceRegistry —— 统一注入点 =====================
@@ -31,12 +32,16 @@ type serviceRegistryHolder struct {
 
 // fillServices 构建全部 7 个 Service 并注册到注册表。
 // 零重复造轮子：每个 Service 内部调根包现有函数，不改安全红线。
+//
+// Strangler Fig 原则：本 commit 仅接入已验证存在的 WAF + SSRF；
+// Audit/CSP/IPRep/RateLimit/SecHeaders 留 nil stub，后续逐个补全，
+// 确保每一步都三绿。
 func fillServices() {
 	h := &serviceRegistryHolder{
 		reg: kernel.NewServiceRegistry(),
 	}
 
-	// WAF: detector + scanner + masker（内部闭包指向 main 包现有函数）
+	// --- WAF: detector + scanner + masker (fully wired) ---
 	wafSvc := waf.NewService(
 		wafCheck,       // Check → wafCheck
 		wafEnabled,     // Enabled → wafEnabled
@@ -49,6 +54,26 @@ func fillServices() {
 		nil,            // onBlock: wired in IPBanStage/WAFStage callbacks
 	)
 	h.reg.RegisterService("waf", wafSvc)
+
+	// --- SSRF: transport provider + redirect validator (fully wired) ---
+	ssrfSvc := ssrf.NewService(
+		func(timeout int64) *http.Client {
+			return ssrfGuardedClient(time.Duration(timeout) * time.Second)
+		},
+		ssrfSafeTransportStrict,
+		func(local, priv bool) *http.Transport {
+			return &http.Transport{
+				DialContext:     ssrfSafeDialContext(local, priv),
+				ForceAttemptHTTP2: true,
+			}
+		},
+		ssrfRedirectURL,
+	)
+	h.reg.RegisterService("ssrf", ssrfSvc)
+
+	// --- Remaining services: nil stubs (Step N will wire them) ---
+	// audit/csp/iprep/ratelimit/secheaders — each gets a real factory call
+	// in its own commit after verifying function signatures exist.
 
 	kernelBridgeServices.Store(h)
 }
