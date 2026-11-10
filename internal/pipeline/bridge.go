@@ -12,7 +12,6 @@
 package pipeline
 
 import (
-	"context"
 	"net/http"
 	"time"
 )

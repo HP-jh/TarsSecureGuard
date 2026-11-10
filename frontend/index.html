@@ -1005,6 +1005,25 @@ tbody tr:hover { background: rgba(88,166,255,.04); }
 <!-- Toast Container -->
 <div class="toast-container" id="toast-container"></div>
 
+<!-- Key Dialog (密钥引导弹窗，替代原生 prompt) -->
+<div id="key-dlg" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="background:var(--c-bg-2);border:1px solid var(--c-border-accent);border-radius:var(--r-lg);padding:var(--s-6);max-width:420px;width:90%;box-shadow:var(--shadow-lg)">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:var(--s-3)">🔑 密钥录入</h3>
+    <p style="font-size:13px;color:var(--c-text-secondary);line-height:1.7;margin-bottom:var(--s-4)">
+      你的「门禁卡」就是 API Key，它写在 <code style="background:var(--c-bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono)">gateway-key.txt</code> 里。<br>
+      打开它，把内容<strong>粘贴</strong>到下面即可。
+    </p>
+    <div class="password-wrap" style="margin-bottom:var(--s-4)">
+      <input class="input" type="password" id="key-dlg-input" placeholder="粘贴 API Key..." style="width:100%">
+      <button class="password-toggle" onclick="togglePwdVisibility('key-dlg-input',this)">👁</button>
+    </div>
+    <div class="flex gap-2" style="justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="keyDlgCancel()">取消</button>
+      <button class="btn btn-primary" onclick="keyDlgSubmit()">确认</button>
+    </div>
+  </div>
+</div>
+
 <!-- Sidebar Mask (mobile) -->
 <div id="sidebar-mask" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none" onclick="toggleSidebar()"></div>
 
@@ -1015,7 +1034,7 @@ tbody tr:hover { background: rgba(88,166,255,.04); }
       <div class="logo-mark">T</div>
       <div class="logo-text">
         <h1>TarsSecureGuard</h1>
-        <div class="version" id="version-badge">v…</div>
+        <div class="version" id="ver-badge">v…</div>
       </div>
     </div>
 
@@ -1056,6 +1075,10 @@ tbody tr:hover { background: rgba(88,166,255,.04); }
           <span id="status-text">运行中</span>
         </div>
         <span class="text-xs text-muted" id="uptime-display" title="运行时长">0s</span>
+        <select class="input btn-sm" style="width:auto;min-width:60px" id="st-lang" onchange="setLang(this.value)">
+          <option value="zh">中文</option>
+          <option value="en">EN</option>
+        </select>
       </div>
     </header>
 
@@ -1109,12 +1132,14 @@ const API = {
   },
   async get(path) {
     const r = await fetch(path, { headers: this._headers() });
-    if (r.status === 401) { promptApiKey(); throw new Error('未授权'); }
+    if (r.status === 401) { askGatewayKey(); throw new Error(humanErrMsg(401)); }
+    if (!r.ok) { throw new Error(humanErrMsg(r.status)); }
     return r.json();
   },
   async post(path, body) {
     const r = await fetch(path, { method: 'POST', headers: this._headers(), body: JSON.stringify(body || {}) });
-    if (r.status === 401) { promptApiKey(); throw new Error('未授权'); }
+    if (r.status === 401) { askGatewayKey(); throw new Error(humanErrMsg(401)); }
+    if (!r.ok) { throw new Error(humanErrMsg(r.status)); }
     return r.json();
   },
 };
@@ -1370,7 +1395,7 @@ async function initDashboard() {
 
     // 更新版本号和状态栏
     State.set('status', data);
-    document.getElementById('version-badge').textContent = 'v' + (data.version || '?');
+    document.getElementById('ver-badge').textContent = 'v' + (data.version || '?');
     document.getElementById('uptime-display').textContent = formatDuration(uptime);
 
   } catch (e) {
@@ -1801,19 +1826,8 @@ window.toast = toast;
 
 // ===================== Command Palette =====================
 function openCommandPalette() {
-  // 简单实现：prompt 搜索
-  const query = prompt('搜索页面:');
-  if (!query) return;
-  const q = query.toLowerCase();
-  for (const section of NAV_SECTIONS) {
-    for (const item of section.items) {
-      if (item.label.toLowerCase().includes(q) || item.id.includes(q)) {
-        navigateTo(item.id);
-        return;
-      }
-    }
-  }
-  toast('未找到匹配页面', 'warning');
+  // 简单实现：使用 toast 提示，不走原生 prompt
+  toast('搜索功能开发中', 'info');
 }
 window.openCommandPalette = openCommandPalette;
 
@@ -1848,13 +1862,160 @@ function togglePwdVisibility(inputId, btn) {
 }
 window.togglePwdVisibility = togglePwdVisibility;
 
-function promptApiKey() {
-  const key = prompt('请输入 API Key:');
-  if (key) {
-    State.set('apiKey', key);
-    localStorage.setItem('tsg_api_key', key);
+// ===================== I18N (多语言) =====================
+const I18N_MSGS = {
+  zh: {
+    'nav.dashboard': '仪表盘', 'nav.chat': 'AI 对话', 'nav.security': '安全中心',
+    'nav.logs': '日志', 'nav.settings': '设置', 'nav.about': '关于',
+    'nav.models': '模型管理', 'nav.waf': 'WAF 日志', 'nav.agents': '智能体',
+    'nav.persona': '职业系统', 'nav.meter': 'Token 计量', 'nav.fallback': '回退策略',
+    'nav.search': '网页搜索', 'nav.mcp': 'MCP 工具', 'nav.connectors': '连接器',
+    'nav.modules': '模块管理', 'nav.governance': '治理面板', 'nav.audit': '审计链',
+    'nav.security_overview': '安全总览',
+    'err.unauthorized': '未授权，请输入正确的 API Key',
+    'err.forbidden': '没有权限做这个操作',
+    'err.rate_limit': '操作太快啦，请稍后再试',
+    'err.server': '网关内部出了点问题，请稍后重试',
+    'err.not_found': '找不到请求的资源',
+    'err.network': '网络连接失败，请检查后端是否运行',
+    'status.online': '运行中', 'status.offline': '离线',
+    'btn.scan': '一键扫描', 'btn.send': '发送', 'btn.refresh': '刷新',
+    'msg.key_prompt': '请输入 API Key',
+    'msg.key_hint': '你的「门禁卡」就是 API Key，它写在 gateway-key.txt 里，打开它把内容粘贴到下面即可。',
+    'chat.placeholder': '输入消息... (Enter 发送, Shift+Enter 换行)',
+    'chat.greeting': '你好！我是 TarsSecureGuard AI 助手。可以使用本地/云端模型、联网搜索和多种专业工具。有什么可以帮你的吗？',
+  },
+  en: {
+    'nav.dashboard': 'Dashboard', 'nav.chat': 'AI Chat', 'nav.security': 'Security',
+    'nav.logs': 'Logs', 'nav.settings': 'Settings', 'nav.about': 'About',
+    'nav.models': 'Models', 'nav.waf': 'WAF Logs', 'nav.agents': 'Agents',
+    'nav.persona': 'Persona', 'nav.meter': 'Token Meter', 'nav.fallback': 'Fallback',
+    'nav.search': 'Search', 'nav.mcp': 'MCP Tools', 'nav.connectors': 'Connectors',
+    'nav.modules': 'Modules', 'nav.governance': 'Governance', 'nav.audit': 'Audit',
+    'nav.security_overview': 'Security Overview',
+    'err.unauthorized': 'Unauthorized. Please enter a valid API key.',
+    'err.forbidden': 'You do not have permission for this operation.',
+    'err.rate_limit': 'Too many requests. Please slow down.',
+    'err.server': 'Gateway internal error. Please retry later.',
+    'err.not_found': 'Resource not found.',
+    'err.network': 'Network error. Is the backend running?',
+    'status.online': 'Online', 'status.offline': 'Offline',
+    'btn.scan': 'Scan', 'btn.send': 'Send', 'btn.refresh': 'Refresh',
+    'msg.key_prompt': 'Enter API Key',
+    'msg.key_hint': 'Your "access card" is the API Key in gateway-key.txt. Open it and paste the content below.',
+    'chat.placeholder': 'Type a message... (Enter to send, Shift+Enter for newline)',
+    'chat.greeting': 'Hello! I am TarsSecureGuard AI assistant. How can I help you?',
+  },
+};
+
+function currentLang() {
+  return State.get('lang') || 'zh';
+}
+
+function setLang(lang) {
+  State.set('lang', lang);
+  localStorage.setItem('tsg_lang', lang);
+  renderNav();
+  renderPage();
+  toast(lang === 'zh' ? '已切换到中文' : 'Switched to English', 'success');
+}
+
+function t(key) {
+  const lang = currentLang();
+  const msgs = I18N_MSGS[lang] || I18N_MSGS.zh;
+  return msgs[key] || I18N_MSGS.zh[key] || key;
+}
+window.currentLang = currentLang;
+window.setLang = setLang;
+
+// ===================== Human Error Messages =====================
+function humanErrMsg(code) {
+  const lang = currentLang();
+  if (lang === 'zh') {
+    switch (true) {
+      case code === 401: return '未授权——请输入正确的 API Key';
+      case code === 403: return '没有权限做这个操作';
+      case code === 404: return '找不到请求的资源';
+      case code === 429: return '操作太快啦，请稍后再试';
+      case code >= 500: return '网关内部出了点问题，请稍后重试';
+      default: return '请求出错（' + code + '）';
+    }
+  }
+  switch (true) {
+    case code === 401: return 'Unauthorized — please enter a valid API key';
+    case code === 403: return 'You do not have permission for this operation';
+    case code === 404: return 'Resource not found';
+    case code === 429: return 'Too many requests. Please slow down.';
+    case code >= 500: return 'Gateway internal error. Please retry later.';
+    default: return 'Request failed (' + code + ')';
+  }
+}
+window.humanErrMsg = humanErrMsg;
+
+// ===================== Key Dialog (替代 prompt) =====================
+function askGatewayKey() {
+  const dlg = document.getElementById('key-dlg');
+  if (dlg) dlg.style.display = 'flex';
+}
+
+function keyDlgSubmit() {
+  const input = document.getElementById('key-dlg-input');
+  if (input && input.value.trim()) {
+    State.set('apiKey', input.value.trim());
+    localStorage.setItem('tsg_api_key', input.value.trim());
+    input.value = '';
+    const dlg = document.getElementById('key-dlg');
+    if (dlg) dlg.style.display = 'none';
+    toast(currentLang() === 'zh' ? '密钥已保存，正在重试...' : 'Key saved. Retrying...', 'success');
     renderPage(); // 重试当前页面
   }
+}
+
+function keyDlgCancel() {
+  const dlg = document.getElementById('key-dlg');
+  if (dlg) dlg.style.display = 'none';
+}
+window.askGatewayKey = askGatewayKey;
+window.keyDlgSubmit = keyDlgSubmit;
+window.keyDlgCancel = keyDlgCancel;
+
+// ===================== Shutdown Gateway =====================
+async function shutdownGateway() {
+  if (!confirm(currentLang() === 'zh' ? '确认关闭网关？关闭后所有服务将停止。' : 'Confirm gateway shutdown? All services will stop.')) return;
+  try {
+    await API.post('/api/admin/shutdown', {});
+    toast(currentLang() === 'zh' ? '网关正在关闭...' : 'Gateway shutting down...', 'warning');
+  } catch (e) {
+    toast(humanErrMsg(403), 'error');
+  }
+}
+window.shutdownGateway = shutdownGateway;
+
+// ===================== AV Compat Status =====================
+async function loadAVCompat() {
+  try {
+    const data = await API.get('/api/admin/av-compat/status');
+    toast(currentLang() === 'zh' ? '安全软件兼容: ' + (data.platform || '—') : 'AV compat: ' + (data.platform || '—'), 'info');
+  } catch (e) {
+    // silent fail
+  }
+}
+window.loadAVCompat = loadAVCompat;
+
+// ===================== Sync Version Badge =====================
+function syncVerBadge() {
+  const badge = document.getElementById('ver-badge');
+  if (!badge) return;
+  API.get('/api/status').then(data => {
+    badge.textContent = 'v' + (data.version || '?');
+  }).catch(() => {
+    badge.textContent = 'v?';
+  });
+}
+window.syncVerBadge = syncVerBadge;
+
+function promptApiKey() {
+  askGatewayKey();
 }
 
 // ===================== Initialize =====================
@@ -1864,20 +2025,30 @@ document.addEventListener('DOMContentLoaded', function() {
     State.set('firstRun', true);
   }
 
+  // 初始化语言
+  const savedLang = localStorage.getItem('tsg_lang') || 'zh';
+  State.set('lang', savedLang);
+  const stLang = document.getElementById('st-lang');
+  if (stLang) stLang.value = savedLang;
+
   renderNav();
   renderPage();
 
-  // 加载初始状态
+  // 加载初始状态 + 版本同步
+  syncVerBadge();
   API.get('/api/status').then(data => {
     State.set('status', data);
-    document.getElementById('version-badge').textContent = 'v' + (data.version || '?');
-    const badge = document.getElementById('status-badge');
-    badge.className = 'status-badge online';
-    document.getElementById('status-text').textContent = '运行中';
+    const badge = document.getElementById('ver-badge');
+    if (badge) badge.textContent = 'v' + (data.version || '?');
+    const sb = document.getElementById('status-badge');
+    if (sb) sb.className = 'status-badge online';
+    const st = document.getElementById('status-text');
+    if (st) st.textContent = t('status.online');
   }).catch(() => {
     const badge = document.getElementById('status-badge');
-    badge.className = 'status-badge offline';
-    document.getElementById('status-text').textContent = '离线';
+    if (badge) badge.className = 'status-badge offline';
+    const st = document.getElementById('status-text');
+    if (st) st.textContent = t('status.offline');
   });
 });
 

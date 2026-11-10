@@ -1,1 +1,1 @@
-{"writtenAt":1792311835,"data":{"boardModel":"","cpuModel":"AMD EPYC 9Y24 96-Core Processor","gpuModel":"","source":"tier1: lspci -mm -v / cat /proc/cpuinfo / dmidecode -t"},"hmac":"fd09640e59ee87508df8541a6650c864173562d9ea37bc7deaba344a24162e8d"}
+{"writtenAt":1794313460,"data":{"boardModel":"","cpuModel":"Intel(R) Xeon(R) Platinum","gpuModel":"","source":"tier1: lspci -mm -v / cat /proc/cpuinfo / dmidecode -t"},"hmac":"a578cee5e906f9851e1448d5f15bd13b02ae503c44a199a4bd3aeadb4e486206"}
