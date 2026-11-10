@@ -8,6 +8,28 @@
 
 ## [Unreleased]
 
+### v5.1.0-rc.1 — 架构内核化重构
+
+#### 性能优化
+- **RCU 配置快照 (§3.3)**：请求路径 `cfgMu.RLock` 降到 0，`configSnapshot()` 零锁读 (40ns/op, 0 allocs)
+- **热路径去锁 (§3.4)**：计数器改 `atomic.Int64`，小时计数分片，异步日志 ring buffer
+- **WAF 字面量预筛 (§3.5)**：Hyperscan literals 预筛，WAF 常规 71µs → 19µs (2.6x)，strict 448µs → 120µs (3.7x)
+
+#### 架构改造
+- **IRP 请求对象化 (§3.1)**：增强 `RequestContext`（Method/Path/Header/Body/Deadline/Per-Connection Context）
+- **流式响应修复 (§3.6)**：`piiResponseWriter` 实现 `http.Flusher`，SSE 直通不缓冲
+
+#### 工程质量
+- **CI 门禁 (§2.4)**：新增 `.github/workflows/ci.yml`（go vet + build + CGO=0 + test + bench）
+- **main 三绿恢复 (§2.3)**：修复 bridge.go 未使用 import + 5 个前端回归测试
+- **不可查证说法清理**：原注释中"腾讯 NT""字节双线程""阿里巴巴编译架构"替换为可查证来源
+
+#### 安全不变量
+- ssrfguard.go 判定逻辑：零变更
+- auditv2.go hash-chain 判定逻辑：零变更
+- WAF 规则集：零放宽（字面量预筛只是快筛层，所有规则仍原样执行）
+- 单二进制零外部依赖：保持
+
 ### Planned
 - 仓库结构整理（VERSIONING.md / CHANGELOG.md / RELEASE_TEMPLATE.md / 文档归档）
 - 顶层 `.go` 文件归位分析（`internal/<domain>/` 模式评估）

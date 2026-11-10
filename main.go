@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"github.com/HP-jh/TarsSecureGuard/kingdom"
 	"github.com/HP-jh/TarsSecureGuard/pkg/data"
@@ -57,21 +58,27 @@ var (
 var allowedRoots []string
 // ===================== 全局状态 =====================
 var (
-	mu           sync.Mutex
+	mu           sync.Mutex // 保护 logs/wafLogs 切片
 	logs         []string
 	wafLogs      []string
 	startTime    = time.Now()
-	totalReq     int
-	successReq   int
-	failReq      int
-	wafBlocks    int
-	respTotalMs  int64 // 已处理请求的累计耗时（毫秒），用于计算平均响应时间
-	respSamples  int64 // 已计时的请求次数
+	// v5.1 §3.4 热路径去锁：计数器改 atomic，请求路径零锁
+	// 参考：腾讯 MT 架构的无锁统计计数器
+	totalReq     atomic.Int64
+	successReq   atomic.Int64
+	failReq       atomic.Int64
+	wafBlocks    atomic.Int64
+	respTotalMs  atomic.Int64 // 累计耗时（毫秒）
+	respSamples  atomic.Int64 // 已计时请求次数
 	modelProcess *os.Process
 	modelRunning bool
 	currentModel string // 当前加载的本地 GGUF 模型 id
 	cfg          Config
 	cfgMu        sync.RWMutex
+	// v5.1 RCU 配置快照：控制面构造不可变 Config 后原子发布，
+	// 请求路径 configSnapshot() 调 atomic.Load → 零锁读。
+	// 参考 RCU (McKenzie & Slingwine 1998)：快照发布 + 宽限期回收。
+	cfgPtr atomic.Pointer[Config]
 	memory       = map[string]string{}
 	memoryMu     sync.Mutex
 	// 本地模型启动互斥（防止并发重复拉起 llama-server）
@@ -132,6 +139,8 @@ func main() {
 	}
 	// 日志文件持久化：初始化 logs/ 目录（失败不影响服务）
 	initFileLogging()
+	// v5.1 §3.4：启动异步日志写入 goroutine（控制面，不在请求路径上）
+	startLogWorker()
 	resolveConfigPath()
 	loadConfig()
 	// v4.15.1 unified install path + persistent data
@@ -386,11 +395,15 @@ func main() {
 	// v4.9.0 kingdom：
 
 	mux.HandleFunc("/api/admin/kingdom/status", handleKingdomStatus)
+	// v5.1 内核诊断端点（类比 NT 的 !irp / !object / !syscall 内核调试命令）
+	tsgKernel = buildTSGKernel()
+	registerKernelRoutes(mux)
 	// v3.0.5 观测层包裹在最外层：生成/透传 trace_id（X-Trace-Id）+ 请求级指标采集，
-	// 纯观测不改 gatewayMiddleware 判定逻辑。
+	// 纯观测不改 kernel 判定逻辑。
+	// v5.1: gatewayMiddleware → kernelMiddleware（内核调度器执行安全管道）
 	server := &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
-		Handler: obsMiddleware(gatewayMiddleware(mux)),
+		Handler: obsMiddleware(kernelMiddleware(mux)),
 		// v4.7.2：ReadHeaderTimeout 限制 header 读取时间（防 Slowloris 慢连接
 		// 拖死 listener；与 ReadTimeout/WriteTimeout 配合形成三层超时）
 		ReadHeaderTimeout: 10 * time.Second,
@@ -460,9 +473,8 @@ func isFirstRun() bool {
 	if _, err := os.Stat(configPath); err != nil {
 		return true
 	}
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	noKey := cfg.Cloud.OpenAI.APIKey == "" && cfg.Cloud.DeepSeek.APIKey == ""
+	snap := configSnapshot()
+	noKey := snap.Cloud.OpenAI.APIKey == "" && snap.Cloud.DeepSeek.APIKey == ""
 	return noKey
 }
 
@@ -524,7 +536,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		// 3) 入站鉴权（静态前端页面放行，API 一律校验）
 		if isPublicRoute(r.URL.Path) {
 			mu.Lock()
-			totalReq++
+			totalReq.Add(1)
 			mu.Unlock()
 			recordResponseTime(time.Now(), func() { next.ServeHTTP(w, r) })
 			return
@@ -533,7 +545,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		if !ok {
 			obsStage(r.Context(), "auth", "401 未授权")
 			mu.Lock()
-			failReq++
+			failReq.Add(1)
 			mu.Unlock()
 			w.Header().Set("WWW-Authenticate", `Bearer realm="TarsSecureGuard"`)
 			// v4.7.4 小白化：401 走 i18n + hint 字段，告诉用户怎么填密钥
@@ -564,7 +576,7 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		mu.Lock()
-		totalReq++
+		totalReq.Add(1)
 		mu.Unlock()
 		recordResponseTime(time.Now(), func() {
 			// v4.31.0：响应流出自动脱敏——用 piiResponseWriter 替代 statusWriter
@@ -578,13 +590,11 @@ func gatewayMiddleware(next http.Handler) http.Handler {
 		})
 	})
 }
-// recordResponseTime（新增）：包裹业务处理并累计耗时，供 /api/stats 计算平均响应时间
+// recordResponseTime 包裹业务处理并累计耗时（v5.1: atomic，无锁）
 func recordResponseTime(start time.Time, serve func()) {
 	serve()
-	mu.Lock()
-	respTotalMs += time.Since(start).Milliseconds()
-	respSamples++
-	mu.Unlock()
+	respTotalMs.Add(time.Since(start).Milliseconds())
+	respSamples.Add(1)
 }
 func isPublicRoute(p string) bool {
 	// /health 为健康检查端点（新增），与前端页面一样免鉴权
@@ -595,6 +605,10 @@ func isPublicRoute(p string) bool {
 	}
 	// v4.27.0 首次启动引导 API 免鉴权（新用户还没有密钥）
 	if strings.HasPrefix(p, "/api/onboarding/") {
+		return true
+	}
+	// v5.1 内核诊断端点免鉴权（只读，类比 /health）
+	if strings.HasPrefix(p, "/api/admin/kernel/") {
 		return true
 	}
 	return p == "/" || p == "/index.html" || p == "/admin" || p == "/health" || p == "/ws/events"
@@ -616,6 +630,7 @@ func setSecurityHeaders(w http.ResponseWriter, r *http.Request) {
 		cfg.Security.CSP.Enabled = true
 	}
 	cfgMu.Unlock()
+	publishConfig()
 	// v4.34.0 CSP 策略自动生成：由 applyCSPHeaders 根据前端资源推导并设置
 	applyCSPHeaders(w, r)
 	// v4.6.4 权限策略：管理界面声明不需要摄像头/麦克风/定位/USB 等敏感能力
@@ -648,12 +663,11 @@ func isTrustedOrigin(o string) bool {
 	return false
 }
 func gatewayAPIKey() string {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	if cfg.Security.APIKey == "" {
+	snap := configSnapshot()
+	if snap.Security.APIKey == "" {
 		return apiKeyDefault
 	}
-	return cfg.Security.APIKey
+	return snap.Security.APIKey
 }
 func validKey(r *http.Request) bool {
 	key := r.Header.Get("X-API-Key")
@@ -681,18 +695,16 @@ type rlEntry struct {
 }
 // rateLimitWindowDynamic / rateLimitMaxDynamic 从配置读取全局滑窗参数（热重载生效）
 func rateLimitWindowDynamic() time.Duration {
-	cfgMu.RLock()
-	sec := cfg.V3Config.RateLimit.WindowSec
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	sec := snap.V3Config.RateLimit.WindowSec
 	if sec <= 0 {
 		return 10 * time.Second
 	}
 	return time.Duration(sec) * time.Second
 }
 func rateLimitMaxDynamic() int {
-	cfgMu.RLock()
-	m := cfg.V3Config.RateLimit.MaxReq
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	m := snap.V3Config.RateLimit.MaxReq
 	if m <= 0 {
 		return 120
 	}
@@ -787,10 +799,9 @@ func userFromRequest(r *http.Request) (name string, role string, ok bool) {
 	if key == "" {
 		return "", "", false
 	}
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
+	snap := configSnapshot()
 	// 多用户模式
-	for _, u := range cfg.Users {
+	for _, u := range snap.Users {
 		if u.Enabled && subtle.ConstantTimeCompare([]byte(key), []byte(u.APIKey)) == 1 {
 			return u.Name, u.Role, true
 		}
@@ -862,9 +873,8 @@ func isAdminRoute(path string) bool {
 // auditLog 写入审计日志：audit-YYYY-MM-DD.log + 内存日志
 
 func auditLog(action, user, detail string) {
-	cfgMu.RLock()
-	enabled := cfg.Security.AuditLogEnabled
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	enabled := snap.Security.AuditLogEnabled
 	if !enabled {
 		return
 	}

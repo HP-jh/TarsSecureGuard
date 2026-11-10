@@ -298,9 +298,8 @@ func personaByID(id string) *Persona {
 
 // currentPersona 获取当前职业（未设置返回 general）
 func currentPersona() *Persona {
-	cfgMu.RLock()
-	id := cfg.V38Config.Persona.CurrentID
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	id := snap.V38Config.Persona.CurrentID
 	if id == "" {
 		id = "general"
 	}
@@ -320,6 +319,7 @@ func applyPersona(id string) error {
 
 	cfgMu.Lock()
 	defer cfgMu.Unlock()
+	publishConfig()
 
 	// 1. 应用模块开关（与现有 modules 合并，不关闭 security-core 等不可关闭项）
 	if cfg.Modules == nil {
@@ -394,6 +394,7 @@ func writePersonaMemory(p *Persona) {
 	cfg.Persona.AutoMemoryWritten = true
 	saveConfig()
 	cfgMu.Unlock()
+	publishConfig()
 }
 
 // ===================== REST API =====================
@@ -454,9 +455,8 @@ func handleV38PersonaCurrent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := currentPersona()
-	cfgMu.RLock()
-	state := cfg.Persona
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	state := snap.Persona
 	writeJSON(w, map[string]interface{}{
 		"persona": p,
 		"state":   state,
@@ -478,8 +478,6 @@ type ModelMatrixEntry struct {
 // scanModelMatrix 扫描已配置模型的功能矩阵
 func scanModelMatrix() []ModelMatrixEntry {
 	var result []ModelMatrixEntry
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
 
 	// 扫描云端 provider
 	providers := []struct {

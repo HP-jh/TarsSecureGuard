@@ -1,0 +1,58 @@
+# CI 门禁：每次 push / PR 都跑构建 + 测试三绿
+# 这是 main 能带着坏代码合入的直接防线
+name: CI
+on:
+  push:
+    branches: [main, 'feature/*', 'refactor/*']
+  pull_request:
+    branches: [main]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Go mod verify
+        run: go mod verify
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Build (normal)
+        run: go build ./...
+
+      - name: Build (CGO_ENABLED=0)
+        run: CGO_ENABLED=0 go build ./...
+
+      - name: Test
+        run: go test ./... -count=1
+
+      - name: Test with coverage
+        run: go test -cover ./... -count=1 2>&1 | tee coverage.txt
+
+      - name: Benchmark baseline
+        run: go test -run '^$' -bench=. -benchmem -benchtime=1s ./... 2>&1 | tee bench.txt || true
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: bench.txt
+          retention-days: 30
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.txt
+          retention-days: 30

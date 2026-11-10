@@ -137,12 +137,11 @@ func modelCapabilitiesFor(pid, model string) ([]string, string) {
 
 // v33CapsOverride 读 config v33.modelCaps 覆盖层
 func v33CapsOverride(key string) []string {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
+	snap := configSnapshot()
 	if cfg.V33Config.ModelCaps == nil {
 		return nil
 	}
-	return normalizeCaps(cfg.V33Config.ModelCaps[key])
+	return normalizeCaps(snap.V33Config.ModelCaps[key])
 }
 
 // capsContain 能力集合是否覆盖 needs
@@ -240,10 +239,9 @@ func capabilityRoute(model string, needs []string) (string, bool, string) {
 
 // v33AutoReroute 能力改道开关（默认开）
 func v33AutoReroute() bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
+	snap := configSnapshot()
 	if cfg.V33Config.Capabilities.AutoReroute != nil {
-		return *cfg.V33Config.Capabilities.AutoReroute
+		return *snap.V33Config.Capabilities.AutoReroute
 	}
 	return true
 }
@@ -350,6 +348,7 @@ func handleV33Capabilities(w http.ResponseWriter, r *http.Request) {
 			cfgMu.Lock()
 			cfg.V33Config.Capabilities.AutoReroute = req.AutoReroute
 			cfgMu.Unlock()
+			publishConfig()
 			if err := saveConfigChecked(); err != nil {
 				writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "保存失败: " + err.Error()})
 				return
@@ -373,6 +372,7 @@ func handleV33Capabilities(w http.ResponseWriter, r *http.Request) {
 			cfg.V33Config.ModelCaps[req.Model] = caps
 		}
 		cfgMu.Unlock()
+		publishConfig()
 		if err := saveConfigChecked(); err != nil {
 			writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "保存失败: " + err.Error()})
 			return

@@ -15,11 +15,10 @@ import (
 )
 
 // cfgInt 从 config 自定义段读整数值（v3 新段用 map 松散读取，0 = 未配置）。
-// cfg 为结构体，这里通过重新序列化读取顶层自定义段，避免侵入既有结构。
+// v5.1 RCU：用 configSnapshot() 零锁读，替代 cfgMu.RLock。
 func cfgInt(section, key string) int {
-	cfgMu.RLock()
-	b, err := json.Marshal(cfg)
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	b, err := json.Marshal(snap)
 	if err != nil {
 		return 0
 	}
@@ -105,12 +104,11 @@ func v3Config() V3Config {
 
 // configModuleExplicit 判断 modules.<id> 是否被用户显式配置（区分默认值）
 func configModuleExplicit(id string) bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	if cfg.Modules == nil {
+	snap := configSnapshot()
+	if snap.Modules == nil {
 		return false
 	}
-	_, ok := cfg.Modules[id]
+	_, ok := snap.Modules[id]
 	return ok
 }
 
@@ -123,6 +121,8 @@ func setModuleState(id string, on bool) {
 	}
 	cfg.Modules[id] = on
 	cfgMu.Unlock()
+	// v5.1 RCU：发布快照
+	publishConfig()
 }
 
 // ===================== server 引用（L3 drain 用）=====================

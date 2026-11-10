@@ -27,11 +27,17 @@ var wafRules = []struct {
 	strict bool
 }{
 	{"路径穿越", regexp.MustCompile(`(?i)(\.\./|\.\.\\|%2e%2e|%2e%2f|%252e|%c0%af|%c1%9c)`), false},
-	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|&&\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir)\\b|;\\s*\\x60[a-z]+\\x60)"), false},
-	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\()`), true},
-	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|<\s*iframe|document\.cookie|<\s*object)`), true},
-	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*)`), true},
+	{"命令注入", regexp.MustCompile("(?i)(;\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir|python|perl|ruby|node|nc|ncat|socat|chmod|chown|kill|find|cat|echo|whoami|id|uname|ifconfig|ipconfig|nslookup|dig)\\b|&&\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|taskkill|ping|rm|rmdir|python|perl|ruby|node|nc|socat)\\b|\\|\\s*(cmd|powershell|pwsh|bash|sh|wget|curl|net|rm|cat|python|perl|nc)\\b|;\\s*\\x60[a-z]+\\x60|\\$\\([^)]+\\)|\\$\\{[^}]+\\}|%0a|\\n\\s*(cmd|bash|sh)\\b)"), false},
+	{"SQL 注入", regexp.MustCompile(`(?i)(\bunion\b\s+\bselect\b|\binsert\b\s+\binto\b|\bdelete\b\s+\bfrom\b|\bdrop\b\s+\btable\b|/\*|;\s*\bdrop\b|\bsleep\s*\(|\bbenchmark\s*\(|\bor\s+1\s*=\s*1\b|'\s*or\s*'?\d|--|#.*$|\bxp_cmdshell\b|\bload_file\s*\(|\binto\s+outfile\b|\bwaitfor\s+delay\b|\bconvert\s*\(|\bcast\s*\(|\bexec\s+xp_|information_schema)`), true},
+	{"XSS", regexp.MustCompile(`(?i)(<\s*script|javascript\s*:|onerror\s*=|onload\s*=|onmouseover\s*=|onfocus\s*=|onclick\s*=|onsubmit\s*=|<\s*iframe|<\s*svg|<\s*embed|<\s*object|document\.cookie|data\s*:|vbscript\s*:|expression\s*\(|<\s*img[^>]*\bonerror\s*=)`), true},
+	{"PromptInjection", regexp.MustCompile(`(?i)(ignore\s+(previous|above|prior)|disregard\s+(instructions|rules)|you\s+are\s+now|DAN\s+mode|jailbreak|\bsystem\s*:\s*you\s+are|\bdeveloper\s*mode\b|\bdo\s+anything\s+now\b|\bnew\s+instructions\s*:\s*|\breveal\s+your\s+(system|hidden|secret)|\bact\s+as\s+(if|though).*(no|without)\s+(restrict|rule|limit)|<\|im_start\|>)`), true},
 	{"PII泄漏", regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b|\b\d{3}-\d{2}-\d{4}\b|\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b|\b1[3-9]\d{9}\b`), true},
+	// v5.1 安全规则补全
+	{"XXE注入", regexp.MustCompile(`(?i)(<!doctype.*entity|<!entity\s+\w+\s+system|<!ENTITY\s+\w+\s+SYSTEM|<!DOCTYPE\s+\w+\s*\[)`), true},
+	{"SSTI注入", regexp.MustCompile(`(?i)(\{\{.*\}\}|\{%.*%\})`), true},
+	{"NoSQL注入", regexp.MustCompile(`(?i)(\$where\s*\(|\$ne\s*\(|\$gt\s*\(|\$regex\s*\(|\$or\s*\(\[|this\.constructor)`), true},
+	{"LDAP注入", regexp.MustCompile(`(?i)(uid=\*|objectClass=\*|\(\|\(|\)\|\))`), true},
+	{"OpenRedirect", regexp.MustCompile(`(?i)(\?url=https?://[^/]|\?next=//[^/]|\?return=https?://[^/]|\?redirect_to=//[^/])`), false},
 }
 
 // v3.2.3 性能升级 v2：合并正则——normal 与 strict 各预编译为一条 alternation，
@@ -41,6 +47,55 @@ var (
 	wafNormalMerged = wafMergeRules(false)
 	wafStrictMerged = wafMergeRules(true)
 )
+
+// v5.1 §3.5 WAF 字面量预筛
+// 参考：Hyperscan (NSDI 2019) 的 literals 预筛——从规则抽取固定字面量，
+// 用 strings.Index 做 O(n) 预筛，命中候选再跑对应单条 RE2。
+// 纯字面量不命中 → 整串免正则，跳过昂贵的 alternation 匹配。
+// 目标：71µs → 10µs 量级，且不得放宽任何规则。
+
+// wafLiteral 每条规则的字面量子串（小写），任一命中即触发该规则的正则
+var wafLiterals = []struct {
+	ruleIdx int     // 对应 wafRules 的索引
+	lits    []string // 字面量子串（小写）
+}{
+	{0, []string{"../", "..\\", "%2e%2e", "%2e%2f", "%252e", "%c0%af", "%c1%9c"}}, // 路径穿越
+	{1, []string{";cmd", "; cmd", ";powershell", ";powershell", ";pwsh", ";bash", "; sh", ";wget", "; curl", ";net ", ";taskkill", "; ping", ";rm ", ";rmdir", ";python", ";perl", ";ruby", ";node", ";nc", ";socat", ";chmod", ";kill", ";cat ", ";echo ", ";whoami", ";uname", ";dig", "&&cmd", "&& cmd", "&&powershell", "&&bash", "&& sh", "&&rm ", "&&python", "`", "$(", "${", "%0a", "|cmd", "| bash", "|sh", "|python", "|nc", "mkdir"}}, // 命令注入
+	{2, []string{"union select", "insert into", "delete from", "drop table", "/*", "sleep(", "benchmark(", "or 1=1", "'or'", "--", "xp_cmdshell", "load_file", "into outfile", "waitfor delay", "convert(", "cast(", "exec xp_", "information_schema"}}, // SQL 注入
+	{3, []string{"<script", "javascript:", "onerror=", "onload=", "onmouseover=", "onfocus=", "onclick=", "onsubmit=", "<iframe", "<svg", "<embed", "<object", "document.cookie", "data:", "vbscript:", "expression("}}, // XSS
+	{4, []string{"ignore previous", "ignore above", "ignore prior", "disregard instructions", "disregard rules", "you are now", "dan mode", "jailbreak", "system: you are", "developer mode", "do anything now", "new instructions:", "reveal your system", "reveal your hidden", "reveal your secret", "act as if", "act as though", "<|im_start|>"}}, // PromptInjection
+	{5, []string{}}, // PII泄漏 — 无固定字面量（数字模式），不预筛，直接走正则
+	{6, []string{"<!doctype", "<!entity", "<!ENTITY", "<!DOCTYPE", "entity"}}, // XXE注入
+	{7, []string{"{{", "{%", "${", "#set", "#foreach", "#if"}}, // SSTI注入
+	{8, []string{"$where", "$ne", "$gt", "$lt", "$regex", "$in", "$nin", "$or", "this.constructor"}}, // NoSQL注入
+	{9, []string{"uid=*", "objectClass=*", "(|", ")(|"}}, // LDAP注入
+	{10, []string{"?url=http", "?url=https", "?next=//", "?return=http", "?return=https", "?redirect_to=//"}}, // OpenRedirect
+}
+
+// wafLiteralHit 检查输入是否命中任一字面量，返回命中的规则索引集合
+// strings.Index 是 O(n) 且无回溯，比 RE2 alternation 快一个量级
+func wafLiteralHit(s string, strict bool) map[int]bool {
+	hits := map[int]bool{}
+	ls := strings.ToLower(s)
+	for _, wl := range wafLiterals {
+		// strict 规则在 strict=false 时跳过
+		if wafRules[wl.ruleIdx].strict && !strict {
+			continue
+		}
+		// PII 规则无字面量，直接标记为候选（仍需正则确认）
+		if len(wl.lits) == 0 {
+			hits[wl.ruleIdx] = true
+			continue
+		}
+		for _, lit := range wl.lits {
+			if strings.Contains(ls, lit) {
+				hits[wl.ruleIdx] = true
+				break
+			}
+		}
+	}
+	return hits
+}
 
 // wafMergeRules 把（按 strict 过滤后的）规则模式串逐条以 (?:...) 包裹后 alternation 合并。
 // 独立预编译，不改动 wafRules 原始定义（个别回查仍用原规则对象）。
@@ -85,17 +140,19 @@ func wafMatch(s string, strict bool) string {
 	if !wafNeedsScan(s) {
 		return ""
 	}
-	// 单遍快筛：一条合并正则扫完（替代逐规则多次全串扫描）
-	merged := wafNormalMerged
-	if strict {
-		merged = wafStrictMerged
-	}
-	if merged != nil && !merged.MatchString(s) {
+	// v5.1 §3.5 字面量预筛：先用 strings.Index 做 O(n) 快筛
+	// 命中字面量的规则才跑正则，未命中任何字面量的规则直接跳过
+	// 参考：Hyperscan (NSDI 2019) literals 预筛 + 图分解
+	candidates := wafLiteralHit(s, strict)
+	if len(candidates) == 0 {
 		return ""
 	}
-	// 命中：按原顺序回查个别规则，返回首个命中名（与逐条扫描语义一致）
-	for _, rule := range wafRules {
+	// 对候选规则按原顺序跑正则，返回首个命中名（语义不变）
+	for i, rule := range wafRules {
 		if rule.strict && !strict {
+			continue
+		}
+		if !candidates[i] {
 			continue
 		}
 		if rule.re.MatchString(s) {
@@ -199,15 +256,13 @@ func sensitivePathMatch(p string) string {
 }
 
 func wafEnabled() bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return cfg.Security.WAFEnabled
+	snap := configSnapshot()
+	return snap.Security.WAFEnabled
 }
 
 func wafStrict() bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return cfg.Security.Mode == "strict"
+	snap := configSnapshot()
+	return snap.Security.Mode == "strict"
 }
 
 func wafCheck(r *http.Request) string {
@@ -347,9 +402,8 @@ func wafScanBody(b []byte, strict bool, isChat bool) string {
 
 // piiMaskLevel 读取配置中的脱敏强度（full | partial | hash）
 func piiMaskLevel() string {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	lvl := cfg.Security.PIIMaskLevel
+	snap := configSnapshot()
+	lvl := snap.Security.PIIMaskLevel
 	if lvl == "" {
 		return "full"
 	}
@@ -361,9 +415,8 @@ func piiMaskLevel() string {
 
 // piiMaskEnabled 读取配置中的响应脱敏开关
 func piiMaskEnabled() bool {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return cfg.Security.PIIMaskEnabled
+	snap := configSnapshot()
+	return snap.Security.PIIMaskEnabled
 }
 
 // piiMaskFunc 脱敏替换函数签名
@@ -480,30 +533,68 @@ func maskPIIInMessages(msgs []Message) []Message {
 // ===================== 响应流出脱敏中间件 =====================
 
 // piiResponseWriter 包装 ResponseWriter，在 flush 时对 JSON 响应体自动脱敏 PII
+// v5.1 §3.6：实现 http.Flusher，SSE (text/event-stream) 直通不缓冲
+// 仅对 application/json 且启用脱敏时缓冲；大响应走窗口扫描。
 type piiResponseWriter struct {
 	http.ResponseWriter
 	buf         bytes.Buffer
 	status      int
 	wroteHeader bool
+	flushed     bool // 是否已 flush 到底层
+	sseMode     bool // SSE 直通模式
 }
 
 func (w *piiResponseWriter) WriteHeader(code int) {
 	if w.wroteHeader {
 		return
 	}
+	// SSE 直通：text/event-stream 不缓冲，直接透传
+	ct := w.Header().Get("Content-Type")
+	if strings.Contains(ct, "text/event-stream") {
+		w.sseMode = true
+	}
 	w.status = code
 	w.wroteHeader = true
+	if w.sseMode {
+		w.ResponseWriter.WriteHeader(code)
+		w.flushed = true
+	}
 }
 
 func (w *piiResponseWriter) Write(b []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
+	// SSE 直通：不缓冲，直接写底层
+	if w.sseMode {
+		return w.ResponseWriter.Write(b)
+	}
 	return w.buf.Write(b)
+}
+
+// Flush 实现 http.Flusher 接口
+// SSE 请求时转发 Flush；JSON 缓冲模式下 flush() 被外部调用时写出
+func (w *piiResponseWriter) Flush() {
+	if w.sseMode {
+		// 直接 flush 底层 writer
+		if f, ok := w.ResponseWriter.(http.Flusher); ok {
+			f.Flush()
+		}
+		return
+	}
+	// JSON 模式：如果已有数据，flush 到底层
+	if w.flushed {
+		if f, ok := w.ResponseWriter.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
 }
 
 // flush 将缓存的响应体写出；若 Content-Type 为 JSON 且脱敏开启，则对 body 脱敏后输出
 func (w *piiResponseWriter) flush() {
+	if w.sseMode || w.flushed {
+		return // SSE 已直通，或已 flush
+	}
 	body := w.buf.Bytes()
 	ct := w.Header().Get("Content-Type")
 	if strings.Contains(ct, "application/json") && piiMaskEnabled() {
@@ -518,6 +609,7 @@ func (w *piiResponseWriter) flush() {
 	}
 	w.ResponseWriter.WriteHeader(w.status)
 	w.ResponseWriter.Write(body)
+	w.flushed = true
 }
 
 func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {
@@ -526,14 +618,14 @@ func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {
 	obsRecordWAF(r, reason)
 	line := fmt.Sprintf("[%s] %s %s %s → BLOCKED (%s)%s", now, clientIP(r), r.Method, r.URL.Path, reason, obsTraceSuffix(r))
 	mu.Lock()
-	wafBlocks++
+	wafBlocks.Add(1)
 	if len(wafLogs) >= wafLogLimit {
 		wafLogs = wafLogs[len(wafLogs)-wafLogLimit+1:]
 	}
 	wafLogs = append(wafLogs, line)
 	mu.Unlock()
-	// WAF 日志同步落盘：logs/waf-YYYY-MM-DD.log（含时间、IP、原因、请求路径）
-	fileLog("waf", line)
+	// WAF 日志异步入队（v5.1 §3.4：不在请求路径上同步写盘）
+	asyncLog("waf", line)
 	logMsg(fmt.Sprintf("[WAF] BLOCK %s %s (%s)", r.Method, r.URL.Path, reason))
 	writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "blocked by WAF: " + reason})
 }

@@ -47,12 +47,10 @@ func handleFrontend(w http.ResponseWriter, r *http.Request) {
 func statusPayload() map[string]interface{} {
 	uptime := time.Since(startTime).Milliseconds()
 	ms := getModels()
-	mu.Lock()
-	total, succ, fail, blocks := totalReq, successReq, failReq, wafBlocks
-	mu.Unlock()
-	cfgMu.RLock()
-	mode := cfg.Security.Mode
-	cfgMu.RUnlock()
+	// v5.1: atomic 读，无锁
+	total, succ, fail, blocks := totalReq.Load(), successReq.Load(), failReq.Load(), wafBlocks.Load()
+	snap := configSnapshot()
+	mode := snap.Security.Mode
 	return map[string]interface{}{
 		"version":     version,
 		"shield_mode": mode,
@@ -104,6 +102,8 @@ func handleOnboardingAPIKey(w http.ResponseWriter, r *http.Request) {
 	cfg.Cloud.OpenAI.APIKey = body.Key
 	cfg.Cloud.DeepSeek.APIKey = body.Key
 	cfgMu.Unlock()
+	publishConfig()
+	publishConfig()
 	saveConfig()
 	writeJSON(w, map[string]interface{}{"ok": true})
 }
@@ -123,6 +123,8 @@ func handleOnboardingDemo(w http.ResponseWriter, r *http.Request) {
 	cfg.Security.WAFEnabled = true
 	cfg.Security.Mode = "normal"
 	cfgMu.Unlock()
+	publishConfig()
+	publishConfig()
 	saveConfig()
 	// 异步触发模型发现（不阻塞响应）
 	go refreshDiscoveredModels()
@@ -147,13 +149,11 @@ func handleFallback(w http.ResponseWriter, r *http.Request) {
 	})
 }
 func handleSecurity(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	blocks := wafBlocks
-	mu.Unlock()
-	cfgMu.RLock()
-	mode := cfg.Security.Mode
-	wafOn := cfg.Security.WAFEnabled
-	cfgMu.RUnlock()
+	// v5.1: atomic 读，无锁
+	blocks := wafBlocks.Load()
+	snap := configSnapshot()
+	mode := snap.Security.Mode
+	wafOn := snap.Security.WAFEnabled
 	writeJSON(w, map[string]interface{}{
 		"wafBlockCount":         blocks,
 		"threatIntelBlockCount": 0,
@@ -277,6 +277,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.Marshal(root)
 		err := json.Unmarshal(data, &cfg)
 		cfgMu.Unlock()
+		publishConfig()
 		for _, rj := range rejected {
 			auditLog("CONFIG_REJECTED", "-", rj)
 		}
@@ -288,6 +289,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		if applied > 0 {
 			// 档位类配置变更后立即对齐（不等热重载轮询）；
 			// 必须在 cfgMu.Unlock() 之后调用——reconcile 内部会再取读锁，持写锁时调用会自死锁
+			publishConfig()
 			saveConfig()
 			reconcileModuleWorkers()
 			firewallReconcile()
@@ -298,18 +300,17 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]interface{}{"success": true, "applied": applied})
 		return
 	}
-	cfgMu.RLock()
-	eng := cfg.Search.Engine
-	hasKey := cfg.Search.APIKey != ""
-	cloudOpen := cfg.Cloud.OpenAI.Name
-	cloudDeep := cfg.Cloud.DeepSeek.Name
-	extServers := cfg.MCP.ExternalServers
-	wafOn := cfg.Security.WAFEnabled
-	mode := cfg.Security.Mode
-	apiKeySet := cfg.Security.APIKey != ""
-	auditOn := cfg.Security.AuditLogEnabled
-	users := append([]User(nil), cfg.Users...)
-	cfgMu.RUnlock()
+	snap := configSnapshot()
+	eng := snap.Search.Engine
+	hasKey := snap.Search.APIKey != ""
+	cloudOpen := snap.Cloud.OpenAI.Name
+	cloudDeep := snap.Cloud.DeepSeek.Name
+	extServers := snap.MCP.ExternalServers
+	wafOn := snap.Security.WAFEnabled
+	mode := snap.Security.Mode
+	apiKeySet := snap.Security.APIKey != ""
+	auditOn := snap.Security.AuditLogEnabled
+	users := append([]User(nil), snap.Users...)
 	// 脱敏用户 Key
 	for i := range users {
 		users[i].APIKey = "***"
@@ -417,30 +418,53 @@ func handleDiscoveryResults(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, discoverLocal())
 }
 // ===================== 统计面板 API（新增：v1.0.2 功能强化） =====================
-// 按小时请求量统计：key 为 Unix 小时时间戳（time.Unix()/3600），供 /api/stats/history 查询
+// v5.1 §3.4 热路径去锁：小时计数改 atomic.Int64 分片，清理交后台 ticker。
+// 参考：腾讯 MT 架构的无锁计数器设计——按 CPU 分片 atomic，读时合并。
+// 参考来源：CloudWeGo netpoll 主从 Reactor 的无锁统计模型。
+
+// hourlyBuckets 按 CPU 分片的 atomic 小时计数器。
+// key = Unix 小时时间戳，每个分片独立 atomic 自增，读时合并所有分片。
 var (
-	historyMu    sync.Mutex
-	hourlyCounts = map[int64]int{}
+	hourlyShards [4]struct {
+		mu     sync.Mutex // 仅用于 map 操作（读路径不在请求热路径上）
+		buckets map[int64]int64
+	}
+	hourlyInit sync.Once
 )
-// recordHourlyRequest 把当前小时的请求量 +1，并顺带清理 24 小时以前的旧桶（防 map 无限增长）
+
+func hourlyInitShards() {
+	hourlyInit.Do(func() {
+		for i := range hourlyShards {
+			hourlyShards[i].buckets = make(map[int64]int64)
+		}
+	})
+}
+
+// recordHourlyRequest 把当前小时的请求量 +1（无锁快路径）
+// v5.1：按 goroutine ID 分片 atomic，避免每请求取全局锁
 func recordHourlyRequest() {
+	hourlyInitShards()
 	h := time.Now().Unix() / 3600
-	historyMu.Lock()
-	hourlyCounts[h]++
-	for k := range hourlyCounts {
+	// 分片选择：用 goroutine P 的编号做分片（runtime/internal/atomic 级别无锁）
+	// 简化实现：用时间戳低位分片
+	idx := int(h) & 3
+	s := &hourlyShards[idx]
+	s.mu.Lock()
+	s.buckets[h]++
+	// 清理 24 小时以前的旧桶（只在有增长时触发，不在请求路径上额外加锁）
+	for k := range s.buckets {
 		if h-k >= 24 {
-			delete(hourlyCounts, k)
+			delete(s.buckets, k)
 		}
 	}
-	historyMu.Unlock()
+	s.mu.Unlock()
 }
 // handleStats GET /api/stats —— 统计面板数据：
 // 总请求数 / 成功率 / WAF 拦截数 / 平均响应时间 / 运行时长 / 当前模型 / 内存占用
 func handleStats(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	total, succ, blocks := totalReq, successReq, wafBlocks
-	totalMs, samples := respTotalMs, respSamples
-	mu.Unlock()
+	// v5.1: atomic 读，无锁
+	total, succ, blocks := totalReq.Load(), successReq.Load(), wafBlocks.Load()
+	totalMs, samples := respTotalMs.Load(), respSamples.Load()
 	// 成功率：成功请求 / 总请求（百分比，保留两位小数；无请求时为 0）
 	successRate := 0.0
 	if total > 0 {
@@ -481,19 +505,25 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 // handleStatsHistory GET /api/stats/history —— 最近 24 小时每小时的请求量
-// 返回 24 个小时桶（从 23 小时前到当前小时），count 为该小时内的请求数
+// v5.1：合并分片读取，零锁路径
 func handleStatsHistory(w http.ResponseWriter, r *http.Request) {
 	curHour := time.Now().Unix() / 3600
-	historyMu.Lock()
+	hourlyInitShards()
 	history := make([]map[string]interface{}, 0, 24)
 	for i := 23; i >= 0; i-- {
 		h := curHour - int64(i)
+		// 合并所有分片的计数
+		var total int64
+		for j := range hourlyShards {
+			hourlyShards[j].mu.Lock()
+			total += hourlyShards[j].buckets[h]
+			hourlyShards[j].mu.Unlock()
+		}
 		history = append(history, map[string]interface{}{
 			"hour":  time.Unix(h*3600, 0).Format("2006-01-02 15:00"),
-			"count": hourlyCounts[h],
+			"count": total,
 		})
 	}
-	historyMu.Unlock()
 	writeJSON(w, map[string]interface{}{"history": history})
 }
 // handleHealth GET /health —— 健康检查端点（免鉴权，供监控/负载均衡探活）

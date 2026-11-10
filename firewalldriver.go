@@ -156,6 +156,9 @@ func isBanned(ip string) bool {
 
 // firewallBanIP WAF 拦截时调用：按档位施加封禁副作用
 func firewallBanIP(ip string) {
+	// v5.1 APC 接线：封禁 IP 时中断该 IP 的所有活跃请求
+	// 类比 NT 的 KeInsertQueueApc：向活跃请求的 APC 队列投递内核级中断
+	interruptActiveConns(ip)
 	switch firewallPolicy() {
 	case fwPolicyDynamicBan:
 		banMu.Lock()

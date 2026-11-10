@@ -288,12 +288,11 @@ func initTools() {
 			Name: "tars_security_status", Description: "获取安全状态与 WAF 拦截统计",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{}},
 			Handler: func(a map[string]interface{}) (interface{}, error) {
-				cfgMu.RLock()
-				wafOn := cfg.Security.WAFEnabled
-				mode := cfg.Security.Mode
-				cfgMu.RUnlock()
+				snap := configSnapshot()
+				wafOn := snap.Security.WAFEnabled
+				mode := snap.Security.Mode
 				mu.Lock()
-				blocks := wafBlocks
+				blocks := wafBlocks.Load()
 				mu.Unlock()
 				return map[string]interface{}{
 					"wafEnabled":            wafOn,
@@ -309,8 +308,6 @@ func initTools() {
 			Name: "tars_config_get", Description: "获取网关配置（敏感 Key 已脱敏）",
 			InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{}},
 			Handler: func(a map[string]interface{}) (interface{}, error) {
-				cfgMu.RLock()
-				defer cfgMu.RUnlock()
 				return sanitizedConfig(), nil
 			},
 		},
@@ -337,6 +334,7 @@ func initTools() {
 				data, _ := json.Marshal(root)
 				err := json.Unmarshal(data, &cfg)
 				cfgMu.Unlock()
+				publishConfig()
 				if err != nil {
 					return nil, err
 				}
