@@ -522,30 +522,68 @@ func maskPIIInMessages(msgs []Message) []Message {
 // ===================== 响应流出脱敏中间件 =====================
 
 // piiResponseWriter 包装 ResponseWriter，在 flush 时对 JSON 响应体自动脱敏 PII
+// v5.1 §3.6：实现 http.Flusher，SSE (text/event-stream) 直通不缓冲
+// 仅对 application/json 且启用脱敏时缓冲；大响应走窗口扫描。
 type piiResponseWriter struct {
 	http.ResponseWriter
 	buf         bytes.Buffer
 	status      int
 	wroteHeader bool
+	flushed     bool // 是否已 flush 到底层
+	sseMode     bool // SSE 直通模式
 }
 
 func (w *piiResponseWriter) WriteHeader(code int) {
 	if w.wroteHeader {
 		return
 	}
+	// SSE 直通：text/event-stream 不缓冲，直接透传
+	ct := w.Header().Get("Content-Type")
+	if strings.Contains(ct, "text/event-stream") {
+		w.sseMode = true
+	}
 	w.status = code
 	w.wroteHeader = true
+	if w.sseMode {
+		w.ResponseWriter.WriteHeader(code)
+		w.flushed = true
+	}
 }
 
 func (w *piiResponseWriter) Write(b []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
+	// SSE 直通：不缓冲，直接写底层
+	if w.sseMode {
+		return w.ResponseWriter.Write(b)
+	}
 	return w.buf.Write(b)
+}
+
+// Flush 实现 http.Flusher 接口
+// SSE 请求时转发 Flush；JSON 缓冲模式下 flush() 被外部调用时写出
+func (w *piiResponseWriter) Flush() {
+	if w.sseMode {
+		// 直接 flush 底层 writer
+		if f, ok := w.ResponseWriter.(http.Flusher); ok {
+			f.Flush()
+		}
+		return
+	}
+	// JSON 模式：如果已有数据，flush 到底层
+	if w.flushed {
+		if f, ok := w.ResponseWriter.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
 }
 
 // flush 将缓存的响应体写出；若 Content-Type 为 JSON 且脱敏开启，则对 body 脱敏后输出
 func (w *piiResponseWriter) flush() {
+	if w.sseMode || w.flushed {
+		return // SSE 已直通，或已 flush
+	}
 	body := w.buf.Bytes()
 	ct := w.Header().Get("Content-Type")
 	if strings.Contains(ct, "application/json") && piiMaskEnabled() {
@@ -560,6 +598,7 @@ func (w *piiResponseWriter) flush() {
 	}
 	w.ResponseWriter.WriteHeader(w.status)
 	w.ResponseWriter.Write(body)
+	w.flushed = true
 }
 
 func blockRequest(w http.ResponseWriter, r *http.Request, reason string) {
