@@ -143,6 +143,9 @@ func initKernelSyscalls(k *kernel.Kernel) {
 func buildTSGKernel() *kernel.Kernel {
 	k := kernel.NewKernel()
 
+	// v5.1: 注入真实 HAL（替代 DefaultHAL stub）
+	k.HAL = kernel.NewRealHAL()
+
 	// 注入子系统
 	k.Scheduler = buildKernelScheduler()
 	k.Security = kernel.NewSecuritySubsystem()
@@ -162,6 +165,13 @@ func buildTSGKernel() *kernel.Kernel {
 	k.Frames.BuildFrame("rbac", "5.1.0", kernel.Ring0)
 	k.Frames.BuildFrame("quota", "5.1.0", kernel.Ring2)
 	k.Frames.BuildFrame("rate-limit", "5.1.0", kernel.Ring2)
+	k.Frames.BuildFrame("pii-response-writer", "5.1.0", kernel.Ring1)
+
+	// v5.1 ObjectManager: 发布初始配置快照为内核对象（RCU 引用计数）
+	k.Objects.Create(kernel.ObjConfigSnapshot, "initial-config", nil)
+
+	// 启动内核
+	k.Boot()
 
 	return k
 }

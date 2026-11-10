@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/HP-jh/TarsSecureGuard/kernel"
 )
 
 // ===================== 配置 =====================
@@ -312,10 +314,15 @@ func loadConfig() {
 // publishConfig 把当前 cfg 原子发布为不可变快照。
 // 控制面（loadConfig / saveConfig / setModuleState 等）在写完 cfg 后调用。
 // 请求路径通过 configSnapshot() 读取，走 atomic.LoadPointer，无锁。
+// v5.1 ObjectManager：同时创建内核对象用于引用计数（RCU 宽限期回收）
 func publishConfig() {
 	// 拷贝一份 cfg 的当前值作为快照（避免后续写操作影响已发布的快照）
 	snap := cfg
 	cfgPtr.Store(&snap)
+	// v5.1: 通过 ObjectManager 发布快照对象（RCU 引用计数 + 宽限期回收）
+	if tsgKernel != nil {
+		tsgKernel.Objects.Create(kernel.ObjConfigSnapshot, "config-snapshot", &snap)
+	}
 }
 
 // configSnapshot 返回当前配置的只读快照（零锁）。
