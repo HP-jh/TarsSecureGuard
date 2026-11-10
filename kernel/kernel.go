@@ -44,29 +44,65 @@ import (
 
 // Kernel 是内核入口，持有所有子系统的引用。
 // 由 main.go 在启动时构造（Boot），贯穿整个进程生命周期。
+//
+// 子系统清单（类比 NT 的内核子系统 + Gecko 的模块化引擎）：
+//   - Scheduler: 请求生命周期管理（IRP 执行管道 + APC + Bugcheck）
+//   - Security: 安全核心子系统（Ring 0，不可关闭）
+//   - ConfigStore: 配置存储（RCU 快照）
+//   - Memory: 内存管理器（sync.Pool + buffer 回收）
+//   - Identity: 身份子系统（RBAC + 配额 + 多租户）
+//   - Observer: 观测层（指标 + trace + 审计）
+//   - ObjectManager: 内核对象管理器（Handle 表 + 引用计数）
+//   - SyscallTable: 系统调用表（Ring 0/3 边界）
+//   - ExceptionPort: 异常端口（统一异常分发）
+//   - DirtyTracker: 增量 reflow（Gecko dirty bits）
+//   - FrameManager: 帧管理（Gecko frame construction）
+//   - HAL: 硬件抽象层
 type Kernel struct {
-	Scheduler   *Scheduler
-	Security    *SecuritySubsystem
-	ConfigStore *ConfigStore
-	Memory      *MemoryManager
-	Identity    *IdentitySubsystem
-	Observer    *Observer
+	// NT 风格子系统
+	Scheduler    *Scheduler
+	Security     *SecuritySubsystem
+	ConfigStore  *ConfigStore
+	Memory       *MemoryManager
+	Identity     *IdentitySubsystem
+	Observer     *Observer
+	Objects      *ObjectManager
+	Syscalls     *SyscallTable
+	Exceptions   *ExceptionPort
+	HAL          HAL
+
+	// Gecko 风格子系统
+	DirtyTracker *DirtyTracker
+	Frames       *FrameManager
+
 	bootTime    time.Time
+	shutdownOnce bool
 }
 
 // NewKernel 创建内核实例（各子系统由 main.go 注入具体实现）
 func NewKernel() *Kernel {
-	return &Kernel{
+	k := &Kernel{
 		bootTime: time.Now(),
 	}
+	// 默认初始化所有子系统
+	k.Objects = NewObjectManager()
+	k.Syscalls = NewSyscallTable()
+	k.Exceptions = NewExceptionPort()
+	k.DirtyTracker = NewDirtyTracker()
+	k.Frames = NewFrameManager()
+	k.HAL = NewDefaultHAL()
+	return k
 }
 
 // Boot 内核启动序列（类比 OS boot）：
-// 1. 初始化配置存储
-// 2. 启动安全子系统
-// 3. 启动调度器
-// 4. 启动内存管理器
-// 5. 启动观测层
+// 1. HAL 初始化（硬件探测）
+// 2. 对象管理器启动（内核对象表）
+// 3. 配置存储初始化 + 首次快照发布
+// 4. 安全子系统启动（Ring 0 核心）
+// 5. 调度器启动（IRP 管道就绪）
+// 6. 内存管理器启动（Pool 初始化）
+// 7. 观测层启动（指标收集）
+// 8. 帧管理器构建所有 Frame
 func (k *Kernel) Boot() error {
 	if k.ConfigStore != nil {
 		k.ConfigStore.Start()
@@ -80,19 +116,30 @@ func (k *Kernel) Boot() error {
 	if k.Memory != nil {
 		k.Memory.Start()
 	}
+	if k.Identity != nil {
+		k.Identity.Start()
+	}
 	if k.Observer != nil {
 		k.Observer.Start()
 	}
 	return nil
 }
 
-// Shutdown 内核关闭序列（类比 OS shutdown）：逆序停止
+// Shutdown 内核关闭序列（类比 OS shutdown）：逆序停止，等待 inflight 请求完成
 func (k *Kernel) Shutdown() {
+	if k.shutdownOnce {
+		return // 幂等（类比 NT 的 PoShutdownSystem）
+	}
+	k.shutdownOnce = true
+	// 逆序：先停用户态，再停系统服务，最后停内核核心
 	if k.Observer != nil {
 		k.Observer.Stop()
 	}
 	if k.Memory != nil {
 		k.Memory.Stop()
+	}
+	if k.Identity != nil {
+		k.Identity.Stop()
 	}
 	if k.Scheduler != nil {
 		k.Scheduler.Stop()
@@ -151,6 +198,13 @@ type RequestCtx struct {
 
 	// Per-Connection Context（同一条 keep-alive 连接上只算一次）
 	TLSState string
+
+	// APC 队列（异步过程调用，类比 NT 的 KAPC）
+	// 用于请求进行中的异步中断（如 IP 被封、配置热重载）
+	APCHandle *APCQueue
+
+	// IRP 栈快照（用于审计诊断，由 Scheduler 填充）
+	IRPDepth int
 
 	// 执行指标（每 Stage 的耗时和结果）
 	Stages []StageMetric
